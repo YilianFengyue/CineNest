@@ -30,11 +30,12 @@ Future<void> main() async {
     exit(0);
   }
 
-  // 全局单例 Service（对应母版 Get.lazyPut 链）
-  Get.put(ConnectionService(), permanent: true);
-
-  // 初始化 Dio（ConnectionService.onInit 已把持久化基址同步给它）
+  // 先初始化 Dio 单例：必须早于 ConnectionService，
+  // 因为 ConnectionService.onInit 会读取 Request.dio 同步基址。
   Request();
+
+  // 再注册全局单例 Service（onInit 把持久化基址同步给 Dio）
+  Get.put(ConnectionService(), permanent: true);
 
   // 移动端沉浸式系统栏
   SystemChrome.setSystemUIOverlayStyle(
