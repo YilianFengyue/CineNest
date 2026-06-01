@@ -1,0 +1,12 @@
+{
+  // 让 Dart/Flutter 分析器忽略参考母版，避免 PiliPlus（未 pub get）满屏爆红。
+  // 这是纯静态参考目录，不参与本项目分析。
+  "dart.analysisExcludedFolders": [
+    "CodeReference"
+  ],
+
+  // 在 VSCode 文件树中折叠/隐藏参考目录（可选，按需保留）
+  "files.watcherExclude": {
+    "**/CodeReference/**": true
+  }
+}

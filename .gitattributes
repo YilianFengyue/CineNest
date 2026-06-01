@@ -1,0 +1,23 @@
+# 统一换行：文本文件仓库内一律 LF，避免跨 OS（Windows/macOS/Linux）协作时的 CRLF 噪音。
+* text=auto eol=lf
+
+# 二进制文件不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.keystore binary
+*.so binary
+*.dll binary
+*.a binary
+*.db binary
+
+# Windows 脚本保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf

@@ -1,0 +1,49 @@
+import 'dart:io';
+
+import 'package:cine_nest/app.dart';
+import 'package:cine_nest/http/init.dart';
+import 'package:cine_nest/services/connection_service.dart';
+import 'package:cine_nest/services/logger.dart';
+import 'package:cine_nest/utils/storage.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:media_kit/media_kit.dart';
+
+/// 应用入口。
+///
+/// 初始化时序仿照 PiliPlus 母版（裁剪掉桌面 window_manager / catcher2 / B站账号链路）：
+///   1. MediaKit 初始化（成员 A 的播放器底座）
+///   2. GStorage（Hive）初始化 —— 必须最先，后续 Pref 读取依赖它
+///   3. 全局 Service 注册（ConnectionService）
+///   4. Request() 初始化 Dio
+///   5. 系统 UI 样式
+///   6. runApp
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+
+  try {
+    await GStorage.init();
+  } catch (e) {
+    logger.e('GStorage 初始化失败: $e');
+    exit(0);
+  }
+
+  // 全局单例 Service（对应母版 Get.lazyPut 链）
+  Get.put(ConnectionService(), permanent: true);
+
+  // 初始化 Dio（ConnectionService.onInit 已把持久化基址同步给它）
+  Request();
+
+  // 移动端沉浸式系统栏
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
+
+  runApp(const MyApp());
+}

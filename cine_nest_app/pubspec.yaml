@@ -1,0 +1,67 @@
+name: cine_nest
+description: "CineNest — AI 驱动的个性化影视推荐 App（手机端）"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+# ─────────────────────────────────────────────────────────────
+# 依赖说明：基建层全部仿照 PiliPlus 母版精选而来。
+#   · 业务无关的通用基建保留（GetX / Dio / Hive / 主题 / 播放器 / WebView）
+#   · B站强相关依赖（弹幕 canvas_danmaku、极验 gt3、gRPC/protobuf、webdav 等）已剔除
+# 详见 docs/项目说明-快速上手.md
+# ─────────────────────────────────────────────────────────────
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # 状态管理 + 路由 + 依赖注入（一把梭）
+  get: ^4.7.2
+
+  # 网络层
+  dio: ^5.7.0
+  dio_http2_adapter: ^2.7.1
+  http2: ^2.3.0
+  connectivity_plus: ^6.1.0
+  cookie_jar: ^4.0.8
+
+  # 解压（与母版一致，Http2Adapter 不自动解压）
+  archive: ^3.6.1
+  brotli: ^0.6.0
+  crypto: ^3.0.5
+
+  # 本地存储
+  hive_ce: ^2.11.0
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # 主题 / 图片
+  dynamic_color: ^1.7.0
+  cached_network_image: ^3.4.1
+
+  # 通用弹窗 / Toast / Loading
+  flutter_smart_dialog: ^4.9.8
+
+  # 日志
+  logger: ^2.4.0
+
+  # 视频播放（成员 A）
+  media_kit: ^1.1.11
+  media_kit_video: ^1.2.5
+  media_kit_libs_video: ^1.0.5
+
+  # WebView 降级方案（成员 A）
+  flutter_inappwebview: ^6.1.5
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

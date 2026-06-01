@@ -1,0 +1,70 @@
+# ───────────────────────────────────────────────
+# CineNest 根目录 .gitignore
+# ───────────────────────────────────────────────
+
+# 架构参考母版：GPL-3.0 + 含嵌套 .git + 74MB，仅本地参考，不上传。
+# 队友需要参考时自行 clone：https://github.com/bggRGjQaUbCoE/PiliPlus
+CodeReference/
+
+# ── 机密 ──
+*.env
+.env
+.env.*
+!.env.example
+*.key
+secrets.*
+
+# ── Flutter / Dart ──
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/.pub-cache/
+**/.pub/
+**/generated_plugin_registrant.dart
+*.iml
+.flutter-versions
+.fvm/
+
+# Flutter 平台构建产物
+**/android/.gradle/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/local.properties
+**/android/key.properties
+**/ios/Pods/
+**/ios/.symlinks/
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+
+# ── Python / FastAPI 后端 ──
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
+*.sqlite3
+
+# Playwright 浏览器缓存
+**/.cache/ms-playwright/
+
+# ── IDE / 编辑器 ──
+.idea/
+*.swp
+*.swo
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ── 操作系统 ──
+.DS_Store
+Thumbs.db
+desktop.ini
