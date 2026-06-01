@@ -33,7 +33,6 @@ Future<void> main() async {
   // 先初始化 Dio 单例：必须早于 ConnectionService，
   // 因为 ConnectionService.onInit 会读取 Request.dio 同步基址。
   Request();
-
   // 再注册全局单例 Service（onInit 把持久化基址同步给 Dio）
   Get.put(ConnectionService(), permanent: true);
 
