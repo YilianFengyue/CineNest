@@ -1,17 +1,23 @@
-"""成员 C 的 API 路由：Micro Design 海报。
+"""MicroDesign 动态海报 API。"""
+from fastapi import APIRouter, HTTPException
 
-当前返回占位 URL；真实逻辑接入 services/poster（HTML 模板 + 截图）。
-"""
-from fastapi import APIRouter
+from services.microdesign import compose_poster
+from services.microdesign.models import PosterSpec
+from services.resources import get_resource_aggregator
 
-router = APIRouter(prefix="/api", tags=["poster (成员C)"])
+router = APIRouter(prefix="/api", tags=["poster"])
 
 
-@router.get("/poster/{movie_id}")
-async def get_poster(movie_id: int, style: str = "auto"):
-    """返回 Micro Design 海报图 URL。TODO(C): 模板渲染 + 截图生成。"""
-    return {
-        "movie_id": movie_id,
-        "style": style,
-        "poster_url": f"https://placeholder/poster/{movie_id}.png",
-    }
+@router.get("/poster/{provider_id}/{remote_id}", response_model=PosterSpec)
+async def get_poster(provider_id: str, remote_id: str) -> PosterSpec:
+    """解析真实资源详情并返回 Flutter 可渲染的海报 blocks。"""
+
+    try:
+        detail = await get_resource_aggregator().detail(provider_id, remote_id)
+        return compose_poster(detail)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"动态海报生成失败: {exc}") from exc
