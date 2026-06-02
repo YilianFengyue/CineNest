@@ -5,14 +5,12 @@
 /// （用户在设置页填写 PC 的 IP:Port），这里仅保留默认值与各模块的路径前缀。
 abstract final class ApiConstants {
   /// 默认后端基址（本机调试）。真实值见 [ConnectionService.baseUrl]。
-  static const String defaultBaseUrl = 'http://10.0.2.2:8000';
-
+  static const String defaultBaseUrl = 'http://192.168.43.130:8000';
   /// 健康检查（F7 连接测试用）。
   static const String health = '/api/health';
 
   // ── 成员 B：推荐 & 帖子流 & 偏好 ──
   static const String feed = '/api/feed';
-  static const String discovery = '/api/discovery';
   static String movieDetail(Object id) => '/api/movie/$id';
   static const String preferences = '/api/preferences';
   static const String feedback = '/api/feedback';

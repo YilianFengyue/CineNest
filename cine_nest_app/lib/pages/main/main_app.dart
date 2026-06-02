@@ -1,8 +1,9 @@
+import 'package:cine_nest/pages/player/views/source_debug_panel.dart';
+import 'package:cine_nest/services/connection_service.dart';
+import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
-import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
-import 'package:cine_nest/pages/feed/preference/preference_view.dart';
+import 'package:get/get.dart';
 
-/// 应用主壳：底部导航框架（Day1 共建）。
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
 
@@ -14,26 +15,30 @@ class _MainAppState extends State<MainApp> {
   int _index = 0;
 
   static const _tabs = [
-    _TabDef('首页', Icons.movie_outlined, Icons.movie, '全球热门探索'),
-    _TabDef('对话', Icons.chat_bubble_outline, Icons.chat_bubble, '成员 C · F9 AI 对话'),
-    _TabDef('资讯', Icons.article_outlined, Icons.article, '成员 C · F12 影视资讯'),
-    _TabDef('设置', Icons.settings_outlined, Icons.settings, '个性化偏好'),
+    _TabDef('Home', Icons.movie_outlined, Icons.movie, 'Member B - feed'),
+    _TabDef(
+      'Chat',
+      Icons.chat_bubble_outline,
+      Icons.chat_bubble,
+      'Member C - chat',
+    ),
+    _TabDef('News', Icons.article_outlined, Icons.article, 'Member C - news'),
+    _TabDef(
+      'Settings',
+      Icons.settings_outlined,
+      Icons.settings,
+      'Member A/B - settings',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final tab = _tabs[_index];
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: [
-          // 只有当索引为 0 时，或者曾经加载过才保持在内存中
-          const DiscoveryPage(),
-          _Placeholder(title: _tabs[1].label, hint: _tabs[1].hint),
-          _Placeholder(title: _tabs[2].label, hint: _tabs[2].hint),
-          // 为了防止启动时压力过大，可以考虑延迟加载 PreferencePage
-          _index == 3 ? const PreferencePage() : _Placeholder(title: _tabs[3].label, hint: _tabs[3].hint),
-        ],
-      ),
+      appBar: AppBar(title: Text('CineNest - ${tab.label}')),
+      body: _index == 3
+          ? const _ConnectionSettingsPanel()
+          : _Placeholder(title: tab.label, hint: tab.hint),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -55,11 +60,13 @@ class _TabDef {
   final IconData icon;
   final IconData activeIcon;
   final String hint;
+
   const _TabDef(this.label, this.icon, this.activeIcon, this.hint);
 }
 
 class _Placeholder extends StatelessWidget {
   const _Placeholder({required this.title, required this.hint});
+
   final String title;
   final String hint;
 
@@ -72,11 +79,169 @@ class _Placeholder extends StatelessWidget {
         children: [
           Icon(Icons.construction, size: 48, color: cs.primary),
           const SizedBox(height: 12),
-          Text('$title（占位）', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            '$title placeholder',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 6),
           Text(hint, style: TextStyle(color: cs.onSurfaceVariant)),
         ],
       ),
+    );
+  }
+}
+
+class _ConnectionSettingsPanel extends StatefulWidget {
+  const _ConnectionSettingsPanel();
+
+  @override
+  State<_ConnectionSettingsPanel> createState() =>
+      _ConnectionSettingsPanelState();
+}
+
+class _ConnectionSettingsPanelState extends State<_ConnectionSettingsPanel> {
+  late final TextEditingController _hostController;
+  late final TextEditingController _portController;
+  String? _inputError;
+
+  @override
+  void initState() {
+    super.initState();
+    _hostController = TextEditingController(text: Pref.pcHost);
+    _portController = TextEditingController(text: Pref.pcPort.toString());
+  }
+
+  @override
+  void dispose() {
+    _hostController.dispose();
+    _portController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveAndTest() async {
+    final host = _hostController.text.trim();
+    final port = int.tryParse(_portController.text.trim());
+    if (host.isEmpty || port == null || port <= 0 || port > 65535) {
+      setState(() => _inputError = 'Enter a valid PC IP and port.');
+      return;
+    }
+
+    setState(() => _inputError = null);
+    final service = ConnectionService.to;
+    await service.updateAddress(host: host, port: port);
+    await service.testConnection();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = ConnectionService.to;
+    final cs = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Obx(() {
+        final status = service.status.value;
+        final isConnecting = status == ConnStatus.connecting;
+        final statusText = switch (status) {
+          ConnStatus.disconnected => 'Disconnected',
+          ConnStatus.connecting => 'Connecting...',
+          ConnStatus.connected => 'Connected',
+          ConnStatus.failed => 'Failed',
+        };
+        final statusColor = switch (status) {
+          ConnStatus.connected => Colors.green,
+          ConnStatus.failed => cs.error,
+          ConnStatus.connecting => cs.primary,
+          ConnStatus.disconnected => cs.onSurfaceVariant,
+        };
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'PC backend connection',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _hostController,
+                    decoration: const InputDecoration(
+                      labelText: 'PC IP',
+                      hintText: '192.168.1.100',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.url,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _portController,
+                    decoration: const InputDecoration(
+                      labelText: 'Port',
+                      hintText: '8000',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            if (_inputError != null) ...[
+              const SizedBox(height: 8),
+              Text(_inputError!, style: TextStyle(color: cs.error)),
+            ],
+            const SizedBox(height: 12),
+            SelectableText('Current base URL: ${service.baseUrl}'),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: isConnecting ? null : _saveAndTest,
+                  icon: isConnecting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: const Text('Save and test'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: isConnecting ? null : service.testConnection,
+                  icon: const Icon(Icons.wifi_tethering),
+                  label: const Text('Test only'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.circle, size: 12, color: statusColor),
+                const SizedBox(width: 8),
+                Text(statusText, style: TextStyle(color: statusColor)),
+              ],
+            ),
+            if (service.message.value.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(service.message.value),
+              ),
+            const Divider(height: 40),
+            const SourceDebugPanel(),
+          ],
+        );
+      }),
     );
   }
 }
