@@ -4,7 +4,9 @@ from __future__ import annotations
 import asyncio
 from functools import lru_cache
 
+from config import settings
 from services.catalog import get_catalog_service
+from services.catalog.cache import TTLCache
 from services.catalog.models import CatalogMovie
 from services.microdesign import compose_catalog_post, compose_catalog_poster
 from services.resources import get_resource_aggregator
@@ -38,6 +40,7 @@ class RecommendationService:
         self.catalog = get_catalog_service()
         self.resources = get_resource_aggregator()
         self._semaphore = asyncio.Semaphore(5)
+        self._feed_cache = TTLCache(settings.recommendation_cache_ttl_seconds)
 
     async def _to_post(self, movie: CatalogMovie):
         async with self._semaphore:
@@ -56,6 +59,10 @@ class RecommendationService:
     ) -> RecommendationFeed:
         """按主题或热门目录获取候选，再确认真实可播放资源。"""
 
+        cache_key = f"{media_kind}:{limit}:{query.strip() or '热门'}"
+        cached = self._feed_cache.get(cache_key)
+        if cached is not None:
+            return cached
         candidate_limit = max(limit * 2, limit)
         catalog_response = (
             await self.catalog.search(query, media_kind=media_kind, limit=candidate_limit)
@@ -63,11 +70,13 @@ class RecommendationService:
             else await self.catalog.hot(media_kind=media_kind, limit=candidate_limit)
         )
         posts = await asyncio.gather(*(self._to_post(movie) for movie in catalog_response.items))
-        return RecommendationFeed(
+        feed = RecommendationFeed(
             query=query or "热门",
             posts=[post for post in posts if post is not None][:limit],
             catalog_traces=catalog_response.traces,
         )
+        self._feed_cache.set(cache_key, feed)
+        return feed
 
     async def poster(self, provider_id: str, source_id: str, *, media_kind: str = "movie"):
         """根据 Catalog 条目补齐播放线路并生成动态海报。"""

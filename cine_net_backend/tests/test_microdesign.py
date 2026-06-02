@@ -42,6 +42,8 @@ class MicroDesignTests(TestCase):
 
         self.assertTrue(post.has_video_source)
         self.assertEqual("posterRow", post.blocks[0].type)
+        self.assertEqual("microdesign.v1", post.schema_version)
+        self.assertEqual(["openResourcePoster", "resolveAndPlay"], [action.type for action in post.actions])
 
     def test_compose_dynamic_poster(self) -> None:
         detail = MediaResourceDetail(
@@ -56,3 +58,5 @@ class MicroDesignTests(TestCase):
         self.assertEqual("banner", poster.blocks[0].type)
         self.assertEqual("videoBar", poster.blocks[-1].type)
         self.assertEqual("https://cdn.example/a.m3u8", poster.blocks[-1].data["play_url"])
+        self.assertEqual("resolveAndPlay", poster.blocks[-1].action.type)
+        self.assertEqual("https://cdn.example/a.m3u8", poster.blocks[-1].action.data["play_url"])

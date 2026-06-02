@@ -42,6 +42,7 @@ class _FakeCatalog:
 
 class _FakeResources:
     def __init__(self) -> None:
+        self.search_count = 0
         self.candidate = ResourceCandidate(
             provider_id="wujin",
             provider_name="无尽资源",
@@ -54,6 +55,7 @@ class _FakeResources:
         )
 
     async def search(self, keyword: str):
+        self.search_count += 1
         return ResourceSearchResponse(
             keyword=keyword,
             items=[
@@ -92,6 +94,8 @@ class RecommendationTests(IsolatedAsyncioTestCase):
         self.assertEqual(9.4, post.rating)
         self.assertEqual("https://img.example/douban.jpg", post.cover_url)
         self.assertTrue(post.has_video_source)
+        self.assertEqual(["openPoster", "resolveAndPlay"], [action.type for action in post.actions])
+        self.assertEqual("douban", post.actions[0].data["catalog_provider_id"])
 
     async def test_catalog_poster_contains_rating_reason_and_play_line(self) -> None:
         poster = await self.service.poster("douban", "1889243")
@@ -99,3 +103,10 @@ class RecommendationTests(IsolatedAsyncioTestCase):
         self.assertEqual("douban:1889243", poster.catalog_id)
         self.assertEqual(["banner", "rating", "tagRow"], [block.type for block in poster.blocks[:3]])
         self.assertEqual("videoBar", poster.blocks[-1].type)
+        self.assertEqual("resolveAndPlay", poster.blocks[-1].action.type)
+
+    async def test_recommendation_feed_uses_short_cache(self) -> None:
+        await self.service.recommend(query="科幻", limit=3)
+        await self.service.recommend(query="科幻", limit=3)
+
+        self.assertEqual(1, self.service.resources.search_count)

@@ -26,5 +26,6 @@ def get_chat_model() -> ChatOpenAI:
         model=settings.llm_model,
         temperature=settings.llm_temperature,
         timeout=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
         stream_usage=True,
     )

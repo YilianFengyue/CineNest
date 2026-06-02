@@ -15,6 +15,7 @@ class ApiTests(TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(20, response.json()["provider_count"])
+        self.assertEqual("microdesign.v1", response.json()["microdesign_schema_version"])
 
     def test_provider_list_is_available_without_network(self) -> None:
         response = self.client.get("/api/resources/providers")

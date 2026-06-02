@@ -7,6 +7,7 @@ from langchain.tools import tool
 
 from services.catalog import get_catalog_service
 from services.llm import is_llm_configured
+from services.microdesign.models import MICRODESIGN_SCHEMA_VERSION
 from services.resources import get_resource_aggregator
 
 
@@ -22,6 +23,7 @@ def get_backend_status() -> str:
         "provider_count": len(aggregator.registry.list_all()),
         "enabled_provider_count": len(aggregator.registry.list_enabled()),
         "catalog_providers": [provider.model_dump() for provider in catalog.providers()],
+        "microdesign_schema_version": MICRODESIGN_SCHEMA_VERSION,
         "capabilities": [
             "maccms_multi_source_search",
             "catalog_search",
@@ -30,6 +32,7 @@ def get_backend_status() -> str:
             "recommendation_feed",
             "microdesign_posts",
             "microdesign_poster",
+            "agent_structured_attachments",
         ],
     }
     return json.dumps(payload, ensure_ascii=False)

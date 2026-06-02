@@ -4,7 +4,46 @@ from __future__ import annotations
 from services.catalog.models import CatalogMovie
 from services.resources.models import AggregatedMediaItem, MediaResourceDetail, ResourceSearchResponse
 
-from .models import ContentBlock, MicroDesignPost, PosterSpec
+from .models import ContentBlock, MicroDesignAction, MicroDesignPost, PosterSpec
+
+
+def _resolve_and_play_action(
+    provider_id: str,
+    remote_id: str,
+    *,
+    label: str = "立即播放",
+    line_name: str = "",
+    episode_name: str = "",
+    play_url: str = "",
+) -> MicroDesignAction:
+    data = {"provider_id": provider_id, "remote_id": remote_id}
+    if line_name:
+        data["line_name"] = line_name
+    if episode_name:
+        data["episode_name"] = episode_name
+    if play_url:
+        data["play_url"] = play_url
+    return MicroDesignAction(type="resolveAndPlay", label=label, data=data)
+
+
+def _open_resource_poster_action(provider_id: str, remote_id: str) -> MicroDesignAction:
+    return MicroDesignAction(
+        type="openResourcePoster",
+        label="查看互动海报",
+        data={"provider_id": provider_id, "remote_id": remote_id},
+    )
+
+
+def _open_catalog_poster_action(movie: CatalogMovie) -> MicroDesignAction:
+    return MicroDesignAction(
+        type="openPoster",
+        label="查看互动海报",
+        data={
+            "catalog_provider_id": movie.provider_id,
+            "catalog_source_id": movie.source_id,
+            "media_kind": movie.media_kind,
+        },
+    )
 
 
 def _style_for(category: str) -> str:
@@ -59,6 +98,10 @@ def compose_recommendation_posts(
                 source_count=len(item.sources),
                 primary_resource=primary,
                 blocks=blocks,
+                actions=[
+                    _open_resource_poster_action(primary.provider_id, primary.remote_id),
+                    _resolve_and_play_action(primary.provider_id, primary.remote_id),
+                ],
             )
         )
     return posts
@@ -108,6 +151,10 @@ def compose_catalog_post(
         source_count=len(resource.sources),
         primary_resource=primary,
         blocks=blocks,
+        actions=[
+            _open_catalog_poster_action(movie),
+            _resolve_and_play_action(primary.provider_id, primary.remote_id),
+        ],
     )
 
 
@@ -126,8 +173,19 @@ def compose_poster(detail: MediaResourceDetail) -> PosterSpec:
         ContentBlock(type="text", data={"text": detail.summary or "暂无简介"}),
         ContentBlock(type="heading", data={"text": "可用线路"}),
     ]
+    actions: list[MicroDesignAction] = []
     for line in detail.play_lines:
+        if not line.episodes:
+            continue
         first_episode = line.episodes[0]
+        action = _resolve_and_play_action(
+            detail.provider_id,
+            detail.remote_id,
+            line_name=line.name,
+            episode_name=first_episode.name,
+            play_url=first_episode.play_url,
+        )
+        actions.append(action)
         blocks.append(
             ContentBlock(
                 type="videoBar",
@@ -137,6 +195,7 @@ def compose_poster(detail: MediaResourceDetail) -> PosterSpec:
                     "play_url": first_episode.play_url,
                     "episode_count": len(line.episodes),
                 },
+                action=action,
             )
         )
     return PosterSpec(
@@ -146,6 +205,7 @@ def compose_poster(detail: MediaResourceDetail) -> PosterSpec:
         subtitle=subtitle,
         resource=detail,
         blocks=blocks,
+        actions=actions,
     )
 
 
@@ -188,10 +248,19 @@ def compose_catalog_poster(
             ContentBlock(type="heading", data={"text": "可用线路"}),
         ]
     )
+    actions: list[MicroDesignAction] = []
     for line in detail.play_lines:
         if not line.episodes:
             continue
         first_episode = line.episodes[0]
+        action = _resolve_and_play_action(
+            detail.provider_id,
+            detail.remote_id,
+            line_name=line.name,
+            episode_name=first_episode.name,
+            play_url=first_episode.play_url,
+        )
+        actions.append(action)
         blocks.append(
             ContentBlock(
                 type="videoBar",
@@ -201,6 +270,7 @@ def compose_catalog_poster(
                     "play_url": first_episode.play_url,
                     "episode_count": len(line.episodes),
                 },
+                action=action,
             )
         )
     return PosterSpec(
@@ -213,4 +283,5 @@ def compose_catalog_poster(
         catalog=movie,
         resource=detail,
         blocks=blocks,
+        actions=actions,
     )

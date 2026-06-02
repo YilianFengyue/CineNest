@@ -4,12 +4,13 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from services.catalog.models import CatalogTrace
-from services.microdesign.models import MicroDesignPost
+from services.microdesign.models import MICRODESIGN_SCHEMA_VERSION, MicroDesignPost
 
 
 class RecommendationFeed(BaseModel):
     """Catalog 候选经过播放资源确认后的推荐帖子集合。"""
 
+    schema_version: str = MICRODESIGN_SCHEMA_VERSION
     query: str
     posts: list[MicroDesignPost] = Field(default_factory=list)
     catalog_traces: list[CatalogTrace] = Field(default_factory=list)

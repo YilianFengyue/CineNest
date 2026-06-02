@@ -8,13 +8,25 @@ from pydantic import BaseModel, Field
 from services.catalog.models import CatalogMovie
 from services.resources.models import MediaResourceDetail, ResourceCandidate
 
+MICRODESIGN_SCHEMA_VERSION = "microdesign.v1"
+
+
+class MicroDesignAction(BaseModel):
+    """Flutter 只处理白名单动作，不解析自然语言。"""
+
+    type: str
+    label: str = ""
+    data: dict[str, Any] = Field(default_factory=dict)
+
 
 class ContentBlock(BaseModel):
     type: str
     data: dict[str, Any] = Field(default_factory=dict)
+    action: MicroDesignAction | None = None
 
 
 class MicroDesignPost(BaseModel):
+    schema_version: str = MICRODESIGN_SCHEMA_VERSION
     id: str
     catalog_id: str = ""
     title: str
@@ -30,9 +42,11 @@ class MicroDesignPost(BaseModel):
     source_count: int
     primary_resource: ResourceCandidate
     blocks: list[ContentBlock] = Field(default_factory=list)
+    actions: list[MicroDesignAction] = Field(default_factory=list)
 
 
 class PosterSpec(BaseModel):
+    schema_version: str = MICRODESIGN_SCHEMA_VERSION
     id: str
     catalog_id: str = ""
     style: str
@@ -42,3 +56,4 @@ class PosterSpec(BaseModel):
     catalog: CatalogMovie | None = None
     resource: MediaResourceDetail
     blocks: list[ContentBlock] = Field(default_factory=list)
+    actions: list[MicroDesignAction] = Field(default_factory=list)

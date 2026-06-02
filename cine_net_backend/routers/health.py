@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from services.catalog import get_catalog_service
 from services.llm import is_llm_configured
+from services.microdesign.models import MICRODESIGN_SCHEMA_VERSION
 from services.resources import get_resource_aggregator
 
 router = APIRouter(prefix="/api", tags=["health"])
@@ -17,9 +18,10 @@ async def health() -> dict:
     return {
         "status": "ok",
         "service": "CineNest Backend",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "llm_configured": is_llm_configured(),
         "provider_count": len(aggregator.registry.list_all()),
         "enabled_provider_count": len(aggregator.registry.list_enabled()),
         "catalog_providers": [provider.model_dump() for provider in catalog.providers()],
+        "microdesign_schema_version": MICRODESIGN_SCHEMA_VERSION,
     }

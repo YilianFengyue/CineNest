@@ -11,14 +11,23 @@ class AgentInvokeRequest(BaseModel):
     thread_id: str = Field(default="default", min_length=1, max_length=128)
 
 
+class AgentAttachment(BaseModel):
+    """聊天气泡可直接挂载的结构化内容。"""
+
+    type: Literal["recommendation_feed", "microdesign_poster"]
+    schema_version: str = "microdesign.v1"
+    payload: dict[str, Any]
+
+
 class AgentInvokeResponse(BaseModel):
     thread_id: str
     answer: str
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    attachments: list[AgentAttachment] = Field(default_factory=list)
 
 
 class AgentStreamEvent(BaseModel):
-    type: Literal["started", "delta", "tool_started", "tool_finished", "done", "error"]
+    type: Literal["started", "delta", "tool_started", "tool_finished", "attachment", "done", "error"]
     thread_id: str
     content: str = ""
     data: dict[str, Any] = Field(default_factory=dict)

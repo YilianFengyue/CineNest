@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     llm_model: str = ""
     llm_temperature: float = 0.2
     llm_timeout_seconds: float = 90.0
+    llm_max_retries: int = 2
 
     # TMDB 官方 API Read Access Token。Step 1 的播放资源检索不依赖 TMDB。
     tmdb_read_access_token: str = ""
@@ -33,6 +34,7 @@ class Settings(BaseSettings):
     catalog_provider_config: Path = BASE_DIR / "services" / "catalog" / "providers.yaml"
     catalog_request_timeout_seconds: float = 10.0
     catalog_cache_ttl_seconds: int = 1800
+    recommendation_cache_ttl_seconds: int = 300
 
     # 服务
     host: str = "0.0.0.0"
