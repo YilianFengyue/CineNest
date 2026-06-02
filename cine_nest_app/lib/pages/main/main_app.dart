@@ -1,3 +1,4 @@
+import 'package:cine_nest/pages/creative/news/news_page.dart';
 import 'package:flutter/material.dart';
 
 /// 应用主壳：底部导航框架（Day1 共建）。
@@ -27,7 +28,7 @@ class _MainAppState extends State<MainApp> {
     final tab = _tabs[_index];
     return Scaffold(
       appBar: AppBar(title: Text('CineNest · ${tab.label}')),
-      body: _Placeholder(title: tab.label, hint: tab.hint),
+      body: _bodyFor(_index, tab),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
@@ -41,6 +42,16 @@ class _MainAppState extends State<MainApp> {
         ],
       ),
     );
+  }
+
+  /// 资讯 Tab（成员 C · F12）已接真实页面，其余 Tab 暂留占位待各 Owner 填充。
+  Widget _bodyFor(int index, _TabDef tab) {
+    switch (index) {
+      case 2:
+        return const NewsPage();
+      default:
+        return _Placeholder(title: tab.label, hint: tab.hint);
+    }
   }
 }
 
