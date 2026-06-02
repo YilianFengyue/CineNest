@@ -100,15 +100,15 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                 ),
               ),
 
-              // 3. 热门电影网格
+              // 3. 热门电影网格：调整为一行 3 个
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.7,
+                    crossAxisCount: 3, // 一行展示 3 个
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.58, // 由于宽度变窄，需要调整宽高比以适应封面和文字
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -125,25 +125,31 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                           children: [
                             Expanded(
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(12),
                                 child: CachedNetworkImage(
                                   imageUrl: imageUrl,
                                   fit: BoxFit.cover,
                                   placeholder: (context, url) => Container(color: colorScheme.surfaceContainerHighest),
-                                  errorWidget: (context, url, error) => const Icon(Icons.movie),
+                                  errorWidget: (context, url, error) => const Icon(Icons.movie, size: 30),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Text(
                               movie.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                             ),
-                            Text(
-                              "⭐ ${movie.rating ?? 0.0}",
-                              style: TextStyle(color: colorScheme.primary, fontSize: 12),
+                            Row(
+                              children: [
+                                Icon(Icons.star_rounded, color: Colors.amber, size: 12),
+                                const SizedBox(width: 2),
+                                Text(
+                                  "${movie.rating ?? 0.0}",
+                                  style: TextStyle(color: colorScheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                              ],
                             ),
                           ],
                         ),

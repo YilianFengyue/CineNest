@@ -63,9 +63,10 @@ class Request {
     if (kDebugMode) {
       dio.interceptors.add(
         LogInterceptor(
-          request: false,
+          request: true,
           requestHeader: false,
           responseHeader: false,
+          responseBody: false, // 禁止打印巨大的 Response Body，防止 ADB 崩溃
         ),
       );
     }

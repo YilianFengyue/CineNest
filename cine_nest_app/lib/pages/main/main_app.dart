@@ -26,10 +26,12 @@ class _MainAppState extends State<MainApp> {
       body: IndexedStack(
         index: _index,
         children: [
+          // 只有当索引为 0 时，或者曾经加载过才保持在内存中
           const DiscoveryPage(),
           _Placeholder(title: _tabs[1].label, hint: _tabs[1].hint),
           _Placeholder(title: _tabs[2].label, hint: _tabs[2].hint),
-          const PreferencePage(),
+          // 为了防止启动时压力过大，可以考虑延迟加载 PreferencePage
+          _index == 3 ? const PreferencePage() : _Placeholder(title: _tabs[3].label, hint: _tabs[3].hint),
         ],
       ),
       bottomNavigationBar: NavigationBar(
