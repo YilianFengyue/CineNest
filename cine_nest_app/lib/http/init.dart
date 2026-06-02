@@ -27,8 +27,8 @@ class Request {
   Request._internal() : dio = Dio() { // ✨ 在初始化列表中直接完成 dio 的内存分配，断绝 late 未初始化漏洞
     final BaseOptions options = BaseOptions(
       baseUrl: Pref.baseUrl,
-      connectTimeout: const Duration(milliseconds: 10000),
-      receiveTimeout: const Duration(milliseconds: 10000),
+      connectTimeout: const Duration(milliseconds: 15000),
+      receiveTimeout: const Duration(milliseconds: 60000), // AI 生成较慢，增加到 60s
       headers: {
         'user-agent': 'CineNest/1.0 (Flutter; dart:io)',
         if (!_enableHttp2) 'connection': 'keep-alive',

@@ -1,3 +1,6 @@
+import 'package:cine_nest/pages/feed/feed_view.dart';
+import 'package:cine_nest/pages/feed/detail/detail_view.dart';
+import 'package:cine_nest/pages/feed/preference/preference_view.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:get/get.dart';
 
@@ -13,12 +16,11 @@ part 'app_routes.dart';
 abstract final class AppPages {
   static final List<GetPage> getPages = [
     GetPage(name: Routes.home, page: () => const MainApp()),
-
+    GetPage(name: '/feed', page: () => const FeedPage()),
     // ── 成员 B（feed）：/movie-detail/:movieId, /preference, /history ──
-    // GetPage(name: Routes.movieDetail, page: () => const MovieDetailPage()),
-
-    // ── 成员 A（player）：/player, /webview-player ──
-    // GetPage(name: Routes.player, page: () => const PlayerPage()),
+    GetPage(name: Routes.movieDetail, page: () => const MovieDetailPage()),
+    GetPage(name: Routes.preference, page: () => const PreferencePage()),
+    // GetPage(name: Routes.history, page: () => const HistoryPage()),
 
     // ── 成员 C（creative）：内嵌于 Tab，无独立路由或按需追加 ──
 

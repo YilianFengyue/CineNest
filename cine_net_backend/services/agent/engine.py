@@ -1,14 +1,10 @@
 # services/agent/engine.py
-#第一次让大模型选择要调用的工具，
-#代码执行工具后，第二次让大模型看着数据输出结构化的中文推荐理由
-#这一层作为算力驱动，使用 DeepSeek 控制对话状态
 import json
 from typing import List, Dict, Any
 from fastapi import HTTPException
 from config import settings
 from .client import agent_client
 from .tools import AGENT_TOOLS_MANIFEST, AVAILABLE_TOOLS
-
 
 class CineAgentEngine:
     """CineAgent 决策与推理核心引擎"""
@@ -20,18 +16,26 @@ class CineAgentEngine:
         """
         Agent 推荐流核心：理解用户偏好 -> 自动选择并调用工具 -> 结合数据产出个性化结构化报告
         """
-        # 1. 组装初始 System Prompt 引导模型做工具路由
+        print("\n" + "="*50)
+        print(f"[Agent 推理开始] 用户原始偏好:\n{user_preference_prompt}")
+        print("="*50, flush=True)
+
+        # 1. 升级版 System Prompt：强制 AI 动用搜索工具并优化关键词
         system_prompt = (
-            "你是一个影视策展人。你的任务是根据用户的偏好口味，从可选工具中选择最合适的一个来获取候选电影数据。\n"
-            "【注意】你只需要做出选择并调用工具，不要自行编造任何电影数据。"
+            "你是一个专业的影视专家。你的任务是分析用户的偏好，并决定使用哪个工具来获取候选电影列表。\n"
+            "【关键规则】:\n"
+            "1. 必须优先使用 `search_tmdb_movies` 工具。在 `query` 参数中填入用户偏好中最核心的关键词。\n"
+            "2. 如果有多个类型（如爱情、科幻），请选择其中最主要的一个作为 query，不要把关键词堆砌在一起搜。\n"
+            "3. 即使工具返回空结果，你也要继续思考或输出 JSON 报告，不要报错。\n"
+            "请立即调用工具，不要回复任何解释。"
         )
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"用户当前的看片偏好是：{user_preference_prompt}"}
+            {"role": "user", "content": f"我的偏好如下，请选择工具：\n{user_preference_prompt}"}
         ]
 
-        # 2. 第一次呼叫 DeepSeek，让模型判断调用哪个 Function
+        # 2. 第一次呼叫 DeepSeek (工具选择阶段)
         url = f"{settings.deepseek_base_url.rstrip('/')}/chat/completions"
         headers = {
             "Authorization": f"Bearer {settings.deepseek_api_key.strip()}",
@@ -42,10 +46,9 @@ class CineAgentEngine:
             "messages": messages,
             "tools": self.tools,
             "tool_choice": "auto",
-            "temperature": 0.1  # 严谨决策
+            "temperature": 0.2
         }
 
-        # 这一步我们使用底层的原声异步请求，捕获 DeepSeek 的 tool_calls 意图
         import httpx
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -53,60 +56,61 @@ class CineAgentEngine:
                 response.raise_for_status()
                 res_json = response.json()
         except Exception as e:
+            print(f" [Agent 错误] 通信异常: {e}", flush=True)
             raise HTTPException(status_code=502, detail=f"Agent 路由通信失败: {str(e)}")
 
         choice_message = res_json["choices"][0]["message"]
         tool_calls = choice_message.get("tool_calls")
-
-        # 默认基础候选电影数据容器
         executed_tool_data = []
 
-        # 3. 如果模型认为需要调用工具，则自动在后台执行
+        # 3. 工具执行层 - 修复：必须确保 tool_calls 被响应
         if tool_calls:
-            tool_call = tool_calls[0]
-            function_name = tool_call["function"]["name"]
-            function_args = json.loads(tool_call["function"]["arguments"])
+            for tool_call in tool_calls:
+                function_name = tool_call["function"]["name"]
+                function_args = json.loads(tool_call["function"]["arguments"])
+                print(f" [Agent 决策成功] AI 选择了工具: {function_name}, 参数: {function_args}", flush=True)
 
-            # 动态检索函数并异步等待执行
-            tool_function = AVAILABLE_TOOLS.get(function_name)
-            if tool_function:
-                executed_tool_data = await tool_function(**function_args)
-                # 将工具执行结果存入上下文，准备做第二阶段推理
+                tool_function = AVAILABLE_TOOLS.get(function_name)
+                # 无论搜索结果如何，都获取数据
+                result_data = await tool_function(**function_args) if tool_function else []
+                if result_data:
+                    executed_tool_data.extend(result_data)
+
+                # 【核心修复】必须向 messages 添加 tool 响应，否则 DeepSeek 会报错 400
                 messages.append(choice_message)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call["id"],
-                    "content": json.dumps(executed_tool_data, ensure_ascii=False)
+                    "content": json.dumps(result_data, ensure_ascii=False)
                 })
         else:
-            # 兜底防御：大模型如果没选工具，我们强行喂给它默认的热门数据
-            print(" [Agent Tool 警告] ──> 大模型未选工具，触发热门兜底")
+            print(" [Agent 决策异常] AI 没有选择工具，执行热门推荐兜底", flush=True)
             executed_tool_data = await AVAILABLE_TOOLS["fetch_tmdb_popular_movies"]()
 
-        # 4. 第二阶段：让大模型看着拿回来的电影数据，用中文撰写直击痛点的推荐词
+        # 4. 第二阶段：生成推荐词 (如果搜出来是空的，则强行转热门兜底)
+        if not executed_tool_data:
+            print(" [Agent 搜索空结果] 强制触发热门电影数据...", flush=True)
+            executed_tool_data = await AVAILABLE_TOOLS["fetch_tmdb_popular_movies"]()
+            messages.append({"role": "system", "content": "刚才的搜索没结果，现在为你提供了一些当前的热门电影。"})
+
         final_system_prompt = (
-            "你是一个殿堂级的电影骨灰级评论家。\n"
-            "请根据用户提供的偏好，结合当前刚才获取到的真实电影列表数据，为列表中的每部电影撰写一句极具诱惑力、一针见血的个性化深度推荐词。\n"
-            "【硬性验收标准】返回的推荐语必须读起来像资深影迷写的自然语言，严禁使用任何固定套路模板！\n"
-            "你必须使用标准的 JSON 格式返回，不要包含任何 markdown 标记。格式严格限制如下：\n"
-            '{"recommendations": [{"movie_id": 电影ID, "reason": "30-50字的硬核影评推荐词"}]}'
+            "你是一个资深影评家。请根据用户偏好和提供的电影数据，为每部电影写一段30-50字的推荐词。\n"
+            "必须按 JSON 格式返回：{\"recommendations\": [{\"movie_id\": ID, \"reason\": \"...\"}]}"
         )
 
-        # 替换系统提示词，聚焦于精美内容输出
         messages[0] = {"role": "system", "content": final_system_prompt}
-        messages.append({"role": "user", "content": "请针对刚才拿到的电影数据，结合我的口味开始策展并输出 JSON 报告。"})
+        messages.append({"role": "user", "content": "请输出针对性的推荐报告。"})
 
-        # 使用之前解耦好的底层客户端进行 JSON 模式读取
         ai_final_report = await agent_client.chat_completion(messages, json_mode=True)
+        print(f" [Agent 推理完成] 已生成个性化推荐流。", flush=True)
 
         try:
             parsed_report = json.loads(ai_final_report)
             return {
-                "raw_movies_context": executed_tool_data,  # 原始数据上下文
-                "ai_reasons": parsed_report.get("recommendations", [])  # 智能生成的推荐理由
+                "raw_movies_context": executed_tool_data,
+                "ai_reasons": parsed_report.get("recommendations", [])
             }
         except Exception:
             return {"raw_movies_context": executed_tool_data, "ai_reasons": []}
-
 
 agent_engine = CineAgentEngine()

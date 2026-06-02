@@ -11,12 +11,23 @@ class TMDBDataParser:
 
     def __init__(self, image_base_url: str) -> None:
         self.image_base = image_base_url
+        # TMDB 官方分类映射 (用于将 genre_ids 转化为中文名称)
+        self.genre_map = {
+            28: "动作", 12: "冒险", 16: "动画", 35: "喜剧", 80: "犯罪", 99: "纪录", 18: "剧情",
+            10751: "家庭", 14: "奇幻", 36: "历史", 27: "恐怖", 10402: "音乐", 9648: "悬疑",
+            10749: "爱情", 878: "科幻", 10770: "电视电影", 53: "惊悚", 10752: "战争", 37: "西部"
+        }
 
     def _build_url(self, path: str | None) -> str | None:
-        """拼接完整的海报或背景图 URL"""
+        """拼接完整的海报或背景图 URL，并封装为后端中转地址"""
         if not path:
             return None
-        return f"{self.image_base}{path}"
+        original_url = f"{self.image_base}{path}"
+        # 自动包装为后端代理地址，解决模拟器访问不了 TMDB 的问题
+        # 这里的 10.0.2.2 会由前端请求时自动识别或在 BaseUrl 中处理，
+        # 但后端生成时最好返回相对路径，由前端拼接。
+        # 为了简单起见，我们直接返回代理路径前缀
+        return f"/api/proxy/image?url={original_url}"
 
     def _extract_year(self, release_date: str | None) -> int | None:
         """从 '2026-05-20' 格式中提取年份"""
@@ -55,10 +66,12 @@ class TMDBDataParser:
         credits = raw.get("credits", {})
         directors, cast = self._parse_credits(credits)
 
-        # 解析电影类型（处理详情页的字典列表形式）
+        # 解析电影类型（处理详情页的字典列表形式 或 列表页的 genre_ids）
         genres = []
         if "genres" in raw:
             genres = [g["name"] for g in raw["genres"] if "name" in g]
+        elif "genre_ids" in raw:
+            genres = [self.genre_map.get(gid, "其他") for gid in raw["genre_ids"]]
 
         return Movie(
             id=raw["id"],
