@@ -21,8 +21,12 @@ class ToolRegistryTests(TestCase):
 
         self.assertEqual(
             {
+                "browse_catalog_hot",
+                "build_catalog_microdesign_poster",
+                "build_recommendation_feed",
                 "get_backend_status",
                 "search_playable_resources",
+                "search_catalog_movies",
                 "get_playable_resource_detail",
                 "build_microdesign_posts",
             },

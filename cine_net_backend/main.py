@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import agent, chat, feed, health, poster, resources, sources
+from routers import agent, catalog, chat, feed, health, poster, resources, sources
 from services.resources import get_resource_aggregator
 
 
@@ -35,6 +35,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(resources.router)
+app.include_router(catalog.router)
 app.include_router(agent.router)
 app.include_router(feed.router)
 app.include_router(sources.router)

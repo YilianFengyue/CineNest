@@ -17,16 +17,22 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_timeout_seconds: float = 90.0
 
-    # 可选元数据源。Step 1 的资源检索不依赖 TMDB。
-    tmdb_api_key: str = ""
+    # TMDB 官方 API Read Access Token。Step 1 的播放资源检索不依赖 TMDB。
+    tmdb_read_access_token: str = ""
     tmdb_base_url: str = "https://api.themoviedb.org/3"
     tmdb_image_base: str = "https://image.tmdb.org/t/p/w500"
+    tmdb_backdrop_base: str = "https://image.tmdb.org/t/p/w780"
 
     # MacCMS 聚合资源层
     resource_provider_config: Path = BASE_DIR / "services" / "resources" / "providers.yaml"
     resource_request_timeout_seconds: float = 6.0
     resource_max_concurrency: int = 10
     resource_search_limit_per_provider: int = 5
+
+    # 影视资料 Catalog。豆瓣可直接使用；TMDB 填 Token 后启用。
+    catalog_provider_config: Path = BASE_DIR / "services" / "catalog" / "providers.yaml"
+    catalog_request_timeout_seconds: float = 10.0
+    catalog_cache_ttl_seconds: int = 1800
 
     # 服务
     host: str = "0.0.0.0"

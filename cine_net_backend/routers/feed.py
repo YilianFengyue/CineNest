@@ -4,6 +4,8 @@ from fastapi import APIRouter, Query
 from models import Feedback, UserPreference
 from services.microdesign import compose_recommendation_posts
 from services.microdesign.models import MicroDesignPost
+from services.recommendation import get_recommendation_service
+from services.recommendation.models import RecommendationFeed
 from services.resources import get_resource_aggregator
 
 router = APIRouter(prefix="/api", tags=["feed"])
@@ -18,6 +20,17 @@ async def get_feed(
 
     response = await get_resource_aggregator().search(keyword)
     return compose_recommendation_posts(response, limit=limit)
+
+
+@router.get("/feed/recommend", response_model=RecommendationFeed)
+async def recommend_feed(
+    query: str = Query("", max_length=100),
+    media_kind: str = Query("movie", pattern="^(movie|tv)$"),
+    limit: int = Query(5, ge=1, le=10),
+) -> RecommendationFeed:
+    """先查豆瓣/TMDB 资料，再确认播放资源，输出完整推荐帖子。"""
+
+    return await get_recommendation_service().recommend(query=query, media_kind=media_kind, limit=limit)
 
 
 @router.post("/preferences")
