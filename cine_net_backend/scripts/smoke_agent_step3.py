@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -23,11 +24,12 @@ async def main() -> None:
     if not is_llm_configured():
         raise SystemExit("请先在 .env 填写 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL")
     keyword = sys.argv[1] if len(sys.argv) > 1 else "功夫熊猫"
+    thread_id = f"smoke-step3-feed-{uuid4().hex[:8]}"
     try:
         result = await invoke_agent(
             f"请调用 build_recommendation_feed 工具，为“{keyword}”生成最多 2 个真实可播放推荐帖子。"
             "资料字段缺失时只说暂无，不要凭记忆补充。",
-            "smoke-step3-feed",
+            thread_id,
         )
     except AgentServiceUnavailableError as exc:
         raise SystemExit(str(exc)) from exc

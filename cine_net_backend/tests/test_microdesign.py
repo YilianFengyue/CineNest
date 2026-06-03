@@ -1,6 +1,15 @@
 from unittest import TestCase
 
-from services.microdesign import compose_poster, compose_recommendation_posts
+from services.catalog.models import CatalogMovie
+from services.microdesign import (
+    compose_catalog_post,
+    compose_media_gallery,
+    compose_movie_carousel,
+    compose_poster,
+    compose_recommendation_posts,
+    compose_review_quote_card,
+    compose_source_trace_card,
+)
 from services.resources.models import (
     AggregatedMediaItem,
     Episode,
@@ -42,8 +51,48 @@ class MicroDesignTests(TestCase):
 
         self.assertTrue(post.has_video_source)
         self.assertEqual("posterRow", post.blocks[0].type)
-        self.assertEqual("microdesign.v1", post.schema_version)
+        self.assertEqual("microdesign.v1.1", post.schema_version)
         self.assertEqual(["openResourcePoster", "resolveAndPlay"], [action.type for action in post.actions])
+
+    def test_creative_cards_match_flutter_v11_fields(self) -> None:
+        movie = CatalogMovie(
+            catalog_id="douban:1889243",
+            provider_id="douban",
+            provider_name="豆瓣",
+            source_id="1889243",
+            title="星际穿越",
+            year="2014",
+            media_kind="movie",
+            rating=9.4,
+            poster_url="https://img.example/poster.jpg",
+            overview="一群探索者穿越虫洞寻找新家园。",
+            genres=["科幻", "冒险", "剧情"],
+        )
+        resource = AggregatedMediaItem(
+            normalized_title="星际穿越",
+            title="星际穿越",
+            category="科幻片",
+            year="2014",
+            sources=[self.candidate],
+        )
+
+        post = compose_catalog_post(movie, resource)
+        card = post.blocks[0]
+        carousel = compose_movie_carousel([post])
+        quote = compose_review_quote_card(post)
+        trace = compose_source_trace_card(query="星际穿越", catalog_ok=2, catalog_failed=0, resource_count=1)
+        gallery = compose_media_gallery(["https://img.example/a.jpg"])
+
+        self.assertEqual("playableMovieCard", card.type)
+        for key in ("cover", "title", "year", "rating", "rating_label", "summary", "genres", "source_count", "actions"):
+            self.assertIn(key, card.data)
+        self.assertEqual(["resolveAndPlay", "openPoster"], [action["type"] for action in card.data["actions"]])
+        self.assertEqual("https://img.example/poster.jpg", carousel.data["items"][0]["cover"])
+        self.assertEqual("openPoster", carousel.data["items"][0]["action"]["type"])
+        self.assertIn("source", quote.data)
+        self.assertEqual("星际穿越", trace.data["query"])
+        self.assertIn(trace.data["items"][0]["status"], {"ok", "empty"})
+        self.assertEqual(["https://img.example/a.jpg"], gallery.data["urls"])
 
     def test_compose_dynamic_poster(self) -> None:
         detail = MediaResourceDetail(

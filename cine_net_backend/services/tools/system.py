@@ -33,6 +33,12 @@ def get_backend_status() -> str:
             "microdesign_posts",
             "microdesign_poster",
             "agent_structured_attachments",
+            "agent_model_select",
+            "chat_history_persistence",
+            "asset_uploads",
+            "interactive_cards",
+            "news_feed",
+            "play_descriptor",
         ],
     }
     return json.dumps(payload, ensure_ascii=False)

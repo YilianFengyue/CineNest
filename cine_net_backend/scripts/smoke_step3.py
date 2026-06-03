@@ -31,8 +31,8 @@ def main() -> None:
         if feed_response.status_code != 200:
             raise SystemExit(f"推荐 Feed 失败: HTTP {feed_response.status_code} {feed_response.text}")
         feed = feed_response.json()
-        if feed.get("schema_version") != "microdesign.v1" or not feed.get("posts"):
-            raise SystemExit("推荐 Feed 未返回 microdesign.v1 帖子")
+        if feed.get("schema_version") != "microdesign.v1.1" or not feed.get("posts"):
+            raise SystemExit("推荐 Feed 未返回 microdesign.v1.1 帖子")
         post = feed["posts"][0]
         open_poster = _action(post, "openPoster")
         resolve_play = _action(post, "resolveAndPlay")
@@ -48,7 +48,7 @@ def main() -> None:
             raise SystemExit(f"互动海报失败: HTTP {poster_response.status_code} {poster_response.text}")
         poster = poster_response.json()
         video_blocks = [block for block in poster.get("blocks", []) if block.get("type") == "videoBar"]
-        if poster.get("schema_version") != "microdesign.v1" or not video_blocks:
+        if poster.get("schema_version") != "microdesign.v1.1" or not video_blocks:
             raise SystemExit("互动海报没有返回可播放 videoBar")
         video_action = video_blocks[0].get("action") or {}
         play_url = (video_action.get("data") or {}).get("play_url", "")

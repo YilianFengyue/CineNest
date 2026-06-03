@@ -29,6 +29,8 @@ class ToolRegistryTests(TestCase):
                 "search_catalog_movies",
                 "get_playable_resource_detail",
                 "build_microdesign_posts",
+                "build_interactive_answer",
+                "collect_movie_news",
             },
             names,
         )

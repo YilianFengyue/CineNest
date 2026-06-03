@@ -14,6 +14,7 @@ from services.resources.aggregator import normalize_title
 from services.resources.models import AggregatedMediaItem, ResourceSearchResponse
 
 from .models import RecommendationFeed
+from .persistence import load_feed, save_feed
 
 
 def find_best_resource(movie: CatalogMovie, response: ResourceSearchResponse) -> AggregatedMediaItem | None:
@@ -36,11 +37,12 @@ def find_best_resource(movie: CatalogMovie, response: ResourceSearchResponse) ->
 class RecommendationService:
     """把资料候选批量映射为可播放的 MicroDesign 帖子。"""
 
-    def __init__(self) -> None:
+    def __init__(self, *, persist: bool = True) -> None:
         self.catalog = get_catalog_service()
         self.resources = get_resource_aggregator()
         self._semaphore = asyncio.Semaphore(5)
         self._feed_cache = TTLCache(settings.recommendation_cache_ttl_seconds)
+        self.persist = persist
 
     async def _to_post(self, movie: CatalogMovie):
         async with self._semaphore:
@@ -56,13 +58,20 @@ class RecommendationService:
         query: str = "",
         media_kind: str = "movie",
         limit: int = 5,
+        refresh: bool = False,
     ) -> RecommendationFeed:
         """按主题或热门目录获取候选，再确认真实可播放资源。"""
 
         cache_key = f"{media_kind}:{limit}:{query.strip() or '热门'}"
-        cached = self._feed_cache.get(cache_key)
-        if cached is not None:
-            return cached
+        if not refresh:
+            cached = self._feed_cache.get(cache_key)
+            if cached is not None:
+                return cached
+        if self.persist and not refresh:
+            persistent = load_feed(query.strip() or "热门", media_kind, limit)
+            if persistent is not None:
+                self._feed_cache.set(cache_key, persistent)
+                return persistent
         candidate_limit = max(limit * 2, limit)
         catalog_response = (
             await self.catalog.search(query, media_kind=media_kind, limit=candidate_limit)
@@ -76,6 +85,8 @@ class RecommendationService:
             catalog_traces=catalog_response.traces,
         )
         self._feed_cache.set(cache_key, feed)
+        if self.persist:
+            save_feed(query or "热门", media_kind, feed)
         return feed
 
     async def poster(self, provider_id: str, source_id: str, *, media_kind: str = "movie"):

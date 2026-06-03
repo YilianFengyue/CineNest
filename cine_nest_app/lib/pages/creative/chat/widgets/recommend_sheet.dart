@@ -1,5 +1,7 @@
 import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
+import 'package:cine_nest/pages/creative/preview/card_gallery_page.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 /// 「为你推荐」底部 sheet（成员 C · F9）。
 ///
@@ -105,6 +107,19 @@ class _RecommendSheet extends StatelessWidget {
                     },
                   ),
               ],
+            ),
+            const SizedBox(height: 16),
+            // 设计走查入口：脱离后端预览全部 v1.1 富交互卡。
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Get.to(() => const CardGalleryPage());
+                },
+                icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
+                label: const Text('预览交互卡片（mock）'),
+              ),
             ),
           ],
         ),

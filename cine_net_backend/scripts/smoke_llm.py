@@ -13,7 +13,7 @@ from services.llm import is_llm_configured
 
 async def main() -> None:
     if not is_llm_configured():
-        raise SystemExit("请先复制 .env.example 为 .env，并填写 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL")
+        raise SystemExit("请先在 cine_net_backend/.env 填写 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL")
 
     print("[1/2] 基础文本 + 系统工具调用")
     status = await invoke_agent("请调用工具查看 CineNest 后端能力，然后简短汇报。", "smoke-status")

@@ -8,7 +8,30 @@ from pydantic import BaseModel, Field
 from services.catalog.models import CatalogMovie
 from services.resources.models import MediaResourceDetail, ResourceCandidate
 
-MICRODESIGN_SCHEMA_VERSION = "microdesign.v1"
+MICRODESIGN_SCHEMA_VERSION = "microdesign.v1.1"
+SUPPORTED_BLOCKS = [
+    "posterRow",
+    "banner",
+    "rating",
+    "tagRow",
+    "heading",
+    "text",
+    "videoBar",
+    "imageSwiper",
+    "playableMovieCard",
+    "movieCarousel",
+    "reviewQuoteCard",
+    "sourceTraceCard",
+    "newsCard",
+    "mediaGallery",
+    "videoExplainCard",
+]
+SUPPORTED_ACTIONS = [
+    "openPoster",
+    "openResourcePoster",
+    "resolveAndPlay",
+]
+SUPPORTED_STYLES = ["warm", "neon", "contrast"]
 
 
 class MicroDesignAction(BaseModel):
@@ -57,3 +80,18 @@ class PosterSpec(BaseModel):
     resource: MediaResourceDetail
     blocks: list[ContentBlock] = Field(default_factory=list)
     actions: list[MicroDesignAction] = Field(default_factory=list)
+
+
+class InteractiveCardsPayload(BaseModel):
+    """Agent 聊天气泡可挂载的交互卡片集合。"""
+
+    schema_version: str = MICRODESIGN_SCHEMA_VERSION
+    cards: list[ContentBlock] = Field(default_factory=list)
+    actions: list[MicroDesignAction] = Field(default_factory=list)
+
+
+class MicroDesignSchema(BaseModel):
+    schema_version: str = MICRODESIGN_SCHEMA_VERSION
+    blocks: list[str] = Field(default_factory=lambda: SUPPORTED_BLOCKS)
+    actions: list[str] = Field(default_factory=lambda: SUPPORTED_ACTIONS)
+    styles: list[str] = Field(default_factory=lambda: SUPPORTED_STYLES)

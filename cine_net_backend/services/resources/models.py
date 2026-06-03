@@ -9,10 +9,12 @@ class ProviderConfig(BaseModel):
 
     id: str
     name: str
-    endpoint: str
+    endpoint: str = ""
+    kind: str = "maccms"
     enabled: bool = True
     detail_action: str = "detail"
     headers: dict[str, str] = Field(default_factory=dict)
+    options: dict[str, str] = Field(default_factory=dict)
 
 
 class Episode(BaseModel):
@@ -94,3 +96,18 @@ class ProviderHealth(BaseModel):
     ok: bool | None = None
     elapsed_ms: int | None = None
     error: str | None = None
+
+
+class PlayDescriptor(BaseModel):
+    """Flutter 播放器消费的统一播放描述。"""
+
+    type: str = "direct"
+    play_url: str = ""
+    headers: dict[str, str] = Field(default_factory=dict)
+    expires_at: str | None = None
+    fallback_web_url: str | None = None
+    provider_id: str
+    remote_id: str
+    title: str = ""
+    line_name: str = ""
+    episode_name: str = ""

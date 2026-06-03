@@ -37,6 +37,7 @@ async def build_recommendation_feed(query: str = "", media_kind: str = "movie", 
         query=query,
         media_kind=media_kind,
         limit=max(1, min(limit, 10)),
+        refresh=True,
     )
     return _json(feed.model_dump())
 

@@ -82,7 +82,7 @@ class _FakeResources:
 
 class RecommendationTests(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.service = RecommendationService()
+        self.service = RecommendationService(persist=False)
         self.service.catalog = _FakeCatalog()
         self.service.resources = _FakeResources()
 

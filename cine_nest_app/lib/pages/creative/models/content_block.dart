@@ -12,6 +12,7 @@
 ///
 /// 分发渲染模式参考 PiliPlus 动态流的 `pages/dynamics/widgets/content_panel.dart`。
 enum ContentBlockType {
+  // ── v1 基础块 ──
   banner, // 互动海报顶部大图（背景图 + 标题/副标题叠字）
   heading, // 小标题
   text, // 正文段落
@@ -20,6 +21,14 @@ enum ContentBlockType {
   videoBar, // 视频条 / 可播放线路（封面 + 标题 + 时长·播放量·集数，可挂播放）
   posterRow, // 海报条（左竖海报 + 右评分/简介/标签，影视条目卡）
   rating, // 评分
+  // ── v1.1 富交互卡（对话/海报/资讯复用）──
+  playableMovieCard, // 可播放电影介绍卡（封面 + 标题/评分/类型/推荐语 + 播放/海报按钮）
+  movieCarousel, // 电影海报轮播组（横向多张可点海报）
+  reviewQuoteCard, // 影评 / 评价引用卡
+  sourceTraceCard, // 来源溯源卡（Agent 查了哪些源、命中数）
+  newsCard, // 资讯卡（标题 + 摘要 + 来源/时间 + 封面）
+  mediaGallery, // 图集（剧照 / 海报，横滑或网格）
+  videoExplainCard, // 视频解说卡（封面 + 标题 + UP + 时长/播放量）
   unknown; // 未知 —— 前向兼容后端新增类型，渲染时静默跳过
 
   static ContentBlockType parse(String? name) =>

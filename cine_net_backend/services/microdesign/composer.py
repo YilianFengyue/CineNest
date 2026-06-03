@@ -124,15 +124,27 @@ def compose_catalog_post(
     tags = [*movie.genres[:3]]
     if resource.category and resource.category not in tags:
         tags.append(resource.category)
+    open_action = _open_catalog_poster_action(movie)
+    play_action = _resolve_and_play_action(primary.provider_id, primary.remote_id)
     blocks = [
         ContentBlock(
-            type="posterRow",
+            type="playableMovieCard",
             data={
+                "title": movie.title,
+                "year": movie.year,
                 "cover": movie.poster_url or resource.cover_url,
-                "score": movie.rating,
+                "rating": movie.rating,
+                "rating_label": movie.provider_name,
                 "summary": movie.overview or reason,
-                "tags": tags,
+                "genres": tags[:3],
+                "source_count": len(resource.sources),
+                "actions": [play_action.model_dump(), open_action.model_dump()],
+                "subtitle": " · ".join(value for value in (movie.year, resource.category, resource.remarks) if value),
+                "poster": movie.poster_url or resource.cover_url,
+                "reason": movie.overview or reason,
+                "badges": [tag for tag in [*tags, "可播放"] if tag],
             },
+            action=open_action,
         )
     ]
     return MicroDesignPost(
@@ -151,10 +163,135 @@ def compose_catalog_post(
         source_count=len(resource.sources),
         primary_resource=primary,
         blocks=blocks,
-        actions=[
-            _open_catalog_poster_action(movie),
-            _resolve_and_play_action(primary.provider_id, primary.remote_id),
-        ],
+        actions=[open_action, play_action],
+    )
+
+
+def compose_movie_carousel(posts: list[MicroDesignPost], *, title: str = "你可能也会喜欢") -> ContentBlock:
+    """把推荐帖子压缩成横向电影轮播。"""
+
+    items = []
+    for post in posts:
+        open_action = next(
+            (action for action in post.actions if action.type in ("openPoster", "openResourcePoster")),
+            None,
+        )
+        items.append(
+            {
+                "cover": post.cover_url,
+                "title": post.title,
+                "year": post.subtitle.split(" · ")[0] if post.subtitle else "",
+                "poster": post.cover_url,
+                "rating": post.rating,
+                "source_count": post.source_count,
+                "action": open_action.model_dump() if open_action else None,
+            }
+        )
+    return ContentBlock(type="movieCarousel", data={"title": title, "items": items})
+
+
+def compose_review_quote_card(post: MicroDesignPost) -> ContentBlock:
+    """生成 Agent 口吻的评价卡。"""
+
+    quote = post.recommend_reason or post.overview or "这部作品已经确认可播放，适合加入你的片单。"
+    return ContentBlock(
+        type="reviewQuoteCard",
+        data={
+            "title": "一句话评价",
+            "quote": quote,
+            "author": "CineNest Agent",
+            "source": "CineNest",
+            "rating": post.rating or 0,
+            "sentiment": "positive" if (post.rating or 0) >= 7 else "neutral",
+        },
+    )
+
+
+def compose_source_trace_card(
+    *,
+    query: str = "",
+    catalog_ok: int,
+    catalog_failed: int,
+    resource_count: int = 0,
+    resource_hint: str = "",
+) -> ContentBlock:
+    """展示本次检索来源。"""
+
+    return ContentBlock(
+        type="sourceTraceCard",
+        data={
+            "query": query,
+            "items": [
+                {
+                    "key": "catalog",
+                    "label": "豆瓣/TMDB",
+                    "count": catalog_ok,
+                    "status": "ok" if catalog_ok else "empty",
+                },
+                {
+                    "key": "resource",
+                    "label": resource_hint or "可播放资源",
+                    "count": resource_count,
+                    "status": "ok" if resource_count else "empty",
+                },
+                {"key": "planned", "label": "B站/网盘/PC", "count": 0, "status": "empty"},
+            ]
+        },
+    )
+
+
+def compose_news_card(
+    *,
+    news_id: str,
+    title: str,
+    summary: str,
+    source: str,
+    published_at: str,
+    tags: list[str],
+    cover: str = "",
+    action: MicroDesignAction | None = None,
+) -> ContentBlock:
+    return ContentBlock(
+        type="newsCard",
+        data={
+            "title": title,
+            "summary": summary,
+            "source": source,
+            "published_at": published_at,
+            "cover": cover,
+            "tags": tags,
+        },
+        action=action,
+    )
+
+
+def compose_media_gallery(images: list[dict | str], *, title: str = "", layout: str = "swiper") -> ContentBlock:
+    urls = [item if isinstance(item, str) else item.get("url", "") for item in images]
+    urls = [url for url in urls if url]
+    return ContentBlock(type="mediaGallery", data={"title": title, "layout": layout, "urls": urls, "images": images})
+
+
+def compose_video_explain_card(
+    *,
+    title: str,
+    cover: str,
+    duration: str = "",
+    play_count: str = "",
+    up: str = "待接入",
+    provider_id: str = "",
+    remote_id: str = "",
+) -> ContentBlock:
+    action = _resolve_and_play_action(provider_id, remote_id) if provider_id and remote_id else None
+    return ContentBlock(
+        type="videoExplainCard",
+        data={
+            "title": title,
+            "cover": cover,
+            "up": up,
+            "duration": duration,
+            "play_count": play_count,
+        },
+        action=action,
     )
 
 

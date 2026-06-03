@@ -1,205 +1,190 @@
 # CineNest 后端 Agent 模块说明
 
-> 面向后端协作者、Flutter 前端、以及后续接手的 AI 编码助手。  
-> 当前模块范围：FastAPI 后端、LangChain Agent、影视资料 Catalog、播放资源 Resource、推荐 Feed、MicroDesign 动态海报、REST/WS 对接协议。
+> 当前版本：后端 `1.2.0`，MicroDesign 协议 `microdesign.v1.1`。
+> 面向：后端协作者、Flutter 前端、后续接手的 AI 编码助手。
+> 范围：FastAPI、LangChain Agent、多源播放资源、豆瓣/TMDB 资料、推荐 Feed、聊天卡片、资讯、上传资产、统一播放解析。
 
-## 1. 一句话说明
+## 1. 模块定位
 
-这个模块把 PC 端 FastAPI 做成 CineNest 的“影视策展中枢”：
+CineNest 后端是 PC 端算力中心，Flutter 是交互界面。后端负责把用户意图变成“可验证的影视资料 + 可播放资源 + Flutter 可动态渲染的 JSON”。
+
+核心链路：
 
 ```text
-用户想看什么
+用户输入
 -> Agent 理解意图
--> Catalog 查豆瓣 / TMDB 资料
--> Resource 聚合 20 个 MacCMS 播放源
--> Recommendation 只保留真实可播放候选
--> MicroDesign 输出 Flutter 可动态渲染的 blocks/actions
+-> Tool 调用 Catalog / Resource / News / MicroDesign
+-> Catalog 查豆瓣和 TMDB 资料
+-> Resource 并发查 20 个 MacCMS 源
+-> Recommendation 只保留有真实资源的候选
+-> MicroDesign 输出 blocks/actions
+-> Flutter 渲染帖子、聊天卡片、互动海报、播放入口
 ```
 
-Flutter 不需要知道资源站怎么抓，也不需要解析 Agent 自然语言。前端只消费稳定 JSON，按 `blocks` 渲染页面，按 `actions` 做点击跳转或播放。
+重要边界：
 
-## 2. 当前已经完成什么
+- 首页、普通浏览、播放器优先走确定性 REST。
+- 聊天、复杂推荐、图片/文件理解走 Agent。
+- Flutter 不解析自然语言里的电影字段，只消费 `attachments`、`blocks`、`actions`。
+- 事实字段必须来自 Tool：评分、封面、简介、播放源、播放地址不能靠模型编。
 
-### 2.1 后端基础
+## 2. 当前已完成能力
+
+### P0：Agent 基座、模型选择、持久化
+
+已完成：
 
 - FastAPI 应用入口：`cine_net_backend/main.py`
-- CORS 已开放，方便手机局域网访问 PC 后端。
 - OpenAI Chat Completions 兼容模型工厂：`services/llm/factory.py`
-- LangChain v1 `create_agent()` 底座：`services/agent/factory.py`
+- 模型别名接口：`GET /api/agent/models`
 - REST Agent：`POST /api/agent/invoke`
 - WebSocket Agent：`WS /ws/chat`
-- `.env` 读取配置：`cine_net_backend/config.py`
+- REST/WS 均支持 `model` 字段。
+- REST/WS 均支持 `attachments` 字段。
+- LangGraph Checkpointer 从内存切到 SQLite：`services/agent/factory.py`
+- 聊天会话和消息落 SQLite：`services/chat/`
+- 会话接口：`/api/chat/sessions`
 
-### 2.2 播放资源 Resource 层
+模型别名：
 
-文件位置：`cine_net_backend/services/resources/`
-
-已完成：
-
-- 20 个 MacCMS 资源站配置：`services/resources/providers.yaml`
-- 并发搜索所有启用资源站。
-- 单个资源站挂掉只进入 `traces`，不会拖垮整体请求。
-- 解析 MacCMS 播放列表格式：
-  - 线路分隔：`$$$`
-  - 剧集分隔：`#`
-  - 标题与 URL 分隔：`$`
-- 返回真实 HTTP(S) `m3u8/mp4` 播放地址。
-- 兼容 A 组旧接口：`/api/sources/search`、`/api/sources/parse`
-- 完整资源接口：`/api/resources/*`
-
-### 2.3 影视资料 Catalog 层
-
-文件位置：`cine_net_backend/services/catalog/`
-
-已完成：
-
-- 豆瓣资料源。
-- TMDB 官方 API 资料源。
-- `services/catalog/providers.yaml` 配置化启停。
-- TMDB 没填 Token 时自动跳过，豆瓣仍可用。
-- 多资料源搜索、热门、详情。
-- 标题归一化与合并：同名、同类型、年份兼容时合并资料。
-- 精确标题排序：例如“星际穿越”排在“《星际穿越》中的科学”前面。
-- 合并缓存：从豆瓣 ID 或 TMDB ID 进入时，尽量复用同一份丰富资料。
-
-### 2.4 Recommendation 推荐组合层
-
-文件位置：`cine_net_backend/services/recommendation/`
-
-已完成：
-
-- 先查 Catalog 资料候选。
-- 再用 ResourceAggregator 搜索真实播放资源。
-- 只输出有真实播放资源的帖子。
-- 精确标题和年份优先匹配播放源。
-- 首页推荐 Feed 有 5 分钟短缓存，减少重复请求多个资源站。
-
-### 2.5 MicroDesign 动态渲染协议
-
-文件位置：`cine_net_backend/services/microdesign/`
-
-已完成协议版本：
-
-```json
-{
-  "schema_version": "microdesign.v1"
-}
-```
-
-核心设计：
-
-- `blocks`：Flutter 要渲染哪些组件。
-- `actions`：用户点击后执行什么动作。
-
-这套协议用于：
-
-- 首页推荐帖子。
-- 具体互动海报。
-- Agent 聊天气泡内嵌推荐卡片。
-
-### 2.6 Agent Tools
-
-文件位置：`cine_net_backend/services/tools/`
-
-当前注册的 8 个工具：
-
-| Tool | 用途 |
+| model | 说明 |
 |---|---|
-| `get_backend_status` | 查看后端能力、LLM 配置、资源站数量、Catalog 状态 |
-| `search_playable_resources` | 搜索真实可播放资源 |
-| `get_playable_resource_detail` | 解析某个资源站条目的线路与剧集 |
-| `build_microdesign_posts` | 仅基于资源搜索结果生成旧版 MicroDesign 帖子 |
-| `browse_catalog_hot` | 浏览豆瓣 / TMDB 热门作品 |
-| `search_catalog_movies` | 搜索豆瓣 / TMDB 影视资料 |
-| `build_recommendation_feed` | 生成 Flutter 可渲染的推荐帖子 |
-| `build_catalog_microdesign_poster` | 生成具体作品的互动海报 |
+| `default` | 默认模型，读取 `LLM_MODEL` |
+| `fast` | 快速模型，读取 `LLM_MODEL_FAST`，未填则回退 `LLM_MODEL` |
+| `deep` | 深度模型，读取 `LLM_MODEL_DEEP`，未填则回退 `LLM_MODEL` |
 
-Agent 只看到这些高层工具，不直接看到 20 个资源站。资源站并发、失败隔离、合并排序都由后端服务层处理。
+### P1：MicroDesign v1.1 和聊天交互卡片
 
-## 3. 目录结构说明
+已完成：
+
+- MicroDesign 协议升级到 `microdesign.v1.1`
+- 协议说明接口：`GET /api/microdesign/schema`
+- 新增 Agent Tool：`build_interactive_answer`
+- Agent 可以返回 `interactive_cards` 附件。
+- 聊天答案里可以挂载：
+  - 可播放电影介绍卡 `playableMovieCard`
+  - 电影横向轮播 `movieCarousel`
+  - 评价/推荐理由卡 `reviewQuoteCard`
+  - 来源追踪卡 `sourceTraceCard`
+  - 资讯卡 `newsCard`
+  - 图片组 `mediaGallery`
+  - 视频讲解卡 `videoExplainCard`
+
+### P2：资讯流
+
+已完成：
+
+- 资讯服务：`services/news/`
+- 资讯 API：
+  - `GET /api/news`
+  - `GET /api/news/{news_id}`
+- 资讯 Tool：`collect_movie_news`
+- 资讯持久化到 SQLite：`news_items`
+- 当前资讯先从 Catalog 热门作品生成结构化影视资讯，后续可以替换成真实资讯源爬取/聚合。
+
+### P3：图片/文件上传与多模态输入
+
+已完成：
+
+- 上传接口：`POST /api/uploads`
+- 资产读取：`GET /api/assets/{asset_id}`
+- 资产记录落 SQLite：`assets`
+- 图片附件可进入 Agent 多模态输入。
+- 非图片文件先存储，并作为文本说明传给 Agent；后续接 RAG 时复用 `asset_id`。
+
+### P4：统一播放解析和后续 Provider 骨架
+
+已完成：
+
+- 统一播放解析：`GET /api/play/resolve`
+- 返回 Flutter 播放器消费的 `PlayDescriptor`
+- 已注册 20 个启用 MacCMS 源。
+- 已预留但默认禁用的 Provider：
+  - B站：`bilibili`
+  - 百度网盘：`baidu_netdisk`
+  - Alist：`alist`
+  - PC 本地：`pc_local`
+- 非 MacCMS Provider 目前返回“已注册但未实现”，不会影响 20 个 MacCMS 源。
+
+## 3. 关键目录
 
 ```text
 cine_net_backend/
-├── main.py                         # FastAPI 入口，挂载全部 router
-├── config.py                       # .env 配置读取
+├── main.py                         # FastAPI 入口
+├── config.py                       # .env 配置
+├── db/database.py                  # SQLite 表结构
 ├── routers/
-│   ├── health.py                   # /api/health
-│   ├── resources.py                # 完整播放资源接口
-│   ├── sources.py                  # 兼容旧 Flutter 的简化播放源接口
-│   ├── catalog.py                  # 豆瓣 / TMDB 资料接口
-│   ├── feed.py                     # 推荐帖子 Feed
-│   ├── poster.py                   # 互动海报
-│   ├── agent.py                    # Agent REST
-│   └── chat.py                     # Agent WebSocket
+│   ├── agent.py                    # /api/agent/*
+│   ├── chat.py                     # /ws/chat + 聊天历史
+│   ├── microdesign.py              # /api/microdesign/schema
+│   ├── feed.py                     # /api/feed/recommend
+│   ├── poster.py                   # /api/poster/*
+│   ├── resources.py                # /api/resources/*
+│   ├── sources.py                  # 兼容旧播放接口
+│   ├── news.py                     # /api/news
+│   ├── play.py                     # /api/play/resolve
+│   └── uploads.py                  # /api/uploads /api/assets/*
 ├── services/
 │   ├── llm/                        # OpenAI 兼容模型工厂
-│   ├── agent/                      # LangChain Agent、REST/WS 协议模型
-│   ├── tools/                      # Agent Tool 注册中心
-│   ├── resources/                  # MacCMS Provider、播放列表解析、并发聚合
-│   ├── catalog/                    # 豆瓣 / TMDB Provider、资料聚合
-│   ├── recommendation/             # Catalog + Resource 联合推荐
-│   └── microdesign/                # blocks/actions 组合器
-├── scripts/
-│   ├── smoke_resources.py          # 真实播放资源验收
-│   ├── smoke_catalog.py            # Catalog + Feed + Poster 验收
-│   ├── smoke_llm.py                # 基础 Agent Tool Calling 验收
-│   ├── smoke_agent_step2.py        # Catalog Tool 调度验收
-│   ├── smoke_step3.py              # MicroDesign v1 确定性验收
-│   ├── smoke_agent_step3.py        # Agent 附件验收
-│   └── smoke_ws_step3.py           # WebSocket 附件验收
+│   ├── agent/                      # LangChain Agent、附件提取、流式事件
+│   ├── chat/                       # 聊天会话持久化
+│   ├── assets/                     # 上传资产
+│   ├── resources/                  # 资源站 Provider 和聚合
+│   ├── catalog/                    # 豆瓣 / TMDB
+│   ├── recommendation/             # 资料 + 资源联合推荐
+│   ├── microdesign/                # blocks/actions 组合器
+│   ├── news/                       # 资讯流
+│   ├── play/                       # 播放解析
+│   └── tools/                      # Agent Tool 注册中心
+├── scripts/                        # smoke 验收脚本
 └── tests/                          # 单元测试
 ```
 
-## 4. 配置说明
+## 4. 环境配置
 
-配置文件由 `cine_net_backend/config.py` 读取，`.env` 放在 `cine_net_backend/.env`。
-
-当前仓库没有可靠的 `.env.example`，如果本地没有 `.env`，手动创建即可。
+`.env` 放在 `cine_net_backend/.env`，不要提交。
 
 ```dotenv
 # OpenAI Chat Completions 兼容聚合站
 LLM_API_KEY=你的聚合站Key
 LLM_BASE_URL=https://你的聚合站/v1
-LLM_MODEL=聚合站模型ID
+LLM_MODEL=默认模型ID
+LLM_MODEL_FAST=可选快速模型ID
+LLM_MODEL_DEEP=可选深度模型ID
 LLM_TEMPERATURE=0.2
 LLM_TIMEOUT_SECONDS=90
 LLM_MAX_RETRIES=2
 
 # TMDB 官方 API Read Access Token，可不填
 TMDB_READ_ACCESS_TOKEN=你的TMDB Read Access Token
+
+# 本地 SQLite 和上传资产，可不填
+DATABASE_PATH=cinenest.db
+AGENT_CHECKPOINT_DB_PATH=agent_checkpoints.sqlite
+ASSET_DIR=uploads
+ASSET_MAX_BYTES=10485760
+ASSET_PUBLIC_BASE_URL=
 ```
 
 说明：
 
-- 不填 LLM：资源搜索、Catalog、Feed、Poster REST 仍可用；Agent 不可用。
-- 不填 TMDB：豆瓣仍可用；TMDB Provider 显示 `configured: false` 并自动跳过。
-- `.env` 已被 `.gitignore` 忽略，不要提交 Key。
+- 不填 LLM：Feed、Catalog、Resource、Poster、News、Play REST 仍可用；Agent 不可用。
+- 不填 TMDB：豆瓣仍可用；TMDB Provider 自动跳过。
+- `LLM_MODEL_FAST` / `LLM_MODEL_DEEP` 不填时会回退默认模型。
+- 上传文件默认存在 `cine_net_backend/uploads/`，已被 `.gitignore` 忽略。
 
-TMDB Token 获取：
+## 5. 启动
 
-1. 登录或注册 `https://www.themoviedb.org/signup`
-2. 打开 `https://www.themoviedb.org/settings/api`
-3. 申请 API 权限。
-4. 复制较长的 `API Read Access Token`，不是较短的 v3 `API Key`。
-5. 写入 `TMDB_READ_ACCESS_TOKEN` 后重启 FastAPI。
-
-TMDB 官方文档：
-
-- `https://developer.themoviedb.org/docs/authentication-application`
-- `https://developer.themoviedb.org/docs/search-and-query-for-details`
-
-## 5. 服务启动
-
-PowerShell 建议先显式设置 UTF-8：
+PowerShell 先设置 UTF-8：
 
 ```powershell
+$env:PYTHONIOENCODING='utf-8'
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
-$env:PYTHONIOENCODING = "utf-8"
 ```
 
-启动：
+启动后端：
 
 ```powershell
 cd cine_net_backend
@@ -212,13 +197,13 @@ Swagger：
 http://127.0.0.1:8000/docs
 ```
 
-手机端局域网访问时，Base URL 使用 PC 的局域网地址：
+手机访问用 PC 局域网 IP：
 
 ```text
 http://PC-IP:8000
 ```
 
-## 6. API 总览
+## 6. API 契约
 
 ### 6.1 健康检查
 
@@ -226,185 +211,227 @@ http://PC-IP:8000
 GET /api/health
 ```
 
-返回后端状态、LLM 是否配置、资源站数量、Catalog Provider 状态、MicroDesign 协议版本。
-
 关键字段：
 
 ```json
 {
   "status": "ok",
   "service": "CineNest Backend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "llm_configured": true,
-  "provider_count": 20,
+  "provider_count": 24,
   "enabled_provider_count": 20,
-  "microdesign_schema_version": "microdesign.v1"
+  "microdesign_schema_version": "microdesign.v1.1"
 }
 ```
 
-### 6.2 播放资源接口
+`provider_count=24` 是 20 个 MacCMS 源 + 4 个默认禁用的后续 Provider 骨架。
 
-列出资源站：
-
-```http
-GET /api/resources/providers
-GET /api/resources/providers?probe=true
-```
-
-搜索所有启用资源站：
+### 6.2 模型列表
 
 ```http
-GET /api/resources/search?keyword=功夫熊猫
+GET /api/agent/models
 ```
 
-返回 `ResourceSearchResponse`：
+返回：
+
+```json
+[
+  {
+    "id": "default",
+    "label": "默认模型",
+    "model": "gemini-3.5-flash",
+    "configured": true
+  },
+  {
+    "id": "fast",
+    "label": "快速模型",
+    "model": "gemini-3.5-flash",
+    "configured": true
+  },
+  {
+    "id": "deep",
+    "label": "深度模型",
+    "model": "gemini-3.5-flash",
+    "configured": true
+  }
+]
+```
+
+Flutter 聊天页模型下拉直接用 `id`，不要传真实供应商模型名。
+
+### 6.3 Agent REST
+
+```http
+POST /api/agent/invoke
+Content-Type: application/json
+```
+
+请求：
 
 ```json
 {
-  "keyword": "功夫熊猫",
-  "items": [
+  "thread_id": "user-001",
+  "model": "default",
+  "message": "推荐几部功夫熊猫相关电影，最好能直接播放",
+  "attachments": [
     {
-      "normalized_title": "功夫熊猫",
-      "title": "功夫熊猫",
-      "category": "喜剧片",
-      "cover_url": "...",
-      "remarks": "HD中字",
-      "year": "2008",
-      "sources": [
-        {
-          "provider_id": "wujin",
-          "provider_name": "无尽资源",
-          "remote_id": "89203",
-          "title": "功夫熊猫"
-        }
-      ]
-    }
-  ],
-  "traces": []
-}
-```
-
-解析完整资源详情：
-
-```http
-GET /api/resources/wujin/89203
-```
-
-返回 `MediaResourceDetail`：
-
-```json
-{
-  "provider_id": "wujin",
-  "provider_name": "无尽资源",
-  "remote_id": "89203",
-  "title": "功夫熊猫",
-  "play_lines": [
-    {
-      "name": "wjm3u8",
-      "episodes": [
-        {
-          "name": "HD中字",
-          "play_url": "https://.../index.m3u8"
-        }
-      ]
+      "asset_id": "可选",
+      "type": "image",
+      "url": "可选",
+      "mime": "image/png",
+      "filename": "poster.png"
     }
   ]
 }
-```
-
-### 6.3 兼容旧 Flutter 的播放源接口
-
-搜索扁平源列表：
-
-```http
-GET /api/sources/search?movie_name=功夫熊猫
-```
-
-解析首条可播放地址：
-
-```http
-GET /api/sources/parse?source_id=wujin:89203
 ```
 
 返回：
 
 ```json
 {
-  "id": "wujin:89203",
-  "name": "无尽资源 · wjm3u8 · HD中字",
-  "quality": "HD中字",
-  "type": "web",
-  "play_url": "https://.../index.m3u8",
-  "cover": "..."
+  "thread_id": "user-001",
+  "model": "default",
+  "answer": "已帮你整理了可播放候选。",
+  "tool_calls": [
+    {
+      "name": "build_interactive_answer",
+      "args": {
+        "query": "功夫熊猫",
+        "limit": 3
+      }
+    }
+  ],
+  "attachments": [
+    {
+      "type": "interactive_cards",
+      "schema_version": "microdesign.v1.1",
+      "payload": {
+        "schema_version": "microdesign.v1.1",
+        "cards": []
+      }
+    }
+  ]
 }
 ```
 
-给 A 组播放器的建议：
+前端规则：
 
-- 快速联调用 `/api/sources/search` 和 `/api/sources/parse`。
-- 正式播放器、选线路、选集、失败切换用 `/api/resources/search` 和 `/api/resources/{provider_id}/{remote_id}`。
-- Flutter 拿到 `play_url` 后用 `media_kit` 直接播放，不要让 FastAPI 默认代理整部视频。
+- `answer` 渲染文本。
+- `attachments` 渲染结构化卡片。
+- 不要从 `answer` 里抠评分、封面、播放地址。
 
-### 6.4 Catalog 资料接口
+### 6.4 Agent WebSocket
 
-Provider 状态：
+连接：
 
-```http
-GET /api/catalog/providers
+```text
+ws://PC-IP:8000/ws/chat
 ```
 
-热门：
+发送 JSON：
 
-```http
-GET /api/catalog/hot?media_kind=movie&limit=20
+```json
+{
+  "thread_id": "user-001",
+  "model": "fast",
+  "message": "想看轻松动画，给我可播放卡片",
+  "attachments": []
+}
 ```
 
-搜索：
+事件：
 
-```http
-GET /api/catalog/search?query=功夫熊猫&media_kind=movie&limit=20
+| type | 用法 |
+|---|---|
+| `started` | 显示思考中 |
+| `tool_started` | 可选显示正在检索 |
+| `tool_finished` | 调试日志，正式 UI 可忽略 |
+| `attachment` | 立即渲染 `data.payload` |
+| `delta` | 追加文本 |
+| `done` | 关闭加载态 |
+| `error` | 显示错误和重试 |
+
+典型顺序：
+
+```text
+started -> tool_started -> tool_finished -> attachment -> delta -> done
 ```
 
-详情：
+### 6.5 聊天历史
 
 ```http
-GET /api/catalog/douban/1783457?media_kind=movie
-GET /api/catalog/tmdb/9502?media_kind=movie
+GET /api/chat/sessions
+GET /api/chat/sessions/{thread_id}/messages
+PATCH /api/chat/sessions/{thread_id}
+DELETE /api/chat/sessions/{thread_id}
 ```
 
-注意：
+重命名请求：
 
-- TMDB 支持独立详情查询。
-- 豆瓣条目通常需要先通过热门或搜索进入缓存，再查详情。
-- 推荐和海报接口内部会处理这些流程，Flutter 普通开发优先用 `/api/feed/recommend` 和 `/api/poster/catalog/*`。
-
-### 6.5 推荐 Feed
-
-推荐 Feed 是 Flutter 首页最推荐使用的接口：
-
-```http
-GET /api/feed/recommend?query=功夫熊猫&media_kind=movie&limit=10
+```json
+{
+  "title": "周末动画片单"
+}
 ```
 
-无 query 时走热门候选：
+### 6.6 MicroDesign Schema
 
 ```http
-GET /api/feed/recommend?limit=10
+GET /api/microdesign/schema
+```
+
+返回：
+
+```json
+{
+  "schema_version": "microdesign.v1.1",
+  "blocks": [
+    "posterRow",
+    "banner",
+    "rating",
+    "tagRow",
+    "heading",
+    "text",
+    "videoBar",
+    "imageSwiper",
+    "playableMovieCard",
+    "movieCarousel",
+    "reviewQuoteCard",
+    "sourceTraceCard",
+    "newsCard",
+    "mediaGallery",
+    "videoExplainCard"
+  ],
+  "actions": [
+    "openPoster",
+    "openResourcePoster",
+    "resolveAndPlay"
+  ],
+  "styles": ["warm", "neon", "contrast"]
+}
+```
+
+Flutter 建议实现一个统一 `BlockRenderer`，未知 block 静默跳过或显示兜底，不要崩。
+
+### 6.7 推荐 Feed
+
+```http
+GET /api/feed/recommend?query=功夫熊猫&media_kind=movie&limit=10&refresh=false
 ```
 
 返回 `RecommendationFeed`：
 
 ```json
 {
-  "schema_version": "microdesign.v1",
+  "schema_version": "microdesign.v1.1",
   "query": "功夫熊猫",
   "posts": [
     {
-      "schema_version": "microdesign.v1",
+      "schema_version": "microdesign.v1.1",
       "id": "wujin:89203",
       "catalog_id": "douban:1783457",
       "title": "功夫熊猫",
-      "subtitle": "喜剧片 · HD中字",
       "cover_url": "https://...",
       "rating": 8.3,
       "recommend_reason": "8.3 分，已确认 3 个可用资源站。",
@@ -416,14 +443,21 @@ GET /api/feed/recommend?limit=10
       },
       "blocks": [
         {
-          "type": "posterRow",
+          "type": "playableMovieCard",
           "data": {
+            "title": "功夫熊猫",
             "cover": "https://...",
-            "score": 8.3,
-            "summary": "8.3 分，已确认 3 个可用资源站。",
-            "tags": ["喜剧片"]
-          },
-          "action": null
+            "year": "2008",
+            "rating": 8.3,
+            "rating_label": "豆瓣",
+            "summary": "...",
+            "genres": ["动画", "喜剧"],
+            "source_count": 3,
+            "actions": [
+              {"type": "resolveAndPlay", "data": {"provider_id": "wujin", "remote_id": "89203"}},
+              {"type": "openPoster", "data": {"catalog_provider_id": "douban", "catalog_source_id": "1783457"}}
+            ]
+          }
         }
       ],
       "actions": [
@@ -446,380 +480,279 @@ GET /api/feed/recommend?limit=10
         }
       ]
     }
-  ],
-  "catalog_traces": []
+  ]
 }
 ```
 
 说明：
 
 - `posts` 已经过真实播放资源确认。
-- 同一 query 会缓存 5 分钟，减少首页重复等待资源站。
-- 首页卡片可以只渲染 `post.blocks` 里的 `posterRow`。
-- 点击海报详情用 `openPoster`。
-- 点击播放用 `resolveAndPlay`。
+- `refresh=false` 时优先读内存和 SQLite 缓存。
+- Agent Tool 内部会用 `refresh=true`，避免聊天拿到过旧的推荐。
 
-### 6.6 互动海报接口
-
-Catalog 条目海报：
+### 6.8 互动海报
 
 ```http
-GET /api/poster/catalog/douban/1783457?media_kind=movie
+GET /api/poster/catalog/{provider_id}/{source_id}?media_kind=movie
+GET /api/poster/{resource_provider_id}/{remote_id}
 ```
 
-资源站条目海报：
-
-```http
-GET /api/poster/wujin/89203
-```
-
-返回 `PosterSpec`：
+返回 `PosterSpec`，核心仍是 `blocks/actions`：
 
 ```json
 {
-  "schema_version": "microdesign.v1",
-  "id": "wujin:89203",
-  "catalog_id": "douban:1783457",
+  "schema_version": "microdesign.v1.1",
   "style": "warm",
   "title": "功夫熊猫",
-  "subtitle": "2008 · HD中字",
-  "recommend_reason": "根据你的观影意图与当前可用资源，为你精选这部作品。",
   "blocks": [
-    {
-      "type": "banner",
-      "data": {
-        "image": "...",
-        "poster": "...",
-        "title": "功夫熊猫",
-        "subtitle": "2008 · HD中字",
-        "style": "warm"
-      }
-    },
-    {
-      "type": "rating",
-      "data": {
-        "score": 8.3,
-        "label": "豆瓣"
-      }
-    },
+    {"type": "banner", "data": {}},
+    {"type": "rating", "data": {}},
+    {"type": "tagRow", "data": {}},
+    {"type": "text", "data": {}},
     {
       "type": "videoBar",
-      "data": {
-        "title": "wjm3u8 · HD中字",
-        "cover": "...",
-        "play_url": "https://.../index.m3u8",
-        "episode_count": 1
-      },
+      "data": {},
       "action": {
         "type": "resolveAndPlay",
-        "label": "立即播放",
         "data": {
           "provider_id": "wujin",
           "remote_id": "89203",
-          "line_name": "wjm3u8",
-          "episode_name": "HD中字",
           "play_url": "https://.../index.m3u8"
         }
-      }
-    }
-  ],
-  "actions": []
-}
-```
-
-## 7. MicroDesign v1 前端协议
-
-### 7.1 Block 列表
-
-Flutter 需要实现一个 `BlockRenderer`，按 `type` 分发：
-
-| Block type | 用途 | 常用字段 |
-|---|---|---|
-| `posterRow` | 首页和聊天中的紧凑帖子卡片 | `cover`, `score`, `summary`, `tags` |
-| `banner` | 互动海报顶部大图 | `image`, `poster`, `title`, `subtitle`, `style` |
-| `rating` | 评分 | `score`, `label` |
-| `tagRow` | 标签行 | `tags` |
-| `heading` | 小标题 | `text` |
-| `text` | 推荐理由、简介 | `text` |
-| `videoBar` | 可点击播放线路 | `title`, `cover`, `play_url`, `episode_count` |
-| `imageSwiper` | 后续剧照或 AI 生图 | `urls` |
-
-当前 Flutter `cine_nest_app/lib/pages/creative/models/content_block.dart` 已有多数类型，但还需要前端补：
-
-- `banner` 枚举。
-- `action` 字段解析。
-- 对未知 block 的静默跳过。
-
-### 7.2 Action 列表
-
-#### `openPoster`
-
-从推荐帖子打开 Catalog 互动海报：
-
-```json
-{
-  "type": "openPoster",
-  "label": "查看互动海报",
-  "data": {
-    "catalog_provider_id": "douban",
-    "catalog_source_id": "1783457",
-    "media_kind": "movie"
-  }
-}
-```
-
-Flutter 执行：
-
-```http
-GET /api/poster/catalog/douban/1783457?media_kind=movie
-```
-
-#### `openResourcePoster`
-
-旧资源 Feed 没有 Catalog ID 时打开资源站海报：
-
-```json
-{
-  "type": "openResourcePoster",
-  "data": {
-    "provider_id": "wujin",
-    "remote_id": "89203"
-  }
-}
-```
-
-Flutter 执行：
-
-```http
-GET /api/poster/wujin/89203
-```
-
-#### `resolveAndPlay`
-
-从帖子播放：
-
-```json
-{
-  "type": "resolveAndPlay",
-  "data": {
-    "provider_id": "wujin",
-    "remote_id": "89203"
-  }
-}
-```
-
-Flutter 先解析：
-
-```http
-GET /api/sources/parse?source_id=wujin:89203
-```
-
-从互动海报 `videoBar` 播放时，`action.data.play_url` 已经有当前线路首集 URL。Flutter 可以直接播放，也可以再调用完整资源详情接口获取所有剧集。
-
-### 7.3 样式
-
-后端当前输出三种 `style`：
-
-| style | 适用 |
-|---|---|
-| `neon` | 科幻、奇幻、动画 |
-| `contrast` | 动作、战争、犯罪、悬疑 |
-| `warm` | 默认、喜剧、文艺、治愈 |
-
-Flutter 可以根据 `style` 切换颜色、渐变、背景模糊、动效。不要让 Agent 输出任意 CSS 或 Flutter 代码。
-
-## 8. Agent REST 与 WebSocket
-
-### 8.1 REST 调用
-
-```http
-POST /api/agent/invoke
-Content-Type: application/json
-
-{
-  "thread_id": "user-001",
-  "message": "推荐两部功夫熊猫系列，最好能直接播放"
-}
-```
-
-返回：
-
-```json
-{
-  "thread_id": "user-001",
-  "answer": "已为你生成 2 个真实可播放的推荐帖子...",
-  "tool_calls": [
-    {
-      "name": "build_recommendation_feed",
-      "args": {
-        "query": "功夫熊猫",
-        "limit": 2
-      }
-    }
-  ],
-  "attachments": [
-    {
-      "type": "recommendation_feed",
-      "schema_version": "microdesign.v1",
-      "payload": {
-        "schema_version": "microdesign.v1",
-        "query": "功夫熊猫",
-        "posts": []
       }
     }
   ]
 }
 ```
 
-前端建议：
+### 6.9 播放资源
 
-- `answer` 用于聊天气泡文本。
-- `attachments` 用于渲染卡片或互动海报。
-- 不要从 `answer` 里解析电影字段。
-
-### 8.2 WebSocket 调用
-
-连接：
-
-```text
-ws://PC-IP:8000/ws/chat
-```
-
-发送：
-
-```json
-{
-  "thread_id": "user-001",
-  "message": "推荐两部轻松的动画电影"
-}
-```
-
-事件：
-
-| type | Flutter 行为 |
-|---|---|
-| `started` | 显示思考中 |
-| `tool_started` | 可选显示“正在检索资料/资源” |
-| `tool_finished` | 调试日志，正式 UI 可以忽略内容 |
-| `attachment` | 渲染 `data.payload` |
-| `delta` | 追加 Agent 文本 |
-| `done` | 关闭加载态 |
-| `error` | 显示错误与重试按钮 |
-
-真实验收过的事件顺序：
-
-```text
-started
--> tool_started
--> tool_finished
--> attachment
--> delta
--> done
-```
-
-`attachment` 示例：
-
-```json
-{
-  "type": "attachment",
-  "data": {
-    "type": "recommendation_feed",
-    "schema_version": "microdesign.v1",
-    "payload": {
-      "query": "功夫熊猫",
-      "posts": []
-    }
-  }
-}
-```
-
-## 9. 前端对接建议
-
-### 9.1 首页推荐列表
-
-推荐直接调用：
+列 Provider：
 
 ```http
-GET /api/feed/recommend?query=功夫熊猫&limit=10
+GET /api/resources/providers
+GET /api/resources/providers?probe=true
 ```
 
-渲染逻辑：
-
-1. 遍历 `posts`。
-2. 对每个 post 渲染 `blocks` 中的 `posterRow`。
-3. 点击卡片优先执行 `openPoster`。
-4. 点击播放按钮执行 `resolveAndPlay`。
-
-首页不建议每次都走 Agent。Agent 适合聊天和复杂意图，首页 Feed 用确定性 REST 更稳。
-
-### 9.2 互动海报详情
-
-从 `openPoster` 获取参数：
-
-```text
-catalog_provider_id = douban
-catalog_source_id = 1783457
-media_kind = movie
-```
-
-请求：
+搜索：
 
 ```http
-GET /api/poster/catalog/douban/1783457?media_kind=movie
+GET /api/resources/search?keyword=功夫熊猫
 ```
 
-渲染：
+详情：
 
-1. 按 `blocks` 顺序渲染。
-2. `banner` 做顶部视觉。
-3. `rating`、`tagRow`、`text` 做信息区。
-4. `videoBar` 做线路按钮。
-5. 点击 `videoBar.action` 播放。
-
-### 9.3 播放器
-
-快速播放：
-
-```text
-resolveAndPlay(provider_id, remote_id)
--> GET /api/sources/parse?source_id={provider_id}:{remote_id}
--> media_kit.open(play_url)
-```
-
-完整播放：
-
-```text
+```http
 GET /api/resources/{provider_id}/{remote_id}
--> 用户选择 line / episode
--> media_kit.open(episode.play_url)
 ```
 
-FastAPI 默认不代理视频流。这样 PC 后端只是控制面，手机直接拉资源站视频，延迟和带宽压力更低。
+兼容旧播放器接口：
 
-例外场景：
+```http
+GET /api/sources/search?movie_name=功夫熊猫
+GET /api/sources/parse?source_id=wujin:89203
+```
 
-| 场景 | 后续做法 |
+正式推荐播放器优先接：
+
+```http
+GET /api/play/resolve?provider_id=wujin&remote_id=89203
+```
+
+返回 `PlayDescriptor`：
+
+```json
+{
+  "type": "direct",
+  "play_url": "https://.../index.m3u8",
+  "headers": {},
+  "expires_at": null,
+  "fallback_web_url": null,
+  "provider_id": "wujin",
+  "remote_id": "89203",
+  "title": "功夫熊猫",
+  "line_name": "wjm3u8",
+  "episode_name": "HD中字"
+}
+```
+
+播放器建议：
+
+- MacCMS 直链：Flutter 直接把 `play_url` 交给播放器。
+- B站/网盘/Alist/本地：后续仍走同一个 `PlayDescriptor`，只是在后端 Provider 内部处理鉴权、刷新、Range、本地文件等细节。
+
+### 6.10 Catalog
+
+```http
+GET /api/catalog/providers
+GET /api/catalog/hot?media_kind=movie&limit=20
+GET /api/catalog/search?query=功夫熊猫&media_kind=movie&limit=20
+GET /api/catalog/{provider_id}/{source_id}?media_kind=movie
+```
+
+当前资料源：
+
+- 豆瓣：可用作中文资料、评分、封面来源。
+- TMDB：需要 `TMDB_READ_ACCESS_TOKEN`，可补充海报、背景图、简介、类型。
+
+### 6.11 资讯
+
+```http
+GET /api/news?limit=10&refresh=false
+GET /api/news/{news_id}
+```
+
+返回 `NewsFeed`：
+
+```json
+{
+  "schema_version": "microdesign.v1.1",
+  "items": [
+    {
+      "id": "news-douban-1783457",
+      "title": "功夫熊猫 正在热映推荐",
+      "summary": "结合评分、封面和可播放资源生成的影视资讯。",
+      "blocks": [
+        {
+          "type": "newsCard",
+          "data": {
+            "title": "功夫熊猫 正在热映推荐",
+            "source": "CineNest Agent",
+            "published_at": "1 小时前",
+            "summary": "结合评分、封面和可播放资源生成的影视资讯。",
+            "cover": "https://...",
+            "tags": ["动画", "2008"]
+          },
+          "action": {"type": "openPoster", "data": {"catalog_provider_id": "douban", "catalog_source_id": "1783457"}}
+        },
+        {
+          "type": "mediaGallery",
+          "data": {"title": "相关图片", "layout": "swiper", "urls": ["https://..."]}
+        }
+      ],
+      "actions": [
+        {"type": "openPoster", "data": {"catalog_provider_id": "douban", "catalog_source_id": "1783457"}}
+      ]
+    }
+  ]
+}
+```
+
+### 6.12 上传资产
+
+上传：
+
+```http
+POST /api/uploads
+Content-Type: multipart/form-data
+```
+
+字段：
+
+```text
+file=<图片或文件>
+```
+
+返回：
+
+```json
+{
+  "asset_id": "1859ce3182b141d788d1e7f190d4369c",
+  "filename": "poster.png",
+  "mime": "image/png",
+  "size": 12345,
+  "url": "/api/assets/1859ce3182b141d788d1e7f190d4369c",
+  "kind": "image"
+}
+```
+
+读取：
+
+```http
+GET /api/assets/{asset_id}
+```
+
+Agent 输入附件：
+
+```json
+{
+  "asset_id": "1859ce3182b141d788d1e7f190d4369c",
+  "type": "image",
+  "mime": "image/png",
+  "filename": "poster.png"
+}
+```
+
+## 7. MicroDesign 前端渲染规则
+
+### 7.1 Block
+
+| block | 典型用途 |
 |---|---|
-| B站会员、Cookie、签名短时 URL | 后端负责鉴权和刷新，返回播放描述 |
-| PC 本地文件 | 后端提供局域网 HTTP Range 流 |
-| 网盘文件 | 后端解析或 Alist 挂载后返回可播放 URL |
+| `posterRow` | 旧版紧凑帖子 |
+| `playableMovieCard` | 可播放电影卡，推荐列表和聊天都可用 |
+| `movieCarousel` | 多电影横向轮播 |
+| `reviewQuoteCard` | AI 总结的推荐理由/评价卡 |
+| `sourceTraceCard` | 展示命中的资源站数量、首选源 |
+| `newsCard` | 资讯列表卡 |
+| `mediaGallery` | 海报/剧照横向图组 |
+| `videoExplainCard` | 视频讲解入口 |
+| `banner` | 海报详情头图 |
+| `rating` | 评分 |
+| `tagRow` | 标签 |
+| `heading` | 标题 |
+| `text` | 文本段落 |
+| `videoBar` | 可点击播放条 |
+| `imageSwiper` | 图片轮播 |
 
-### 9.4 聊天页
+Flutter 渲染建议：
 
-聊天页使用 `WS /ws/chat`。
+- `playableMovieCard`：读 `cover/title/year/rating/rating_label/summary/genres/source_count/actions`。
+- `movieCarousel`：读 `title/items[]`，每项读 `cover/title/year/rating/action`。
+- `reviewQuoteCard`：适合聊天气泡里展示“为什么推荐”。
+- `sourceTraceCard`：读 `query/items[]`，每项 `key/label/count/status`，`status` 只用 `ok/empty`。
+- `newsCard`：读 `title/source/published_at/summary/cover/tags`，点击走信封级 `action`。
+- `mediaGallery`：读 `title/layout/urls`，`layout` 用 `swiper` 或 `grid`。
+- `videoExplainCard`：读 `title/cover/up/duration/play_count`，点击走信封级 `action`。
+- `videoBar`：点击走 `resolveAndPlay` 或直接用 `play_url`。
 
-Flutter UI 建议：
+### 7.2 Action
 
-- 用户消息立即显示。
-- `started` 后显示“正在思考”。
-- `tool_started` 后显示“正在检索资料/资源”。
-- `attachment` 到达后立即渲染推荐卡片，不必等最终 `delta` 文本。
-- `delta` 文本作为解释。
-- `error` 显示重试按钮。
+| action | Flutter 行为 |
+|---|---|
+| `openPoster` | 打开互动海报页，请求 `/api/poster/catalog/{provider}/{source_id}` |
+| `openResourcePoster` | 没有 Catalog ID 时，请求 `/api/poster/{provider_id}/{remote_id}` |
+| `resolveAndPlay` | 请求 `/api/play/resolve`，拿到 `PlayDescriptor` 后播放 |
 
-## 10. 后端给其他 AI 的扩展指南
+## 8. Agent Tool 清单
 
-### 10.1 新增标准 MacCMS 资源站
+| Tool | 输出附件 | 用途 |
+|---|---|---|
+| `get_backend_status` | 无 | 查看后端能力、Provider、Catalog、LLM 状态 |
+| `search_playable_resources` | 无 | 搜索真实播放资源 |
+| `get_playable_resource_detail` | 无 | 解析资源站条目线路和剧集 |
+| `build_microdesign_posts` | 无 | 旧版资源帖子生成 |
+| `browse_catalog_hot` | 无 | 查热门影视资料 |
+| `search_catalog_movies` | 无 | 查豆瓣/TMDB 影视资料 |
+| `build_recommendation_feed` | `recommendation_feed` | 生成可播放推荐帖子 |
+| `build_catalog_microdesign_poster` | `microdesign_poster` | 生成互动海报 |
+| `build_interactive_answer` | `interactive_cards` | 聊天用交互卡片集合 |
+| `collect_movie_news` | `news_feed` | 影视资讯卡片 |
+
+附件类型：
+
+```text
+recommendation_feed
+microdesign_poster
+interactive_cards
+news_feed
+```
+
+前端收到 `attachment` 时看 `data.type`，再把 `data.payload` 交给对应渲染器。
+
+## 9. 后续扩展规范
+
+### 9.1 新增 MacCMS 源
 
 只改：
 
@@ -833,115 +766,75 @@ cine_net_backend/services/resources/providers.yaml
 - id: demo
   name: 示例资源
   endpoint: https://example.com/api.php/provide/vod
+  kind: maccms
+  enabled: true
 ```
 
-不需要改 Agent，不需要改 Flutter。
+### 9.2 新增 B站/网盘/Alist/本地 Provider
 
-### 10.2 新增非 MacCMS 资源站
+新建 Provider，实现统一方法：
 
-例如 AGE、DM84、aafun、B站、网盘、本地电影。
+```text
+search(keyword, limit)
+detail(remote_id)
+health()
+```
 
-做法：
+返回统一模型：
 
-1. 在 `services/resources/` 新建 Provider。
-2. Provider 至少实现：
-   - `search(keyword, limit)`
-   - `detail(remote_id)`
-   - `health()`
-3. 返回统一模型：
-   - `ResourceCandidate`
-   - `MediaResourceDetail`
-   - `PlayLine`
-   - `Episode`
-4. 注册到 `ProviderRegistry`。
+```text
+ResourceCandidate
+MediaResourceDetail
+PlayLine
+Episode
+PlayDescriptor
+```
 
-Flutter 仍然消费 `/api/resources/*` 和 `microdesign.v1`。
+外部接口不变，Flutter 仍然接 `/api/resources/*` 和 `/api/play/resolve`。
 
-### 10.3 新增 Catalog 资料源
+### 9.3 新增资料源
 
-例如 Letterboxd、Bangumi、IMDb 官方数据等。
+在 `services/catalog/` 新增 Provider，返回统一 `CatalogMovie`，再在 `providers.yaml` 里注册。不要让 Flutter 直接连第三方资料 API。
 
-做法：
+### 9.4 新增 Agent Tool
 
-1. 在 `services/catalog/` 新建 Provider。
-2. 实现：
-   - `hot(media_kind, limit)`
-   - `search(query, media_kind, limit)`
-   - 可选 `detail(source_id, media_kind)`
-3. 返回统一 `CatalogMovie`。
-4. 在 `services/catalog/registry.py` 注册 `kind`。
-5. 在 `services/catalog/providers.yaml` 添加配置。
+步骤：
 
-不要让 Flutter 直接对接这些第三方 API。
-
-### 10.4 新增 Agent Tool
-
-做法：
-
-1. 在 `services/tools/` 新建文件。
-2. 使用 `@tool` 声明工具。
+1. 在 `services/tools/` 新建工具文件。
+2. 使用 `@tool` 声明。
 3. 返回 JSON 字符串，`ensure_ascii=False`。
-4. 在 `services/tools/registry.py` 加到 `get_agent_tools()`。
-5. 如果 Tool 输出要给 Flutter 渲染，在 `services/agent/factory.py` 的 `_ATTACHMENT_TYPES` 注册附件类型。
+4. 在 `services/tools/registry.py` 注册。
+5. 如果输出要给 Flutter 渲染，在 `services/agent/factory.py` 的 `_ATTACHMENT_TYPES` 加附件类型。
 
-### 10.5 新增图片生成
+### 9.5 图片生成
 
-推荐后续作为 Tool 接入：
+建议后续作为 Tool：
 
 ```text
 generate_poster_background(movie, style)
 -> 返回 image_url / asset_id
--> composer 写入 banner.data.image
+-> composer 写入 banner.data.image 或 mediaGallery
 ```
 
-不要让图片生成阻塞 Feed 首屏。可以先用豆瓣/TMDB 海报，图片生成完成后再刷新海报。
+不要阻塞首页首屏。可以先返回豆瓣/TMDB 海报，再异步生成 AI 图。
 
-### 10.6 新增 RAG
+### 9.6 文件 RAG
 
-推荐后续作为 Tool 接入：
+上传文件已经有 `asset_id` 和 SQLite 记录。后续做 RAG 时，把文件解析、切片、向量化挂到 `services/assets/` 或新 `services/rag/`，Agent 通过 Tool 调用，不要直接在聊天路由里塞复杂逻辑。
 
-```text
-search_movie_knowledge(query)
-```
+## 10. 验收测试
 
-Agent 可以用它增强推荐理由，但不要让 RAG 改写真实评分、播放地址、封面等字段。
-
-## 11. 模型故障与降级
-
-LLM 聚合站可能出现 `502 upstream_error`。当前处理：
-
-- `ChatOpenAI` 配置 `max_retries=settings.llm_max_retries`。
-- 持续失败时返回简短友好错误。
-- REST/WS 不再把长堆栈直接暴露给前端。
-- 普通 Feed、Catalog、Resource、Poster 接口不依赖 LLM。
-
-前端原则：
-
-```text
-首页和播放器走确定性 REST。
-聊天和复杂自然语言推荐走 Agent。
-Agent 挂了，不影响普通浏览和播放。
-```
-
-Agent 提示词也已约束：
-
-- 不得编造评分、简介、封面、资源站、播放 URL。
-- Tool 字段为空时必须说“暂无”。
-- 推荐理由可以生成，但事实字段必须来自 Tool。
-
-## 12. 验收测试
-
-PowerShell UTF-8：
+所有命令在 PowerShell 下执行：
 
 ```powershell
+$env:PYTHONIOENCODING='utf-8'
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
-$env:PYTHONIOENCODING = "utf-8"
 cd cine_net_backend
 ```
 
-离线测试：
+### 10.1 离线/确定性测试
 
 ```powershell
 python -m unittest discover -s tests -v
@@ -949,115 +842,143 @@ Get-ChildItem -Recurse -Filter *.py | ForEach-Object { python -m py_compile $_.F
 git diff --check
 ```
 
-资源真实联网：
+预期：
+
+- 单元测试全部 OK。
+- Python 编译无错误。
+- diff 无空白错误。
+
+### 10.2 P0~P4 综合 smoke
+
+```powershell
+python scripts\smoke_p0_p4.py
+```
+
+验证内容：
+
+- `GET /api/agent/models`
+- `GET /api/microdesign/schema`
+- `POST /api/uploads`
+- `GET /api/assets/{asset_id}`
+- `GET /api/news`
+- `GET /api/feed/recommend?query=功夫熊猫&refresh=true`
+- `GET /api/play/resolve`
+
+已实测通过结果：
+
+```text
+schema=microdesign.v1.1
+news blocks=["newsCard", "mediaGallery"]
+feed first title=功夫熊猫
+feed first blocks=["playableMovieCard"]
+actions=["openPoster", "resolveAndPlay"]
+play type=direct
+play_url=https://.../index.m3u8
+```
+
+### 10.3 资源真实联网
 
 ```powershell
 python scripts\smoke_resources.py
 ```
 
-Catalog + Feed + Poster：
+说明：验证 20 个启用 MacCMS 源并发搜索和播放列表解析。单源失败只进入 trace，不应拖垮整体。
+
+### 10.4 Catalog / Feed / Poster
 
 ```powershell
 python scripts\smoke_catalog.py
-```
-
-MicroDesign v1 主链，不依赖 LLM：
-
-```powershell
 python scripts\smoke_step3.py
 ```
 
-Agent 调度与附件，需要 `.env` 中配置模型：
+可指定影片：
+
+```powershell
+python scripts\smoke_step3.py "功夫熊猫"
+```
+
+### 10.5 Agent Tool Calling
+
+需要 `.env` 已配置 LLM：
 
 ```powershell
 python scripts\smoke_llm.py
+python scripts\smoke_agent_step2.py
 python scripts\smoke_agent_step3.py
 python scripts\smoke_ws_step3.py
 ```
 
-也可以指定影片：
+验收重点：
 
-```powershell
-python scripts\smoke_step3.py "流浪地球"
-python scripts\smoke_agent_step3.py "流浪地球"
-python scripts\smoke_ws_step3.py "流浪地球"
-```
+- Agent 产生 `tool_calls`。
+- REST 返回 `attachments`。
+- WS 收到 `attachment` 事件。
+- 附件 `schema_version` 为 `microdesign.v1.1`。
 
-已经实测通过的《功夫熊猫》链路：
+## 11. 给 Flutter 的最短接入路线
 
-- Feed 返回 3 张帖子。
-- 首张《功夫熊猫》评分 8.3。
-- 首张命中 3 个可用资源站。
-- `openPoster` 和 `resolveAndPlay` Action 存在。
-- 互动海报风格 `warm`。
-- `videoBar.action.data.play_url` 为真实 HTTP(S) `m3u8`。
-- WebSocket 事件顺序为：
+首页推荐：
 
 ```text
-started
--> tool_started
--> tool_finished
--> attachment
--> delta
--> done
+GET /api/feed/recommend?query=功夫熊猫&limit=10
+-> 渲染 posts[].blocks
+-> 点击 openPoster / resolveAndPlay
 ```
 
-## 13. 已知边界和后置能力
+聊天页：
 
-当前已经能支撑 Flutter 动态推荐和播放联调。
+```text
+WS /ws/chat
+-> 发送 {thread_id, model, message, attachments}
+-> delta 渲染文本
+-> attachment 渲染卡片
+```
 
-明确后置：
+海报详情：
 
-- B站公开视频搜索。
+```text
+openPoster
+-> GET /api/poster/catalog/{catalog_provider_id}/{catalog_source_id}
+-> 渲染 PosterSpec.blocks
+```
+
+播放器：
+
+```text
+resolveAndPlay
+-> GET /api/play/resolve?provider_id=...&remote_id=...
+-> media_kit / Flutter 播放器打开 play_url
+```
+
+上传图片：
+
+```text
+POST /api/uploads
+-> 拿 asset_id
+-> 发送给 /ws/chat 或 /api/agent/invoke 的 attachments
+```
+
+## 12. 已知边界
+
+当前已经能支撑：
+
+- 多源真实播放推荐。
+- 豆瓣/TMDB 资料聚合。
+- 聊天推荐卡片。
+- 动态帖子和互动海报 JSON。
+- 资讯卡片雏形。
+- 图片多模态输入。
+- 文件上传和后续 RAG 预留。
+- 播放解析统一入口。
+
+后置能力：
+
 - B站登录态、会员资源、弹幕。
-- AGE、DM84、aafun 等垂直资源站。
-- 百度网盘、Alist 挂载。
-- PC 本地电影解析与 HTTP Range 流式播放。
+- 百度网盘解析。
+- Alist 挂载。
+- PC 本地 HTTP Range 流播放。
+- 真实影视资讯源采集。
 - AI 图片生成背景图。
-- 用户偏好和历史 SQLite 持久化。
-- F12 影视资讯采集。
+- 用户长期偏好和跨设备同步。
 
-这些能力后续都应作为 Provider 或 Tool 扩展，不推翻当前 `microdesign.v1` 协议。
-
-## 14. 给接手者的最短路径
-
-如果你是 Flutter 开发：
-
-1. 调 `/api/health` 检查连接。
-2. 调 `/api/feed/recommend?query=功夫熊猫` 做首页列表。
-3. 实现 `posterRow`、`banner`、`rating`、`tagRow`、`heading`、`text`、`videoBar`。
-4. 实现 `openPoster` 和 `resolveAndPlay`。
-5. 聊天页接 `/ws/chat`，收到 `attachment` 就复用帖子卡片。
-
-如果你是后端/AI 开发：
-
-1. 不要绕过 `services/resources/` 和 `services/catalog/` 的统一模型。
-2. 新资源做 Provider，新 Agent 能力做 Tool。
-3. 事实字段必须来自 Tool。
-4. 可视化输出必须走 `microdesign.v1` blocks/actions。
-5. 扩展前先跑 `python scripts\smoke_step3.py`，扩展后再跑一遍。
-
-## 15. 关键文件索引
-
-| 文件 | 说明 |
-|---|---|
-| `cine_net_backend/config.py` | 环境变量、超时、缓存、Provider 配置路径 |
-| `cine_net_backend/main.py` | FastAPI 入口和 router 挂载 |
-| `cine_net_backend/routers/resources.py` | 完整播放资源 API |
-| `cine_net_backend/routers/sources.py` | Flutter 兼容播放源 API |
-| `cine_net_backend/routers/catalog.py` | 豆瓣 / TMDB 资料 API |
-| `cine_net_backend/routers/feed.py` | 推荐 Feed API |
-| `cine_net_backend/routers/poster.py` | MicroDesign 互动海报 API |
-| `cine_net_backend/routers/agent.py` | Agent REST |
-| `cine_net_backend/routers/chat.py` | Agent WebSocket |
-| `cine_net_backend/services/resources/aggregator.py` | 多资源站并发聚合 |
-| `cine_net_backend/services/resources/provider.py` | MacCMS Provider |
-| `cine_net_backend/services/resources/playlist.py` | 播放列表解析 |
-| `cine_net_backend/services/catalog/service.py` | Catalog 聚合与合并缓存 |
-| `cine_net_backend/services/catalog/douban.py` | 豆瓣 Provider |
-| `cine_net_backend/services/catalog/tmdb.py` | TMDB Provider |
-| `cine_net_backend/services/recommendation/service.py` | Catalog + Resource 联合推荐 |
-| `cine_net_backend/services/microdesign/models.py` | MicroDesign v1 模型 |
-| `cine_net_backend/services/microdesign/composer.py` | blocks/actions 组合器 |
-| `cine_net_backend/services/agent/factory.py` | LangChain Agent、附件、错误降级 |
-| `cine_net_backend/services/tools/registry.py` | Agent Tool 注册中心 |
+这些后置能力应该作为 Provider 或 Tool 扩展，不推翻 `microdesign.v1.1` 和现有 REST/WS 契约。

@@ -11,7 +11,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import agent, catalog, chat, feed, health, poster, resources, sources
+from routers import agent, catalog, chat, feed, health, microdesign, news, play, poster, resources, sources, uploads
+from db import init_db
 from services.resources import get_resource_aggregator
 
 
@@ -19,11 +20,12 @@ from services.resources import get_resource_aggregator
 async def lifespan(_: FastAPI):
     """启动时加载 Provider 注册表；LLM 保持懒加载，未填 Key 也能检索资源。"""
 
+    init_db()
     get_resource_aggregator()
     yield
 
 
-app = FastAPI(title="CineNest Backend", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="CineNest Backend", version="1.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,11 +38,15 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(resources.router)
 app.include_router(catalog.router)
+app.include_router(microdesign.router)
 app.include_router(agent.router)
 app.include_router(feed.router)
 app.include_router(sources.router)
 app.include_router(poster.router)
+app.include_router(news.router)
+app.include_router(play.router)
 app.include_router(chat.router)
+app.include_router(uploads.router)
 
 
 if __name__ == "__main__":

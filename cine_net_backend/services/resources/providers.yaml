@@ -59,3 +59,21 @@ providers:
   - id: xiaomaomi
     name: 小猫咪资源
     endpoint: https://zy.xmm.hk/api.php/provide/vod
+
+  # 以下 Provider 为后续扩展骨架，默认禁用，不参与当前 20 源并发搜索。
+  - id: bilibili
+    name: B站视频
+    kind: bilibili
+    enabled: false
+  - id: baidu_netdisk
+    name: 百度网盘
+    kind: netdisk
+    enabled: false
+  - id: alist
+    name: Alist挂载
+    kind: alist
+    enabled: false
+  - id: pc_local
+    name: PC本地电影
+    kind: local
+    enabled: false

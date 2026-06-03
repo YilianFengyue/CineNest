@@ -9,7 +9,7 @@ from services.agent.factory import AgentServiceUnavailableError, _attachment_fro
 class AgentAttachmentTests(TestCase):
     def test_recommendation_tool_message_becomes_flutter_attachment(self) -> None:
         message = ToolMessage(
-            content=json.dumps({"schema_version": "microdesign.v1", "query": "功夫熊猫", "posts": []}),
+            content=json.dumps({"schema_version": "microdesign.v1.1", "query": "功夫熊猫", "posts": []}),
             name="build_recommendation_feed",
             tool_call_id="call-1",
         )
@@ -20,8 +20,33 @@ class AgentAttachmentTests(TestCase):
         self.assertEqual("recommendation_feed", attachment.type)
         self.assertEqual("功夫熊猫", attachment.payload["query"])
 
+    def test_interactive_tool_message_becomes_flutter_attachment(self) -> None:
+        message = ToolMessage(
+            content=json.dumps({"schema_version": "microdesign.v1.1", "cards": [], "actions": []}),
+            name="build_interactive_answer",
+            tool_call_id="call-2",
+        )
+
+        attachment = _attachment_from_tool_message(message)
+
+        self.assertIsNotNone(attachment)
+        self.assertEqual("interactive_cards", attachment.type)
+        self.assertEqual("microdesign.v1.1", attachment.schema_version)
+
+    def test_news_tool_message_becomes_flutter_attachment(self) -> None:
+        message = ToolMessage(
+            content=json.dumps({"schema_version": "microdesign.v1.1", "items": []}),
+            name="collect_movie_news",
+            tool_call_id="call-3",
+        )
+
+        attachment = _attachment_from_tool_message(message)
+
+        self.assertIsNotNone(attachment)
+        self.assertEqual("news_feed", attachment.type)
+
     def test_non_visual_tool_does_not_become_attachment(self) -> None:
-        message = ToolMessage(content="{}", name="get_backend_status", tool_call_id="call-2")
+        message = ToolMessage(content="{}", name="get_backend_status", tool_call_id="call-4")
 
         self.assertIsNone(_attachment_from_tool_message(message))
 

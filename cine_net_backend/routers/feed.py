@@ -27,10 +27,11 @@ async def recommend_feed(
     query: str = Query("", max_length=100),
     media_kind: str = Query("movie", pattern="^(movie|tv)$"),
     limit: int = Query(5, ge=1, le=10),
+    refresh: bool = False,
 ) -> RecommendationFeed:
     """先查豆瓣/TMDB 资料，再确认播放资源，输出完整推荐帖子。"""
 
-    return await get_recommendation_service().recommend(query=query, media_kind=media_kind, limit=limit)
+    return await get_recommendation_service().recommend(query=query, media_kind=media_kind, limit=limit, refresh=refresh)
 
 
 @router.post("/preferences")

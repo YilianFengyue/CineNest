@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
+import 'package:cine_nest/pages/creative/preview/card_gallery_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide ChatController;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -82,7 +83,7 @@ class ChatPage extends StatelessWidget {
     }
     final showAvatar = groupStatus == null || groupStatus.isLast;
     final avatar = showAvatar
-        ? Avatar(userId: message.authorId, size: 30)
+        ? _ChatAvatar(isBot: message.authorId == ChatUsers.bot)
         : const SizedBox(width: 30);
     return ChatMessage(
       message: message,
@@ -243,6 +244,53 @@ Future<void> _showHistory(BuildContext context) async {
   );
 }
 
+/// 对话头像 —— 优先加载网络头像，拉不到（如 pinimg 被墙）则画渐变圆 + 图标兜底。
+///
+/// 不用 flyer 的 Avatar：它失败时只回退文字首字母，观感差；这里给一个体面的兜底。
+class _ChatAvatar extends StatelessWidget {
+  const _ChatAvatar({required this.isBot});
+
+  final bool isBot;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final url = isBot ? _kBotAvatar : _kUserAvatar;
+    final fallback = _fallback(cs);
+    return ClipOval(
+      child: SizedBox(
+        width: 30,
+        height: 30,
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (_, _) => fallback,
+          errorWidget: (_, _, _) => fallback,
+        ),
+      ),
+    );
+  }
+
+  Widget _fallback(ColorScheme cs) {
+    if (isBot) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [cs.primary, cs.tertiary],
+          ),
+        ),
+        child: Icon(Icons.auto_awesome, size: 16, color: cs.onPrimary),
+      );
+    }
+    return ColoredBox(
+      color: cs.surfaceContainerHighest,
+      child: Icon(Icons.person, size: 18, color: cs.onSurfaceVariant),
+    );
+  }
+}
+
 /// 图片气泡 —— 本地选择的图（file 路径）与网络图都能渲染。
 ///
 /// 自写而非依赖 flyer_chat_image_message：本地相册/拍照得到的是文件路径，
@@ -382,6 +430,13 @@ class _EmptyState extends StatelessWidget {
                 for (final p in _prompts)
                   ActionChip(label: Text(p), onPressed: () => onPrompt(p)),
               ],
+            ),
+            const SizedBox(height: 24),
+            // 一键预览全部交互卡片（mock，不依赖后端）。
+            FilledButton.tonalIcon(
+              onPressed: () => Get.to(() => const CardGalleryPage()),
+              icon: const Icon(Icons.dashboard_customize_outlined),
+              label: const Text('预览交互卡片（7 张 · mock）'),
             ),
           ],
         ),

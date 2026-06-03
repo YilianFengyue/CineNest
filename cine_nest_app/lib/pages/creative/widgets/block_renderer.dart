@@ -1,5 +1,6 @@
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/widgets/blocks.dart';
+import 'package:cine_nest/pages/creative/widgets/cards.dart';
 import 'package:flutter/material.dart';
 
 /// 区块分发器 —— 「微组件拼贴系统」的中枢。
@@ -71,6 +72,21 @@ class BlockRenderer extends StatelessWidget {
         return PosterRowBlock(block, onTap: _tapFor(block));
       case ContentBlockType.rating:
         return RatingBlock(block);
+      // ── v1.1 富交互卡 ──
+      case ContentBlockType.playableMovieCard:
+        return PlayableMovieCard(block, onAction: onAction);
+      case ContentBlockType.movieCarousel:
+        return MovieCarouselCard(block, onAction: onAction);
+      case ContentBlockType.reviewQuoteCard:
+        return ReviewQuoteCard(block);
+      case ContentBlockType.sourceTraceCard:
+        return SourceTraceCard(block);
+      case ContentBlockType.newsCard:
+        return NewsCardBlock(block, onAction: onAction);
+      case ContentBlockType.mediaGallery:
+        return MediaGalleryCard(block);
+      case ContentBlockType.videoExplainCard:
+        return VideoExplainCard(block, onAction: onAction);
       case ContentBlockType.unknown:
         return null; // 前向兼容：后端新增 type 时静默跳过，不崩
     }

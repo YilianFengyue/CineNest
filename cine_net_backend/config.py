@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = ""
+    llm_model_fast: str = ""
+    llm_model_deep: str = ""
     llm_temperature: float = 0.2
     llm_timeout_seconds: float = 90.0
     llm_max_retries: int = 2
@@ -35,6 +37,15 @@ class Settings(BaseSettings):
     catalog_request_timeout_seconds: float = 10.0
     catalog_cache_ttl_seconds: int = 1800
     recommendation_cache_ttl_seconds: int = 300
+
+    # SQLite 持久化。后续可替换 PostgreSQL，不影响 API 契约。
+    database_path: Path = BASE_DIR / "db" / "cinenest.db"
+    agent_checkpoint_db_path: Path = BASE_DIR / "db" / "agent_checkpoints.sqlite"
+
+    # 上传资产。图片可进入多模态模型；文件先持久化并预留 RAG。
+    asset_dir: Path = BASE_DIR / "uploads"
+    asset_max_bytes: int = 20 * 1024 * 1024
+    asset_public_base_url: str = ""
 
     # 服务
     host: str = "0.0.0.0"

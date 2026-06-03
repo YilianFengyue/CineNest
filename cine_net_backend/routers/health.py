@@ -18,7 +18,7 @@ async def health() -> dict:
     return {
         "status": "ok",
         "service": "CineNest Backend",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "llm_configured": is_llm_configured(),
         "provider_count": len(aggregator.registry.list_all()),
         "enabled_provider_count": len(aggregator.registry.list_enabled()),
