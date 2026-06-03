@@ -1,6 +1,8 @@
 import 'package:cine_nest/pages/creative/models/news_item.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 /// 单条资讯卡（F12）。
 ///
@@ -21,7 +23,8 @@ class NewsCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {}, // TODO: 资讯详情页（后续）
+        // 点资讯 → 进该作品完整互动海报（mock；后端就绪后按 item.id 传 catalog 参数）。
+        onTap: () => Get.toNamed(Routes.creativePoster),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

@@ -13,6 +13,10 @@ abstract final class Routes {
   static const String player = '/player';
   static const String webviewPlayer = '/webview-player';
 
+  // 成员 C
+  /// F8 互动海报详情页。arguments: `{catalog_provider_id, catalog_source_id, media_kind}`（真）或空（mock）。
+  static const String creativePoster = '/creative-poster';
+
   // settings
   static const String settings = '/settings';
 }

@@ -56,6 +56,9 @@ dependencies:
   # 文件 / 图片选择（对话附件上传，预留）
   file_picker: ^8.1.4
   image_picker: ^1.1.2
+  # 海报导出长图分享（F8）
+  screenshot: ^3.0.0
+  share_plus: ^10.1.4
 
   # 日志
   logger: ^2.4.0

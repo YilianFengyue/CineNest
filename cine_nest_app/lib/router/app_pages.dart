@@ -1,3 +1,4 @@
+import 'package:cine_nest/pages/creative/poster/poster_page.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:get/get.dart';
 
@@ -20,7 +21,8 @@ abstract final class AppPages {
     // ── 成员 A（player）：/player, /webview-player ──
     // GetPage(name: Routes.player, page: () => const PlayerPage()),
 
-    // ── 成员 C（creative）：内嵌于 Tab，无独立路由或按需追加 ──
+    // ── 成员 C（creative）：F8 互动海报详情页 ──
+    GetPage(name: Routes.creativePoster, page: () => const PosterPage()),
 
     // ── settings：A 负责连接、B 负责偏好 ──
     // GetPage(name: Routes.settings, page: () => const SettingsPage()),

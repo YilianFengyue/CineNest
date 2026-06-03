@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/preview/card_gallery_page.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide ChatController;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -139,10 +140,7 @@ void handleChatAction(BuildContext context, MicroAction action) {
   switch (action.type) {
     case 'openPoster':
     case 'openResourcePoster':
-      // TODO(C): 接 F8 海报详情页，参数见 action.data。
-      messenger.showSnackBar(
-        const SnackBar(content: Text('互动海报详情页开发中（F8 下一步）')),
-      );
+      Get.toNamed(Routes.creativePoster, arguments: action.data);
       break;
     case 'resolveAndPlay':
       // TODO(C↔A): 跳 A 的播放器 /player，或先 GET /api/sources/parse 拿 play_url。
