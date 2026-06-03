@@ -45,7 +45,7 @@ abstract final class Pref {
       _setting.put(SettingBoxKey.themeMode, value.index);
 
   static bool get dynamicColor =>
-      _setting.get(SettingBoxKey.dynamicColor, defaultValue: false);
+      _setting.get(SettingBoxKey.dynamicColor, defaultValue: true);
   static Future<void> setDynamicColor(bool value) =>
       _setting.put(SettingBoxKey.dynamicColor, value);
 
@@ -58,4 +58,11 @@ abstract final class Pref {
 
   static double get uiScale =>
       _setting.get(SettingBoxKey.uiScale, defaultValue: 1.0);
+
+  // ───────────────────────── 对话（成员 C · F9）─────────────────────────
+  /// 当前选中的对话模型 id（前端展示用，后端待接 model 字段）。
+  static String get chatModelId =>
+      _setting.get(SettingBoxKey.chatModel, defaultValue: 'default');
+  static Future<void> setChatModelId(String value) =>
+      _setting.put(SettingBoxKey.chatModel, value);
 }

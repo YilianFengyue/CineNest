@@ -8,6 +8,93 @@ import 'package:flutter/material.dart';
 /// 零阴影、tonal 表面（xxxContainer）、紧凑间距、字号克制、次要文字用 outline。
 /// 全程走 `Theme.of(context).colorScheme`，不写死颜色，配合 app 的动态取色。
 
+/// 互动海报顶部大图 —— 背景图 + 底部渐变 + 标题/副标题叠字。
+///
+/// F8 海报头部用它通栏铺满；零阴影、圆角、文字叠在渐变蒙层上保证可读。
+/// `style`（neon/contrast/warm）后续可驱动渐变配色，这里先用主色调渐变。
+class BannerBlock extends StatelessWidget {
+  const BannerBlock(this.block, {super.key});
+  final ContentBlock block;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final image = block.str('image');
+    final title = block.str('title');
+    final subtitle = block.str('subtitle');
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: AspectRatio(
+        aspectRatio: 16 / 10,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (image.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: image,
+                fit: BoxFit.cover,
+                placeholder: (_, _) =>
+                    Container(color: cs.surfaceContainerHighest),
+                errorWidget: (_, _, _) => Container(
+                  color: cs.surfaceContainerHighest,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.movie_outlined, color: cs.outline, size: 32),
+                ),
+              )
+            else
+              Container(color: cs.surfaceContainerHighest),
+            // 底部到顶部的渐变蒙层，保证叠字可读。
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black87, Colors.transparent],
+                  stops: [0.0, 0.62],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 小标题。
 class HeadingBlock extends StatelessWidget {
   const HeadingBlock(this.block, {super.key});
@@ -136,6 +223,13 @@ class VideoBarBlock extends StatelessWidget {
     final cs = theme.colorScheme;
     final duration = block.str('duration');
     final playCount = block.str('play_count');
+    final episodeCount = block.integer('episode_count');
+    // 页脚副信息：资讯条用播放量，海报线路用集数。
+    final (IconData?, String) footer = playCount.isNotEmpty
+        ? (Icons.play_circle_outline, playCount)
+        : episodeCount > 1
+        ? (Icons.video_library_outlined, '共 $episodeCount 集')
+        : (null, '');
     return Material(
       color: cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(12),
@@ -221,18 +315,14 @@ class VideoBarBlock extends StatelessWidget {
                         height: 1.3,
                       ),
                     ),
-                    if (playCount.isNotEmpty) ...[
+                    if (footer.$2.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(
-                            Icons.play_circle_outline,
-                            size: 13,
-                            color: cs.outline,
-                          ),
+                          Icon(footer.$1, size: 13, color: cs.outline),
                           const SizedBox(width: 3),
                           Text(
-                            playCount,
+                            footer.$2,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1,

@@ -1,20 +1,23 @@
 /// 内容区块（Micro Design 微组件拼贴系统的数据原子）。
 ///
-/// 后端（成员 C 的 `/api/news`、`/api/poster`）返回 `blocks: [{type, data}, ...]`，
-/// 前端 `BlockRenderer` 按 [type] 分发到对应微组件并纵向拼贴。
+/// 后端（`/api/feed/recommend`、`/api/poster/catalog/...`、Agent attachment）统一返回
+/// `blocks: [{type, data, action?}, ...]`，前端 `BlockRenderer` 按 [type] 分发到对应微组件
+/// 并纵向拼贴。协议版本 `microdesign.v1`。
 ///
-/// 这套结构三处复用，互不重复造轮子：
+/// 这套结构四处复用，互不重复造轮子：
 ///   · F12 资讯流  —— 每条资讯 = 一串 blocks
-///   · F8 互动海报 —— 一部电影 = banner + 解说 + 影评 + 图组 等 blocks
-///   · F9 对话推荐 —— 聊天气泡内嵌 blocks 推荐卡
+///   · F8 互动海报 —— 一部电影 = banner + 评分 + 标签 + 简介 + 线路 等 blocks
+///   · F9 对话推荐 —— 聊天气泡内嵌 blocks 推荐卡 / 海报预览
+///   · B 首页 feed —— posterRow 帖子卡
 ///
 /// 分发渲染模式参考 PiliPlus 动态流的 `pages/dynamics/widgets/content_panel.dart`。
 enum ContentBlockType {
+  banner, // 互动海报顶部大图（背景图 + 标题/副标题叠字）
   heading, // 小标题
   text, // 正文段落
   tagRow, // 标签行（类型 / 关键词）
-  imageSwiper, // 横向图片滑窗
-  videoBar, // 视频条（封面 + 标题 + 播放量，可挂播放）
+  imageSwiper, // 横向图片滑窗（剧照 / AI 生图）
+  videoBar, // 视频条 / 可播放线路（封面 + 标题 + 时长·播放量·集数，可挂播放）
   posterRow, // 海报条（左竖海报 + 右评分/简介/标签，影视条目卡）
   rating, // 评分
   unknown; // 未知 —— 前向兼容后端新增类型，渲染时静默跳过
@@ -23,7 +26,34 @@ enum ContentBlockType {
       values.firstWhere((e) => e.name == name, orElse: () => unknown);
 }
 
-/// 单个内容区块：一个 [type] + 一袋自由 [data]。
+/// 区块附带的白名单动作（对应后端 `MicroDesignAction`）。
+///
+/// 后端约定：Flutter 只处理白名单 [type]，不解析自然语言。当前三种：
+///   · `openPoster`         —— 打开 Catalog 互动海报（data: catalog_provider_id / catalog_source_id / media_kind）
+///   · `openResourcePoster` —— 打开资源站海报（data: provider_id / remote_id）
+///   · `resolveAndPlay`     —— 解析并播放（data: provider_id / remote_id / line_name? / episode_name? / play_url?）
+class MicroAction {
+  final String type;
+  final String label;
+  final Map<String, dynamic> data;
+
+  const MicroAction({required this.type, this.label = '', this.data = const {}});
+
+  factory MicroAction.fromJson(Map<String, dynamic> json) => MicroAction(
+    type: json['type'] as String? ?? '',
+    label: json['label'] as String? ?? '',
+    data: (json['data'] as Map?)?.cast<String, dynamic>() ?? const {},
+  );
+
+  Map<String, dynamic> toJson() => {'type': type, 'label': label, 'data': data};
+
+  String str(String key, [String fallback = '']) =>
+      data[key] as String? ?? fallback;
+
+  bool get isEmpty => type.isEmpty;
+}
+
+/// 单个内容区块：一个 [type] + 一袋自由 [data] + 可选 [action]。
 ///
 /// data 不固定 schema，由各微组件自行解析自己关心的字段，
 /// 这样后端给区块加字段时前端无需改模型。
@@ -31,16 +61,49 @@ class ContentBlock {
   final ContentBlockType type;
   final Map<String, dynamic> data;
 
-  const ContentBlock(this.type, [this.data = const {}]);
+  /// 点击该区块要执行的动作（videoBar 常带，其余多为 null）。
+  final MicroAction? action;
+
+  const ContentBlock(this.type, [this.data = const {}, this.action]);
 
   factory ContentBlock.fromJson(Map<String, dynamic> json) => ContentBlock(
     ContentBlockType.parse(json['type'] as String?),
     (json['data'] as Map?)?.cast<String, dynamic>() ?? const {},
+    json['action'] is Map
+        ? MicroAction.fromJson((json['action'] as Map).cast<String, dynamic>())
+        : null,
   );
 
-  Map<String, dynamic> toJson() => {'type': type.name, 'data': data};
+  /// 从后端 blocks 数组批量解析。
+  static List<ContentBlock> listFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => ContentBlock.fromJson(e.cast<String, dynamic>()))
+        .toList();
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': type.name,
+    'data': data,
+    if (action != null) 'action': action!.toJson(),
+  };
 
   // ── 便捷构造（本地拼装 / 假数据用）──
+  factory ContentBlock.banner({
+    required String image,
+    required String title,
+    String? subtitle,
+    String? poster,
+    String? style,
+  }) => ContentBlock(ContentBlockType.banner, {
+    'image': image,
+    'title': title,
+    if (subtitle != null) 'subtitle': subtitle,
+    if (poster != null) 'poster': poster,
+    if (style != null) 'style': style,
+  });
+
   factory ContentBlock.heading(String text) =>
       ContentBlock(ContentBlockType.heading, {'text': text});
 
@@ -58,11 +121,15 @@ class ContentBlock {
     required String cover,
     String? playCount,
     String? duration,
+    String? playUrl,
+    int? episodeCount,
   }) => ContentBlock(ContentBlockType.videoBar, {
     'title': title,
     'cover': cover,
     if (playCount != null) 'play_count': playCount,
     if (duration != null) 'duration': duration,
+    if (playUrl != null) 'play_url': playUrl,
+    if (episodeCount != null) 'episode_count': episodeCount,
   });
 
   factory ContentBlock.posterRow({
@@ -92,4 +159,7 @@ class ContentBlock {
 
   double number(String key, [double fallback = 0]) =>
       (data[key] as num?)?.toDouble() ?? fallback;
+
+  int integer(String key, [int fallback = 0]) =>
+      (data[key] as num?)?.toInt() ?? fallback;
 }

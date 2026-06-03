@@ -1,3 +1,4 @@
+import 'package:cine_nest/pages/creative/chat/chat_page.dart';
 import 'package:cine_nest/pages/creative/news/news_page.dart';
 import 'package:flutter/material.dart';
 
@@ -27,7 +28,11 @@ class _MainAppState extends State<MainApp> {
   Widget build(BuildContext context) {
     final tab = _tabs[_index];
     return Scaffold(
-      appBar: AppBar(title: Text('CineNest · ${tab.label}')),
+      appBar: AppBar(
+        title: Text('CineNest · ${tab.label}'),
+        // 对话 Tab（成员 C · F9）注入新对话 / 历史 / 推荐操作。
+        actions: _index == 1 ? chatAppBarActions(context) : null,
+      ),
       body: _bodyFor(_index, tab),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -44,9 +49,11 @@ class _MainAppState extends State<MainApp> {
     );
   }
 
-  /// 资讯 Tab（成员 C · F12）已接真实页面，其余 Tab 暂留占位待各 Owner 填充。
+  /// 对话(F9) 与资讯(F12) Tab（成员 C）已接真实页面，其余 Tab 暂留占位待各 Owner 填充。
   Widget _bodyFor(int index, _TabDef tab) {
     switch (index) {
+      case 1:
+        return const ChatPage();
       case 2:
         return const NewsPage();
       default:

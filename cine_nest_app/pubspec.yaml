@@ -45,6 +45,18 @@ dependencies:
   # 通用弹窗 / Toast / Loading
   flutter_smart_dialog: ^4.9.8
 
+  # AI 对话 UI（成员 C · F9）—— Flyer Chat v2 全家桶
+  flutter_chat_ui: ^2.11.1
+  flutter_chat_core: ^2.9.0
+  flyer_chat_text_message: ^2.6.0
+  # WebSocket（接后端 /ws/chat 流式 Agent）
+  web_socket_channel: ^3.0.1
+  # flutter_chat_ui 内部状态注入用（读 ComposerHeightNotifier）
+  provider: ^6.1.5
+  # 文件 / 图片选择（对话附件上传，预留）
+  file_picker: ^8.1.4
+  image_picker: ^1.1.2
+
   # 日志
   logger: ^2.4.0
 

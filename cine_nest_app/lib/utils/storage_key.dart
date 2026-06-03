@@ -16,6 +16,10 @@ abstract final class SettingBoxKey {
   static const String dynamicColor = 'dynamicColor';
   static const String seedColor = 'seedColor';
   static const String uiScale = 'uiScale';
+
+  // ── 对话（成员 C · F9）──
+  /// 当前选中的对话模型 id（前端展示用，后端待接 model 字段）。
+  static const String chatModel = 'chatModel';
 }
 
 /// 本地缓存键（非用户设置，运行期数据）。

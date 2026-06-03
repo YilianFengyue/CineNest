@@ -14,13 +14,18 @@ class BlockRenderer extends StatelessWidget {
     required this.blocks,
     this.spacing = 10,
     this.onVideoTap,
+    this.onAction,
   });
 
   final List<ContentBlock> blocks;
   final double spacing;
 
-  /// 视频条点击回调（后续接成员 A 的播放器路由）。
+  /// 视频条点击回调（无 [onAction] 时的简化入口；后续接成员 A 的播放器）。
   final void Function(ContentBlock block)? onVideoTap;
+
+  /// 区块动作回调 —— 收到 block 自带的 [MicroAction]（openPoster / resolveAndPlay 等）。
+  /// 优先级高于 [onVideoTap]：海报页 / 对话卡用它把点击派发给统一的 action 分发器。
+  final void Function(MicroAction action)? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +43,20 @@ class BlockRenderer extends StatelessWidget {
     );
   }
 
+  /// 把一个块的点击统一收敛：优先派发它自带的 action，否则回退到 onVideoTap。
+  VoidCallback? _tapFor(ContentBlock block) {
+    final action = block.action;
+    if (action != null && !action.isEmpty && onAction != null) {
+      return () => onAction!(action);
+    }
+    if (onVideoTap != null) return () => onVideoTap!(block);
+    return null;
+  }
+
   Widget? _render(ContentBlock block) {
     switch (block.type) {
+      case ContentBlockType.banner:
+        return BannerBlock(block);
       case ContentBlockType.heading:
         return HeadingBlock(block);
       case ContentBlockType.text:
@@ -49,15 +66,9 @@ class BlockRenderer extends StatelessWidget {
       case ContentBlockType.imageSwiper:
         return ImageSwiperBlock(block);
       case ContentBlockType.videoBar:
-        return VideoBarBlock(
-          block,
-          onTap: onVideoTap == null ? null : () => onVideoTap!(block),
-        );
+        return VideoBarBlock(block, onTap: _tapFor(block));
       case ContentBlockType.posterRow:
-        return PosterRowBlock(
-          block,
-          onTap: onVideoTap == null ? null : () => onVideoTap!(block),
-        );
+        return PosterRowBlock(block, onTap: _tapFor(block));
       case ContentBlockType.rating:
         return RatingBlock(block);
       case ContentBlockType.unknown:
