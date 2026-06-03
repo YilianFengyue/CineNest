@@ -1,3 +1,3 @@
-from .database import get_conn, init_db
+from .database import init_db
 
-__all__ = ["get_conn", "init_db"]
+__all__ = ["init_db"]

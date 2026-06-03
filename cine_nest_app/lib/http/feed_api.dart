@@ -9,7 +9,11 @@ class FeedApi {
   static Future<List<Post>> getAiRecommendations({int page = 1}) async {
     final feedResponse = await Request().get(
       ApiConstants.feed,
-      queryParameters: {'page': page},
+      queryParameters: {
+        'page': page,
+        'refresh': true,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      },
     );
     final feedPosts = _parsePosts(feedResponse.data);
     if (feedResponse.statusCode == 200 && feedPosts.isNotEmpty) {

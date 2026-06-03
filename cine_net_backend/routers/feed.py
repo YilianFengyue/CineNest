@@ -157,6 +157,34 @@ def _fallback_movie(movie_id: int) -> Movie:
     return FALLBACK_MOVIES[0].model_copy(update={"id": movie_id})
 
 
+TMDB_GENRE_IDS = {
+    "动作": 28,
+    "冒险": 12,
+    "动画": 16,
+    "喜剧": 35,
+    "犯罪": 80,
+    "纪录": 99,
+    "纪录片": 99,
+    "剧情": 18,
+    "家庭": 10751,
+    "奇幻": 14,
+    "历史": 36,
+    "恐怖": 27,
+    "音乐": 10402,
+    "悬疑": 9648,
+    "爱情": 10749,
+    "科幻": 878,
+    "电视电影": 10770,
+    "惊悚": 53,
+    "战争": 10752,
+    "西部": 37,
+}
+
+
+def _has_preferences(pref: UserPreference) -> bool:
+    return bool(pref.liked_genres or pref.disliked_genres or (pref.free_text or "").strip())
+
+
 def _fallback_posts() -> list[Post]:
     return [
         Post(
@@ -166,6 +194,40 @@ def _fallback_posts() -> list[Post]:
             has_bilibili=True,
         )
         for movie in FALLBACK_MOVIES
+    ]
+
+
+def _genre_ids(genres: list[str]) -> list[int]:
+    ids = []
+    for genre in genres:
+        genre_id = TMDB_GENRE_IDS.get(genre.strip())
+        if genre_id and genre_id not in ids:
+            ids.append(genre_id)
+    return ids
+
+
+async def _preference_posts(pref: UserPreference) -> list[Post]:
+    liked_ids = _genre_ids(pref.liked_genres)
+    disliked_ids = _genre_ids(pref.disliked_genres)
+    if not liked_ids or not settings.tmdb_api_key:
+        return []
+
+    movies = await tmdb_service.discover_by_genres(
+        genre_ids=liked_ids,
+        excluded_genre_ids=disliked_ids,
+    )
+    if not movies:
+        return []
+
+    liked_label = "、".join(pref.liked_genres)
+    return [
+        Post(
+            movie=movie,
+            recommend_reason=f"根据你在设置页选择的「{liked_label}」偏好，从 TMDB 类型库中为你筛选。",
+            has_video_source=True,
+            has_bilibili=True,
+        )
+        for movie in movies[:8]
     ]
 
 
@@ -189,6 +251,14 @@ async def get_feed(
 ):
     local_pref = get_user_preference()
     history_titles = get_watch_history_titles()
+
+    if _has_preferences(local_pref):
+        try:
+            posts = await _preference_posts(local_pref)
+            if posts:
+                return posts
+        except Exception as exc:
+            print(f"[TMDB preference fallback] discover failed: {exc}", flush=True)
 
     prompt = "[User preference]\n"
     if local_pref.liked_genres:

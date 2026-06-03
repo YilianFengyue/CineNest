@@ -1,119 +1,102 @@
-"""成员 B：SQLite 数据库骨架（用户偏好 / 观影历史持久化）。
-
-课设零部署成本，单文件 SQLite。真实实现由成员 B 填充（可用 sqlite3 标准库或 SQLModel）。
-"""
-# db/database.py
 from __future__ import annotations
 
-import sqlite3
-import json  # 用于将 genres 列表序列化为字符串存储
+import datetime
+import json
 from pathlib import Path
+from typing import Any
+
 from models.schemas import UserPreference
 
-DB_PATH = Path(__file__).parent / "cinenest.db"
+STATE_PATH = Path(__file__).resolve().parent / "cinenest_state.json"
 
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def _empty_preference() -> UserPreference:
+    return UserPreference(liked_genres=[], disliked_genres=[], free_text="")
 
 
-def init_db() -> None:
-    """初始化建表"""
-    with get_conn() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS preferences (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                liked_genres TEXT,
-                disliked_genres TEXT,
-                free_text TEXT
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS watch_history (
-                movie_id INTEGER PRIMARY KEY,
-                title TEXT,
-                visited_at TEXT
-            )
-            """
-        )
+def _default_state() -> dict[str, Any]:
+    return {
+        "preferences": _empty_preference().model_dump(),
+        "watch_history": [],
+    }
 
 
-# ==================== 偏好设置 (Preferences) 业务逻辑 ====================
-
-def save_user_preference(pref: UserPreference) -> None:
-    """保存或更新用户偏好（单用户系统，利用 先删再插 确保库里永远只有最新的一条记录）"""
-    # 1. 将列表序列化为 JSON 字符串
-    liked_str = json.dumps(pref.liked_genres, ensure_ascii=False)
-    disliked_str = json.dumps(pref.disliked_genres, ensure_ascii=False)
-
-    with get_conn() as conn:
-        # 2. 先清空 preferences 表中的所有旧数据
-        conn.execute("DELETE FROM preferences")
-
-        # 3. 插入当前最新的这条偏好数据
-        conn.execute(
-            """
-            INSERT INTO preferences (liked_genres, disliked_genres, free_text)
-            VALUES (?, ?, ?)
-            """,
-            (liked_str, disliked_str, pref.free_text)
-        )
-        # 使用 with 语句会自动 commit 提交事务
-
-
-def get_user_preference() -> UserPreference:
-    """获取用户偏好，若无则返回空对象（核心修复：去掉 WHERE id=1 限制，改用 LIMIT 1 兼容自增 id）"""
-    with get_conn() as conn:
-        # 去掉 WHERE id = 1，直接拿表中的第 1 条（也是唯一一条最新数据）
-        cursor = conn.execute("SELECT liked_genres, disliked_genres, free_text FROM preferences LIMIT 1")
-        row = cursor.fetchone()
-
-    if not row:
-        return UserPreference(liked_genres=[], disliked_genres=[], free_text="")
-
-    # 加上异常保护，确保反序列化绝对安全
+def _read_state() -> dict[str, Any]:
+    if not STATE_PATH.exists():
+        return _default_state()
     try:
-        liked_genres = json.loads(row["liked_genres"]) if row["liked_genres"] else []
+        data = json.loads(STATE_PATH.read_text(encoding="utf-8"))
     except Exception:
-        liked_genres = []
+        return _default_state()
+    if not isinstance(data, dict):
+        return _default_state()
+    data.setdefault("preferences", _empty_preference().model_dump())
+    data.setdefault("watch_history", [])
+    return data
 
-    try:
-        disliked_genres = json.loads(row["disliked_genres"]) if row["disliked_genres"] else []
-    except Exception:
-        disliked_genres = []
 
-    return UserPreference(
-        liked_genres=liked_genres,
-        disliked_genres=disliked_genres,
-        free_text=row["free_text"] or ""
+def _write_state(state: dict[str, Any]) -> None:
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATE_PATH.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
 
 
-# ==================== 观影历史 (Watch History) 业务逻辑 ====================
+def init_db() -> None:
+    if not STATE_PATH.exists():
+        _write_state(_default_state())
+
+
+def save_user_preference(pref: UserPreference) -> None:
+    state = _read_state()
+    state["preferences"] = pref.model_dump()
+    _write_state(state)
+
+
+def get_user_preference() -> UserPreference:
+    state = _read_state()
+    pref_data = state.get("preferences") or {}
+    if not isinstance(pref_data, dict):
+        return _empty_preference()
+    return UserPreference(
+        liked_genres=list(pref_data.get("liked_genres") or []),
+        disliked_genres=list(pref_data.get("disliked_genres") or []),
+        free_text=pref_data.get("free_text") or "",
+    )
+
 
 def add_watch_history(movie_id: int, title: str) -> None:
-    """记录一条观影历史，若存在则覆盖最新时间"""
-    import datetime
+    state = _read_state()
+    history = state.get("watch_history")
+    if not isinstance(history, list):
+        history = []
+
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with get_conn() as conn:
-        conn.execute(
-            """
-            INSERT INTO watch_history (movie_id, title, visited_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(movie_id) DO UPDATE SET visited_at=excluded.visited_at
-            """,
-            (movie_id, title, now_str)
-        )
+    history = [
+        item
+        for item in history
+        if not isinstance(item, dict) or item.get("movie_id") != movie_id
+    ]
+    history.insert(
+        0,
+        {
+            "movie_id": movie_id,
+            "title": title,
+            "visited_at": now_str,
+        },
+    )
+    state["watch_history"] = history[:50]
+    _write_state(state)
 
 
 def get_watch_history_titles() -> list[str]:
-    """获取用户最近看过的电影标题列表（用于喂给 AI 规避或参考）"""
-    with get_conn() as conn:
-        cursor = conn.execute("SELECT title FROM watch_history ORDER BY visited_at DESC LIMIT 10")
-        rows = cursor.fetchall()
-    return [row["title"] for row in rows]
+    state = _read_state()
+    history = state.get("watch_history")
+    if not isinstance(history, list):
+        return []
+    return [
+        item.get("title", "")
+        for item in history[:10]
+        if isinstance(item, dict) and item.get("title")
+    ]

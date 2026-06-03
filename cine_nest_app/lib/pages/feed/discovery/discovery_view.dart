@@ -4,6 +4,7 @@ import 'package:cine_nest/router/app_pages.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'discovery_controller.dart';
+import '../feed_controller.dart';
 
 class DiscoveryPage extends GetView<DiscoveryController> {
   const DiscoveryPage({super.key});
@@ -27,7 +28,12 @@ class DiscoveryPage extends GetView<DiscoveryController> {
               // 1. 顶部横幅：专属推荐入口
               SliverToBoxAdapter(
                 child: GestureDetector(
-                  onTap: () => Get.toNamed('/feed'), // 跳转到之前的 AI 推荐页
+                  onTap: () {
+                    if (Get.isRegistered<FeedController>()) {
+                      Get.delete<FeedController>(force: true);
+                    }
+                    Get.toNamed('/feed'); // 跳转到之前的 AI 推荐页
+                  },
                   child: Container(
                     margin: const EdgeInsets.fromLTRB(16, 60, 16, 16),
                     height: 100,

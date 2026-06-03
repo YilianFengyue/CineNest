@@ -40,6 +40,26 @@ class TMDBService:
         payload = await self.client.request("/movie/popular", params={"page": page})
         return self.parser.json_to_movie_list(payload.get("results", []))
 
+    async def discover_by_genres(
+        self,
+        genre_ids: List[int],
+        excluded_genre_ids: List[int] | None = None,
+        page: int = 1,
+    ) -> List[Movie]:
+        """
+        根据 TMDB 类型 ID 获取电影列表。
+        这一步用于把用户在设置页选择的类型，稳定映射到真实 TMDB 推荐结果。
+        """
+        params = {
+            "page": page,
+            "sort_by": "popularity.desc",
+            "with_genres": ",".join(str(item) for item in genre_ids),
+        }
+        if excluded_genre_ids:
+            params["without_genres"] = ",".join(str(item) for item in excluded_genre_ids)
+        payload = await self.client.request("/discover/movie", params=params)
+        return self.parser.json_to_movie_list(payload.get("results", []))
+
     async def top_rated(self, page: int = 1) -> List[Movie]:
         """
         获取高分/Top Rated电影列表
