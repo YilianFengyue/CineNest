@@ -56,7 +56,7 @@ class _RecommendSheet extends StatelessWidget {
             // 预留：定期推荐 list（空态）。
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 22),
+              padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(16),
@@ -66,10 +66,20 @@ class _RecommendSheet extends StatelessWidget {
                   Icon(Icons.notifications_none, color: cs.outline, size: 30),
                   const SizedBox(height: 8),
                   Text(
-                    '暂无新推荐',
+                    '暂无定期推荐',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  // 直连后端 /api/feed/recommend（不走 LLM），即刻拉真实推荐卡。
+                  FilledButton.tonalIcon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ChatController.to.injectRecommendationFeed();
+                    },
+                    icon: const Icon(Icons.bolt_outlined, size: 18),
+                    label: const Text('看看热门推荐'),
                   ),
                 ],
               ),

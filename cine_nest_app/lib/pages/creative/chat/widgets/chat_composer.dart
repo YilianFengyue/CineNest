@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
 import 'package:cine_nest/pages/creative/chat/services/chat_ws_service.dart';
 import 'package:file_picker/file_picker.dart';
@@ -26,6 +28,10 @@ class _ChatComposerState extends State<ChatComposer> {
   final _textController = TextEditingController();
   final _focusNode = FocusNode();
   final _hasText = ValueNotifier<bool>(false);
+
+  // 已选图片（本地路径），发送前在输入框上方预览。
+  String? _imagePath;
+  String? _imageName;
 
   ChatController get c => ChatController.to;
 
@@ -59,8 +65,16 @@ class _ChatComposerState extends State<ChatComposer> {
 
   void _submit() {
     final text = _textController.text.trim();
-    if (text.isEmpty || c.responding.value) return;
-    c.send(text);
+    final hasImage = _imagePath != null;
+    if ((text.isEmpty && !hasImage) || c.responding.value) return;
+    if (hasImage) {
+      c.sendImage(_imagePath!);
+      setState(() {
+        _imagePath = null;
+        _imageName = null;
+      });
+    }
+    if (text.isNotEmpty) c.send(text);
     _textController.clear();
     _hasText.value = false;
   }
@@ -89,6 +103,7 @@ class _ChatComposerState extends State<ChatComposer> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _ModelSelectorRow(),
+            if (_imagePath != null) _attachmentPreview(cs),
             const SizedBox(height: 4),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -125,12 +140,72 @@ class _ChatComposerState extends State<ChatComposer> {
                 const SizedBox(width: 4),
                 _SendButton(
                   hasText: _hasText,
+                  hasAttachment: _imagePath != null,
                   responding: c.responding,
                   onSend: _submit,
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 已选图片的预览条（缩略图 + 文件名 + 移除）。
+  Widget _attachmentPreview(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_imagePath!),
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    width: 40,
+                    height: 40,
+                    color: cs.surfaceContainerHighest,
+                    child: Icon(Icons.image_outlined, size: 18, color: cs.outline),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  _imageName ?? '图片',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: () => setState(() {
+                  _imagePath = null;
+                  _imageName = null;
+                }),
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -168,27 +243,37 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     if (choice == null || !mounted) return;
 
-    String? picked;
     try {
       if (choice == 'file') {
+        // 文件（非图片）暂不预览：后端 Agent 多模态待支持，先提示。
         final res = await FilePicker.platform.pickFiles();
-        picked = res?.files.single.name;
+        final name = res?.files.single.name;
+        if (mounted && name != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已选择文件「$name」，多模态上传待后端支持')),
+          );
+        }
       } else {
         final img = await ImagePicker().pickImage(
           source: choice == 'camera'
               ? ImageSource.camera
               : ImageSource.gallery,
         );
-        picked = img?.name;
+        if (mounted && img != null) {
+          // TODO(C→Codex): 后端 Agent 接多模态后，把图片随 message 上传给模型。
+          setState(() {
+            _imagePath = img.path;
+            _imageName = img.name;
+          });
+        }
       }
     } catch (e) {
-      picked = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('选择失败，请重试')),
+        );
+      }
     }
-    if (!mounted || picked == null) return;
-    // TODO(C→Codex): 后端 Agent 接入多模态后，把附件随 message 一并上传。
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已选择「$picked」，多模态上传待后端支持')),
-    );
   }
 }
 
@@ -282,11 +367,13 @@ class _ModelSelectorRow extends StatelessWidget {
 class _SendButton extends StatelessWidget {
   const _SendButton({
     required this.hasText,
+    required this.hasAttachment,
     required this.responding,
     required this.onSend,
   });
 
   final ValueNotifier<bool> hasText;
+  final bool hasAttachment;
   final RxBool responding;
   final VoidCallback onSend;
 
@@ -298,7 +385,7 @@ class _SendButton extends StatelessWidget {
       return ValueListenableBuilder<bool>(
         valueListenable: hasText,
         builder: (_, has, _) {
-          final enabled = has && !busy;
+          final enabled = (has || hasAttachment) && !busy;
           return IconButton.filled(
             onPressed: enabled ? onSend : null,
             style: IconButton.styleFrom(

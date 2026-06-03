@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/chat/models/chat_meta.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
@@ -67,7 +68,10 @@ MicroAction? _firstOfType(List<MicroAction> actions, String type) {
   return null;
 }
 
-/// 单张推荐帖子卡（标题 + posterRow + 播放/海报按钮）。
+/// 单张推荐帖子卡 —— 紧凑影视条目卡。
+///
+/// 直接用 post 顶层字段（封面/标题/评分/资源数/推荐语/类型）拼贴，
+/// 左竖封面 + 右信息 + 底部播放/海报按钮。对标 Kazumi 番剧卡的密度与零阴影。
 class _PostCard extends StatelessWidget {
   const _PostCard({required this.post, this.onAction});
 
@@ -80,7 +84,12 @@ class _PostCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final title = post['title'] as String? ?? '';
     final subtitle = post['subtitle'] as String? ?? '';
-    final blocks = ContentBlock.listFrom(post['blocks']);
+    final cover = post['cover_url'] as String? ?? '';
+    final rating = (post['rating'] as num?)?.toDouble();
+    final reason = post['recommend_reason'] as String? ?? '';
+    final sourceCount = (post['source_count'] as num?)?.toInt() ?? 0;
+    final genres = (post['genres'] as List?)?.map((e) => e.toString()).toList() ??
+        const <String>[];
     final actions = _actionsFrom(post['actions']);
     final openPoster = _firstOfType(actions, 'openPoster') ??
         _firstOfType(actions, 'openResourcePoster');
@@ -88,7 +97,7 @@ class _PostCard extends StatelessWidget {
 
     return Material(
       color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: openPoster != null && onAction != null
@@ -99,28 +108,127 @@ class _PostCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (title.isNotEmpty)
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 84,
+                      height: 118,
+                      child: cover.isEmpty
+                          ? Container(color: cs.surfaceContainerHighest)
+                          : CachedNetworkImage(
+                              imageUrl: cover,
+                              fit: BoxFit.cover,
+                              placeholder: (_, _) =>
+                                  Container(color: cs.surfaceContainerHighest),
+                              errorWidget: (_, _, _) => Container(
+                                color: cs.surfaceContainerHighest,
+                                alignment: Alignment.center,
+                                child: Icon(Icons.movie_outlined,
+                                    color: cs.outline),
+                              ),
+                            ),
+                    ),
                   ),
-                ),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            if (rating != null && rating > 0) ...[
+                              Icon(Icons.star_rounded,
+                                  color: Colors.amber.shade600, size: 16),
+                              const SizedBox(width: 2),
+                              Text(
+                                rating.toStringAsFixed(1),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            if (sourceCount > 0)
+                              Text(
+                                '$sourceCount 个资源',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (reason.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            reason,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        if (genres.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (final g in genres.take(3))
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: cs.secondaryContainer
+                                        .withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    g,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      height: 1,
+                                      color: cs.onSecondaryContainer,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-              if (blocks.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                BlockRenderer(blocks: blocks, onAction: onAction),
-              ],
+                ],
+              ),
               if (openPoster != null || play != null) ...[
                 const SizedBox(height: 10),
                 Row(

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cine_nest/http/api_constants.dart';
+import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/chat/models/agent_event.dart';
 import 'package:cine_nest/pages/creative/chat/models/chat_meta.dart';
 import 'package:cine_nest/pages/creative/chat/services/chat_store.dart';
@@ -135,6 +137,88 @@ class ChatController extends GetxController {
       model: modelId.value,
     );
     if (!ok) await _finishTurn();
+  }
+
+  /// 发送一张图片消息（本地渲染）。
+  ///
+  /// 当前后端 Agent 仅支持文本，这里先把图片作为用户消息展示在对话里；
+  /// 随消息一并喂给模型需后端多模态支持（见 docs 返工清单）。
+  Future<void> sendImage(String path) async {
+    await chat.insertMessage(
+      Message.image(
+        id: _newId('img'),
+        authorId: ChatUsers.me,
+        createdAt: DateTime.now().toUtc(),
+        source: path,
+        sentAt: DateTime.now().toUtc(),
+      ),
+    );
+    _persist();
+  }
+
+  /// 直连 `/api/feed/recommend`（确定性 REST，不走 LLM）拉推荐并注入卡片。
+  ///
+  /// 用于在模型未配置 / 未触发推荐工具时，仍能演示与验证推荐卡片设计。
+  Future<void> injectRecommendationFeed({String query = ''}) async {
+    if (responding.value) return;
+    responding.value = true;
+    final statusId = _newId('s');
+    await chat.insertMessage(
+      Message.custom(
+        id: statusId,
+        authorId: ChatUsers.bot,
+        createdAt: DateTime.now().toUtc(),
+        metadata: {
+          ChatMeta.kind: ChatMeta.kindStatus,
+          ChatMeta.thinking: true,
+          ChatMeta.tools: const ['build_recommendation_feed'],
+        },
+      ),
+    );
+    try {
+      final res = await Request().get(
+        ApiConstants.feedRecommend,
+        queryParameters: {'query': query, 'limit': 6},
+      );
+      final data = res.data;
+      final payload = data is Map
+          ? data.cast<String, dynamic>()
+          : <String, dynamic>{};
+      await _stopStatus(statusId);
+      final posts = payload['posts'];
+      if (posts is List && posts.isNotEmpty) {
+        await chat.insertMessage(
+          Message.custom(
+            id: _newId('a'),
+            authorId: ChatUsers.bot,
+            createdAt: DateTime.now().toUtc(),
+            metadata: {
+              ChatMeta.kind: ChatMeta.kindRecommendation,
+              ChatMeta.payload: payload,
+            },
+          ),
+        );
+      } else {
+        await _insertError('暂未找到可推荐的可播放资源，换个关键词试试。');
+      }
+    } catch (e) {
+      logger.w('直连推荐失败: $e');
+      await _stopStatus(statusId);
+      await _insertError('推荐拉取失败，请检查后端连接。');
+    }
+    responding.value = false;
+    _persist();
+  }
+
+  /// 停掉指定状态条的思考态（保留来源 chip）。
+  Future<void> _stopStatus(String statusId) async {
+    final idx = chat.messages.indexWhere((m) => m.id == statusId);
+    if (idx == -1) return;
+    final old = chat.messages[idx];
+    if (old is! CustomMessage) return;
+    final meta = Map<String, dynamic>.from(old.metadata ?? {});
+    meta[ChatMeta.thinking] = false;
+    await chat.updateMessage(old, old.copyWith(metadata: meta));
   }
 
   // ───────────────────────── 事件编排 ─────────────────────────

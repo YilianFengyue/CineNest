@@ -5,12 +5,23 @@ import 'package:cine_nest/pages/creative/chat/widgets/agent_status_card.dart';
 import 'package:cine_nest/pages/creative/chat/widgets/attachment_card.dart';
 import 'package:cine_nest/pages/creative/chat/widgets/chat_composer.dart';
 import 'package:cine_nest/pages/creative/chat/widgets/recommend_sheet.dart';
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide ChatController;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 import 'package:get/get.dart';
+
+/// AI 头像（Pinterest 占位，后续可换品牌头像）。
+const String _kBotAvatar =
+    'https://i.pinimg.com/1200x/1e/13/03/1e13037dc1891540fd0f1761f99a0d69.jpg';
+
+/// 用户头像占位。
+const String _kUserAvatar =
+    'https://i.pinimg.com/736x/43/27/dd/4327ddd546e01c0a5cd6de3c2f173f78.jpg';
 
 /// F9 AI 对话页 —— 基于 flutter_chat_ui v2 的电影 Agent 对话。
 ///
@@ -33,16 +44,65 @@ class ChatPage extends StatelessWidget {
       resolveUser: (id) async => User(
         id: id,
         name: id == ChatUsers.bot ? 'CineNest' : '我',
+        imageSource: id == ChatUsers.bot ? _kBotAvatar : _kUserAvatar,
       ),
       theme: ChatTheme.fromThemeData(theme),
       builders: Builders(
         textMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
             FlyerChatTextMessage(message: message, index: index),
+        imageMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
+            _ChatImageBubble(message: message),
         customMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
             _buildCustom(ctx, message),
+        chatMessageBuilder: _wrapWithAvatar,
         composerBuilder: (ctx) => const ChatComposer(),
         emptyChatListBuilder: (ctx) => _EmptyState(onPrompt: c.send),
       ),
+    );
+  }
+
+  /// 给文本/图片气泡两侧挂头像（同组只在末条显示，保持对齐）；
+  /// 卡片 / 状态条 / 错误条通栏，不套气泡框架。
+  Widget _wrapWithAvatar(
+    BuildContext context,
+    Message message,
+    int index,
+    Animation<double> animation,
+    Widget child, {
+    bool? isRemoved,
+    required bool isSentByMe,
+    MessageGroupStatus? groupStatus,
+  }) {
+    final isBubble = message is TextMessage || message is ImageMessage;
+    if (!isBubble) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        child: child,
+      );
+    }
+    final showAvatar = groupStatus == null || groupStatus.isLast;
+    final avatar = showAvatar
+        ? Avatar(userId: message.authorId, size: 30)
+        : const SizedBox(width: 30);
+    return ChatMessage(
+      message: message,
+      index: index,
+      animation: animation,
+      isRemoved: isRemoved,
+      groupStatus: groupStatus,
+      leadingWidget: isSentByMe
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 2),
+              child: avatar,
+            ),
+      trailingWidget: isSentByMe
+          ? Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 2),
+              child: avatar,
+            )
+          : null,
+      child: child,
     );
   }
 
@@ -181,6 +241,54 @@ Future<void> _showHistory(BuildContext context) async {
       );
     },
   );
+}
+
+/// 图片气泡 —— 本地选择的图（file 路径）与网络图都能渲染。
+///
+/// 自写而非依赖 flyer_chat_image_message：本地相册/拍照得到的是文件路径，
+/// 用 [Image.file] 直渲染最稳；网络图走 [CachedNetworkImage] 兜底。
+class _ChatImageBubble extends StatelessWidget {
+  const _ChatImageBubble({required this.message});
+
+  final ImageMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final source = message.source;
+    final isNetwork = source.startsWith('http');
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240, maxHeight: 280),
+        child: isNetwork
+            ? CachedNetworkImage(
+                imageUrl: source,
+                fit: BoxFit.cover,
+                placeholder: (_, _) =>
+                    Container(width: 180, height: 180, color: cs.surfaceContainerHighest),
+                errorWidget: (_, _, _) => Container(
+                  width: 180,
+                  height: 120,
+                  color: cs.surfaceContainerHighest,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.broken_image_outlined, color: cs.outline),
+                ),
+              )
+            : Image.file(
+                File(source),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  width: 180,
+                  height: 120,
+                  color: cs.surfaceContainerHighest,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.broken_image_outlined, color: cs.outline),
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 /// 错误条 + 重试。
