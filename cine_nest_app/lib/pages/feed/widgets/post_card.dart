@@ -17,7 +17,7 @@ class PostCard extends StatelessWidget {
     // 处理图片 URL：如果是以 /api 开头的相对路径，自动拼接 baseUrl
     String imageUrl = post.posterUrl ?? post.movie.posterUrl ?? '';
     if (imageUrl.startsWith('/api')) {
-      imageUrl = '${Request().dio.options.baseUrl}$imageUrl';
+      imageUrl = '${Request.dio.options.baseUrl}$imageUrl';
     }
 
     return InkWell(
@@ -52,7 +52,9 @@ class PostCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: colorScheme.surfaceContainerHighest,
-                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: colorScheme.errorContainer,
@@ -65,7 +67,10 @@ class PostCard extends StatelessWidget {
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withAlpha(150),
                       borderRadius: BorderRadius.circular(8),
@@ -73,7 +78,11 @@ class PostCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           "${post.movie.rating ?? 0.0}",
@@ -126,19 +135,29 @@ class PostCard extends StatelessWidget {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: post.movie.genres.take(3).map((genre) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: colorScheme.secondaryContainer.withAlpha(100),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        genre,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSecondaryContainer,
-                        ),
-                      ),
-                    )).toList(),
+                    children: post.movie.genres
+                        .take(3)
+                        .map(
+                          (genre) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.secondaryContainer.withAlpha(
+                                100,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              genre,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
 
                   const SizedBox(height: 16),
@@ -146,7 +165,10 @@ class PostCard extends StatelessWidget {
                   // 4. AI 推荐理由 (策展感设计 - 纯文本版)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -176,9 +198,17 @@ class PostCard extends StatelessWidget {
                       child: Row(
                         children: [
                           if (post.hasVideoSource)
-                            _buildSmallTag(Icons.play_circle_outline, "可播放", colorScheme.primary),
+                            _buildSmallTag(
+                              Icons.play_circle_outline,
+                              "可播放",
+                              colorScheme.primary,
+                            ),
                           if (post.hasBilibili)
-                            _buildSmallTag(Icons.ondemand_video, "B站解说", Colors.pink),
+                            _buildSmallTag(
+                              Icons.ondemand_video,
+                              "B站解说",
+                              Colors.pink,
+                            ),
                         ],
                       ),
                     ),
@@ -201,7 +231,11 @@ class PostCard extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(color: color.withAlpha(200), fontSize: 11, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: color.withAlpha(200),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

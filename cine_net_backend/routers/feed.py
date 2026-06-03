@@ -1,106 +1,243 @@
-"""成员 B 的 API 路由：推荐帖子流 / 详情 / 偏好 / 反馈。
+from fastapi import APIRouter, HTTPException, Query
 
-当前为 mock 实现，保证前端 Day1 可联调；真实逻辑接入 services/agent + services/tmdb。
-"""
-import sys
-from fastapi import APIRouter, Query, HTTPException
-from typing import List, Optional
-from models.schemas import Post, Movie, UserPreference, Feedback
-from services.tmdb import tmdb_service
+from config import settings
+from db.database import (
+    add_watch_history,
+    get_user_preference,
+    get_watch_history_titles,
+    save_user_preference,
+)
+from models.schemas import Feedback, Movie, Post, UserPreference
 from services.agent.service import movie_agent_service
-from db.database import save_user_preference, get_user_preference, add_watch_history, get_watch_history_titles
+from services.tmdb import tmdb_service
 
-router = APIRouter(prefix="/api", tags=["feed (成员B)"])
+router = APIRouter(prefix="/api", tags=["feed (member B)"])
+
+
+FALLBACK_MOVIES = [
+    Movie(
+        id=278,
+        title="The Shawshank Redemption",
+        original_title="The Shawshank Redemption",
+        year=1994,
+        genres=["Drama", "Crime"],
+        rating=9.3,
+        overview="A banker sentenced to life in prison holds on to hope and friendship.",
+        directors=["Frank Darabont"],
+        cast=["Tim Robbins", "Morgan Freeman"],
+    ),
+    Movie(
+        id=238,
+        title="The Godfather",
+        original_title="The Godfather",
+        year=1972,
+        genres=["Crime", "Drama"],
+        rating=9.2,
+        overview="The aging patriarch of a crime dynasty transfers control to his reluctant son.",
+        directors=["Francis Ford Coppola"],
+        cast=["Marlon Brando", "Al Pacino"],
+    ),
+    Movie(
+        id=550,
+        title="Fight Club",
+        original_title="Fight Club",
+        year=1999,
+        genres=["Drama"],
+        rating=8.8,
+        overview="An office worker and a soap maker form an underground fight club.",
+        directors=["David Fincher"],
+        cast=["Edward Norton", "Brad Pitt"],
+    ),
+    Movie(
+        id=680,
+        title="Pulp Fiction",
+        original_title="Pulp Fiction",
+        year=1994,
+        genres=["Crime", "Drama"],
+        rating=8.9,
+        overview="Interwoven stories of crime, loyalty, and chaos in Los Angeles.",
+        directors=["Quentin Tarantino"],
+        cast=["John Travolta", "Uma Thurman", "Samuel L. Jackson"],
+    ),
+    Movie(
+        id=155,
+        title="The Dark Knight",
+        original_title="The Dark Knight",
+        year=2008,
+        genres=["Action", "Crime", "Drama"],
+        rating=9.0,
+        overview="Batman faces the Joker, who wants to plunge Gotham into chaos.",
+        directors=["Christopher Nolan"],
+        cast=["Christian Bale", "Heath Ledger"],
+    ),
+    Movie(
+        id=13,
+        title="Forrest Gump",
+        original_title="Forrest Gump",
+        year=1994,
+        genres=["Drama", "Romance"],
+        rating=8.8,
+        overview="A kind-hearted man witnesses defining moments in American history.",
+        directors=["Robert Zemeckis"],
+        cast=["Tom Hanks", "Robin Wright"],
+    ),
+    Movie(
+        id=27205,
+        title="Inception",
+        original_title="Inception",
+        year=2010,
+        genres=["Action", "Science Fiction"],
+        rating=8.8,
+        overview="A thief who steals secrets through dreams is offered a chance to erase his past.",
+        directors=["Christopher Nolan"],
+        cast=["Leonardo DiCaprio", "Joseph Gordon-Levitt"],
+    ),
+    Movie(
+        id=603,
+        title="The Matrix",
+        original_title="The Matrix",
+        year=1999,
+        genres=["Action", "Science Fiction"],
+        rating=8.7,
+        overview="A hacker discovers that reality is a simulated world controlled by machines.",
+        directors=["Lana Wachowski", "Lilly Wachowski"],
+        cast=["Keanu Reeves", "Laurence Fishburne"],
+    ),
+    Movie(
+        id=120,
+        title="The Lord of the Rings: The Fellowship of the Ring",
+        original_title="The Lord of the Rings: The Fellowship of the Ring",
+        year=2001,
+        genres=["Adventure", "Fantasy"],
+        rating=8.8,
+        overview="A young hobbit begins a dangerous journey to destroy a powerful ring.",
+        directors=["Peter Jackson"],
+        cast=["Elijah Wood", "Ian McKellen"],
+    ),
+    Movie(
+        id=1891,
+        title="The Empire Strikes Back",
+        original_title="The Empire Strikes Back",
+        year=1980,
+        genres=["Adventure", "Science Fiction"],
+        rating=8.7,
+        overview="The Rebels are pursued by the Empire while Luke trains with Yoda.",
+        directors=["Irvin Kershner"],
+        cast=["Mark Hamill", "Harrison Ford"],
+    ),
+    Movie(
+        id=129,
+        title="Spirited Away",
+        original_title="Spirited Away",
+        year=2001,
+        genres=["Animation", "Fantasy"],
+        rating=8.6,
+        overview="A girl enters a mysterious spirit world and must save her parents.",
+        directors=["Hayao Miyazaki"],
+        cast=["Rumi Hiiragi", "Miyu Irino"],
+    ),
+    Movie(
+        id=496243,
+        title="Parasite",
+        original_title="Parasite",
+        year=2019,
+        genres=["Drama", "Thriller"],
+        rating=8.5,
+        overview="Two families from different social classes become entangled in a darkly comic story.",
+        directors=["Bong Joon-ho"],
+        cast=["Song Kang-ho", "Choi Woo-shik"],
+    ),
+]
+
+
+def _fallback_movie(movie_id: int) -> Movie:
+    for movie in FALLBACK_MOVIES:
+        if movie.id == movie_id:
+            return movie
+    return FALLBACK_MOVIES[0].model_copy(update={"id": movie_id})
+
+
+def _fallback_posts() -> list[Post]:
+    return [
+        Post(
+            movie=movie,
+            recommend_reason="Local fallback recommendation for offline testing.",
+            has_video_source=True,
+            has_bilibili=True,
+        )
+        for movie in FALLBACK_MOVIES
+    ]
 
 
 @router.get("/movie/{movie_id}", response_model=Movie)
 async def get_movie(movie_id: int):
-    """获取真实的电影详情，并悄悄记录观影历史"""
+    if not settings.tmdb_api_key:
+        return _fallback_movie(movie_id)
     try:
         movie_data = await tmdb_service.detail(movie_id)
         add_watch_history(movie_id=movie_data.id, title=movie_data.title)
         return movie_data
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取电影详情失败: {str(e)}")
+    except Exception as exc:
+        print(f"[TMDB fallback] movie detail failed: {exc}", flush=True)
+        return _fallback_movie(movie_id)
 
 
-@router.get("/feed", response_model=List[Post])
+@router.get("/feed", response_model=list[Post])
 async def get_feed(
-        refresh: bool = False,
-        sort_by: str = Query("popularity", description="排序模式: popularity(热门度), rating(评分)")
+    refresh: bool = False,
+    sort_by: str = Query("popularity", description="popularity or rating"),
 ):
-    """
-    获取首页帖子流。
-    【核心逻辑重构】：严格遵循用户偏好进行全量搜索，不再受限于固定的热门/高分列表。
-    """
-    print(f"\n[HTTP 请求] 进入 get_feed, 排序模式: {sort_by}, 刷新: {refresh}", flush=True)
-
-    # 1. 获取用户最真实的偏好
     local_pref = get_user_preference()
     history_titles = get_watch_history_titles()
 
-    # 2. 构造“纯偏好驱动”的指令
-    # 彻底放弃固定的 base_prompt，让 AI 深入理解用户的灵魂
-    user_preference_prompt = f"【当前用户的个性化灵魂画像】\n"
-
+    prompt = "[User preference]\n"
     if local_pref.liked_genres:
-        user_preference_prompt += f"- 钟爱的类型: {', '.join(local_pref.liked_genres)}\n"
+        prompt += f"- liked: {', '.join(local_pref.liked_genres)}\n"
     if local_pref.disliked_genres:
-        user_preference_prompt += f"- 讨厌的类型: {', '.join(local_pref.disliked_genres)} (请务必严格避开)\n"
+        prompt += f"- disliked: {', '.join(local_pref.disliked_genres)}\n"
     if local_pref.free_text:
-        user_preference_prompt += f"- 用户的内心独白: {local_pref.free_text}\n"
-
+        prompt += f"- notes: {local_pref.free_text}\n"
     if history_titles:
-        user_preference_prompt += f"- 用户的足迹(已看): {', '.join(history_titles)}\n"
-
-    user_preference_prompt += f"\n【任务】: 请严格根据以上画像，从全球影库中搜索并推荐电影。排序权重应侧重于: {'热度优先' if sort_by == 'popularity' else '评分优先'}。"
+        prompt += f"- watched: {', '.join(history_titles)}\n"
+    prompt += f"\nRecommend movies sorted by {sort_by}. refresh={refresh}"
 
     try:
-        # 调用重构后的 Agent 链
-        posts = await movie_agent_service.get_personalized_feed(user_preference_prompt)
-        return posts
-    except Exception as e:
-        print(f"[Agent 错误] 生成推荐失败: {e}", flush=True)
-        raise HTTPException(status_code=500, detail=f"AI 推荐引擎执行失败: {str(e)}")
+        posts = await movie_agent_service.get_personalized_feed(prompt)
+        return posts or _fallback_posts()
+    except Exception as exc:
+        print(f"[Agent fallback] feed failed: {exc}", flush=True)
+        return _fallback_posts()
 
 
-@router.get("/discovery", response_model=List[Movie])
+@router.get("/discovery", response_model=list[Movie])
 async def get_discovery(page: int = 1):
-    """
-    首页探索：直接获取当前全球最热门的电影。
-    这个接口不经过 AI Agent，响应极快，适合作为 App 启动首页。
-    """
-    print(f"\n[HTTP 请求] 进入 get_discovery, 页码: {page}", flush=True)
+    if not settings.tmdb_api_key:
+        return FALLBACK_MOVIES
     try:
         movies = await tmdb_service.popular(page=page)
-        return movies
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取探索数据失败: {str(e)}")
+        return movies or FALLBACK_MOVIES
+    except Exception as exc:
+        print(f"[TMDB fallback] discovery failed: {exc}", flush=True)
+        return FALLBACK_MOVIES
 
 
 @router.post("/preferences")
 async def set_preferences(pref: UserPreference):
-    """保存用户偏好落库 SQLite"""
     try:
-        # 【新加逻辑】调用持久化方法
         save_user_preference(pref)
         return {"ok": True, "saved": pref.model_dump()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存偏好失败: {str(e)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Save preferences failed: {exc}") from exc
+
 
 @router.get("/preferences", response_model=UserPreference)
 async def get_preferences():
-    """获取当前用户的偏好设置（用于前端回显）"""
     try:
-        # 调用 db/database.py 中的查询函数
-        pref = get_user_preference()
-        return pref
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取偏好失败: {str(e)}")
+        return get_user_preference()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Get preferences failed: {exc}") from exc
+
 
 @router.post("/feedback")
 async def post_feedback(fb: Feedback):
-    """喜欢/不感兴趣反馈。TODO(B): 影响后续推荐。"""
     return {"ok": True}

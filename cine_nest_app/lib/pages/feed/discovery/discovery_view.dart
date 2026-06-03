@@ -51,7 +51,11 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                         Positioned(
                           right: -20,
                           bottom: -20,
-                          child: Icon(Icons.auto_awesome, size: 100, color: Colors.white.withAlpha(30)),
+                          child: Icon(
+                            Icons.auto_awesome,
+                            size: 100,
+                            color: Colors.white.withAlpha(30),
+                          ),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -60,7 +64,11 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                               const CircleAvatar(
                                 radius: 25,
                                 backgroundColor: Colors.white24,
-                                child: Icon(Icons.psychology_outlined, color: Colors.white, size: 30),
+                                child: Icon(
+                                  Icons.psychology_outlined,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -70,16 +78,27 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                                   children: [
                                     const Text(
                                       "专属智能推荐",
-                                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     Text(
                                       "基于 AI 解析你的灵魂画像",
-                                      style: TextStyle(color: Colors.white.withAlpha(200), fontSize: 13),
+                                      style: TextStyle(
+                                        color: Colors.white.withAlpha(200),
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
+                              const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ],
                           ),
                         ),
@@ -95,7 +114,9 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   child: Text(
                     "全球热门探索",
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -110,53 +131,67 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                     crossAxisSpacing: 10,
                     childAspectRatio: 0.58, // 由于宽度变窄，需要调整宽高比以适应封面和文字
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final movie = controller.movieList[index];
-                      String imageUrl = movie.posterUrl ?? '';
-                      if (imageUrl.startsWith('/api')) {
-                        imageUrl = '${Request().dio.options.baseUrl}$imageUrl';
-                      }
-                      
-                      return GestureDetector(
-                        onTap: () => Get.toNamed(Routes.movieDetail, arguments: {'movieId': movie.id}),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(color: colorScheme.surfaceContainerHighest),
-                                  errorWidget: (context, url, error) => const Icon(Icons.movie, size: 30),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final movie = controller.movieList[index];
+                    String imageUrl = movie.posterUrl ?? '';
+                    if (imageUrl.startsWith('/api')) {
+                      imageUrl = '${Request.dio.options.baseUrl}$imageUrl';
+                    }
+
+                    return GestureDetector(
+                      onTap: () => Get.toNamed(
+                        Routes.movieDetail,
+                        arguments: {'movieId': movie.id},
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: colorScheme.surfaceContainerHighest,
                                 ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(Icons.movie, size: 30),
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              movie.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            movie.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
                             ),
-                            Row(
-                              children: [
-                                Icon(Icons.star_rounded, color: Colors.amber, size: 12),
-                                const SizedBox(width: 2),
-                                Text(
-                                  "${movie.rating ?? 0.0}",
-                                  style: TextStyle(color: colorScheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.star_rounded,
+                                color: Colors.amber,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                "${movie.rating ?? 0.0}",
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    childCount: controller.movieList.length,
-                  ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }, childCount: controller.movieList.length),
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),

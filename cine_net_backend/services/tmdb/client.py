@@ -40,8 +40,8 @@ class TMDBHTTPClient:
         url = f"{self.base_url}{endpoint}{query_str}"
 
         try:
-            # 3. 强制关闭系统代理（trust_env=False），忽略证书（verify=False）
-            async with httpx.AsyncClient(timeout=30.0, verify=False, trust_env=False) as client:
+            # Allow proxy environment variables so TMDB can work when a local proxy is enabled.
+            async with httpx.AsyncClient(timeout=10.0, verify=False, trust_env=True) as client:
                 # 注意：这里只传 url 和 headers，绝对不传 params=params 参数！
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()

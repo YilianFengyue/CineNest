@@ -1,5 +1,7 @@
+import 'package:cine_nest/pages/player/views/connection_settings_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'preference_controller.dart';
 
 class PreferencePage extends GetView<PreferenceController> {
@@ -13,14 +15,25 @@ class PreferencePage extends GetView<PreferenceController> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("内容偏好设置"),
+        title: const Text('Settings'),
         actions: [
-          Obx(() => TextButton(
-            onPressed: controller.isSaving.value ? null : () => controller.savePreferences(),
-            child: controller.isSaving.value
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text("保存", style: TextStyle(fontWeight: FontWeight.bold)),
-          )),
+          Obx(
+            () => TextButton(
+              onPressed: controller.isSaving.value
+                  ? null
+                  : () => controller.savePreferences(),
+              child: controller.isSaving.value
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text(
+                      'Save',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ),
         ],
       ),
       body: Obx(() {
@@ -31,25 +44,37 @@ class PreferencePage extends GetView<PreferenceController> {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _buildSectionHeader(context, "我很喜欢", Icons.favorite, Colors.redAccent),
+            _buildSectionHeader(
+              context,
+              'Liked genres',
+              Icons.favorite,
+              Colors.redAccent,
+            ),
             const SizedBox(height: 12),
             _buildGenreChips(context, isLike: true),
-
             const SizedBox(height: 32),
-
-            _buildSectionHeader(context, "我不感兴趣", Icons.do_not_disturb_on, Colors.grey),
+            _buildSectionHeader(
+              context,
+              'Disliked genres',
+              Icons.do_not_disturb_on,
+              Colors.grey,
+            ),
             const SizedBox(height: 12),
             _buildGenreChips(context, isLike: false),
-
             const SizedBox(height: 32),
-
-            _buildSectionHeader(context, "额外要求", Icons.edit_note, colorScheme.primary),
+            _buildSectionHeader(
+              context,
+              'Extra requirements',
+              Icons.edit_note,
+              colorScheme.primary,
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: controller.freeTextController,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: "比如：想看烧脑反转的、不要恐怖片、多推荐 90 年代的经典...",
+                hintText:
+                    'For example: puzzle movies, no horror, more 1990s classics...',
                 filled: true,
                 fillColor: colorScheme.surfaceContainerHighest.withAlpha(80),
                 border: OutlineInputBorder(
@@ -58,25 +83,38 @@ class PreferencePage extends GetView<PreferenceController> {
                 ),
               ),
             ),
-
-            const SizedBox(height: 40),
+            const SizedBox(height: 24),
             Text(
-              "提示：你的偏好将直接影响 AI Agent 的推荐逻辑。",
-              style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+              'Your preferences will affect the AI recommendation logic.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontStyle: FontStyle.italic,
+              ),
               textAlign: TextAlign.center,
             ),
+            const Divider(height: 48),
+            const ConnectionSettingsPanel(),
           ],
         );
       }),
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, IconData icon, Color color) {
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+  ) {
     return Row(
       children: [
         Icon(icon, size: 20, color: color),
         const SizedBox(width: 8),
-        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
@@ -89,16 +127,21 @@ class PreferencePage extends GetView<PreferenceController> {
         final isSelected = isLike
             ? controller.likedGenres.contains(genre)
             : controller.dislikedGenres.contains(genre);
-
         final colorScheme = Theme.of(context).colorScheme;
 
         return FilterChip(
           label: Text(genre),
           selected: isSelected,
-          onSelected: (_) => isLike ? controller.toggleLike(genre) : controller.toggleDislike(genre),
-          selectedColor: isLike ? Colors.redAccent.withAlpha(50) : colorScheme.outline.withAlpha(50),
+          onSelected: (_) => isLike
+              ? controller.toggleLike(genre)
+              : controller.toggleDislike(genre),
+          selectedColor: isLike
+              ? Colors.redAccent.withAlpha(50)
+              : colorScheme.outline.withAlpha(50),
           checkmarkColor: isLike ? Colors.redAccent : colorScheme.outline,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         );
       }).toList(),
     );
