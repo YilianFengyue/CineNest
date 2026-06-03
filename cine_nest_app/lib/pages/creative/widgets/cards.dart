@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
 
 /// microdesign v1.1 富交互卡片库（成员 C）。
@@ -41,7 +42,7 @@ Widget _cover(
       child: url.isEmpty
           ? Container(color: cs.surfaceContainerHighest)
           : CachedNetworkImage(
-              imageUrl: url,
+              imageUrl: mediaUrl(url),
               fit: BoxFit.cover,
               placeholder: (_, _) => Container(color: cs.surfaceContainerHighest),
               errorWidget: (_, _, _) => Container(
@@ -565,7 +566,7 @@ class NewsCardBlock extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: CachedNetworkImage(
-                      imageUrl: cover,
+                      imageUrl: mediaUrl(cover),
                       fit: BoxFit.cover,
                       placeholder: (_, _) =>
                           Container(color: cs.surfaceContainerHighest),
@@ -661,7 +662,7 @@ class MediaGalleryCard extends StatelessWidget {
             itemBuilder: (context, i) => ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
-                imageUrl: urls[i],
+                imageUrl: mediaUrl(urls[i]),
                 fit: BoxFit.cover,
                 placeholder: (_, _) =>
                     Container(color: cs.surfaceContainerHighest),
@@ -681,7 +682,7 @@ class MediaGalleryCard extends StatelessWidget {
               itemBuilder: (context, i) => ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: CachedNetworkImage(
-                  imageUrl: urls[i],
+                  imageUrl: mediaUrl(urls[i]),
                   width: 92,
                   height: 124,
                   fit: BoxFit.cover,
@@ -740,7 +741,7 @@ class VideoExplainCard extends StatelessWidget {
                       block.str('cover').isEmpty
                           ? Container(color: cs.surfaceContainerHighest)
                           : CachedNetworkImage(
-                              imageUrl: block.str('cover'),
+                              imageUrl: mediaUrl(block.str('cover')),
                               fit: BoxFit.cover,
                               placeholder: (_, _) =>
                                   Container(color: cs.surfaceContainerHighest),

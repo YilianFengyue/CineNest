@@ -108,6 +108,7 @@ class ChatWsService {
     required String message,
     required String threadId,
     String? model,
+    List<Map<String, dynamic>>? attachments,
   }) async {
     final ok = await ensureConnected();
     if (!ok || _channel == null) return false;
@@ -115,6 +116,7 @@ class ChatWsService {
       'message': message,
       'thread_id': threadId,
       if (model != null && model.isNotEmpty) 'model': model,
+      if (attachments != null && attachments.isNotEmpty) 'attachments': attachments,
     });
     _channel!.sink.add(frame);
     return true;
@@ -135,19 +137,31 @@ class ChatWsService {
   }
 }
 
-/// 默认模型选项（后端 `.env` 固定单模型，这里先写死展示，选择项待 Codex 接 `model` 字段）。
+/// 模型选项。后端 `/api/agent/models` 返回 `{id,label,model,configured,supports_images?}`。
 class ChatModelOption {
   final String id;
   final String label;
-  final String hint;
-  const ChatModelOption(this.id, this.label, this.hint);
+  final String model;
+  final bool configured;
+
+  const ChatModelOption(this.id, this.label, {this.model = '', this.configured = true});
+
+  factory ChatModelOption.fromJson(Map<String, dynamic> json) => ChatModelOption(
+    json['id'] as String? ?? 'default',
+    json['label'] as String? ?? '模型',
+    model: json['model'] as String? ?? '',
+    configured: json['configured'] as bool? ?? true,
+  );
+
+  /// 下拉副标题：已配置显示真实模型名，未配置标注。
+  String get hint => configured ? (model.isEmpty ? '可用' : model) : '未配置';
 }
 
-/// 预置模型列表 —— 纯展示占位，便于演示「模型选择」交互。
+/// 兜底模型列表（后端拉取失败时用，id 与后端别名一致）。
 const List<ChatModelOption> kChatModels = [
-  ChatModelOption('default', 'CineNest 默认', '后端 .env 配置的模型，均衡稳定'),
-  ChatModelOption('fast', '快速', '更快响应，适合简单问答（待后端支持）'),
-  ChatModelOption('deep', '深度', '更强推理，适合复杂推荐（待后端支持）'),
+  ChatModelOption('default', 'CineNest 默认', model: '均衡稳定'),
+  ChatModelOption('fast', '快速', model: '更快响应'),
+  ChatModelOption('deep', '深度', model: '更强推理'),
 ];
 
 /// 当前选中的模型（持久化于 setting box）。

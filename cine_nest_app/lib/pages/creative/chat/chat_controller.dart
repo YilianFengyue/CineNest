@@ -34,6 +34,9 @@ class ChatController extends GetxController {
   /// 当前选中模型 id。
   final RxString modelId = ChatModelPref.id.obs;
 
+  /// 可选模型列表（来自 `/api/agent/models`，失败回退 [kChatModels]）。
+  final RxList<ChatModelOption> models = <ChatModelOption>[...kChatModels].obs;
+
   StreamSubscription<AgentEvent>? _eventSub;
   int _seq = 0;
 
@@ -48,6 +51,23 @@ class ChatController extends GetxController {
     super.onInit();
     threadId = _newId('t');
     _eventSub = ws.events.listen(_onEvent);
+    _fetchModels();
+  }
+
+  /// 拉取后端模型列表（失败保留兜底）。
+  Future<void> _fetchModels() async {
+    try {
+      final res = await Request().get(ApiConstants.agentModels);
+      if (res.statusCode == 200 && res.data is List) {
+        final list = (res.data as List)
+            .whereType<Map>()
+            .map((e) => ChatModelOption.fromJson(e.cast<String, dynamic>()))
+            .toList();
+        if (list.isNotEmpty) models.value = list;
+      }
+    } catch (e) {
+      logger.w('模型列表拉取失败，用兜底: $e');
+    }
   }
 
   @override
@@ -65,7 +85,9 @@ class ChatController extends GetxController {
   // ───────────────────────── 发送 ─────────────────────────
 
   /// 发送一条用户消息并触发 Agent 流程。
-  Future<void> send(String text) async {
+  ///
+  /// [attachments] 为多模态附件（如已上传图片的 `{asset_id, type, mime, filename}`）。
+  Future<void> send(String text, {List<Map<String, dynamic>>? attachments}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || responding.value) return;
     _lastUserText = trimmed;
@@ -102,6 +124,7 @@ class ChatController extends GetxController {
       message: trimmed,
       threadId: threadId,
       model: modelId.value,
+      attachments: attachments,
     );
     if (!ok) {
       // 连接失败：错误事件已由 ws 推送，这里兜底收尾。
@@ -287,9 +310,15 @@ class ChatController extends GetxController {
   }
 
   Future<void> _insertAttachment(AgentEvent e) async {
-    final kind = e.attachmentType == ChatMeta.kindPoster
-        ? ChatMeta.kindPoster
-        : ChatMeta.kindRecommendation;
+    // attachmentType 与 ChatMeta.kind* 一致；未知类型回退推荐卡。
+    const known = {
+      ChatMeta.kindRecommendation,
+      ChatMeta.kindPoster,
+      ChatMeta.kindInteractive,
+      ChatMeta.kindNews,
+    };
+    final kind =
+        known.contains(e.attachmentType) ? e.attachmentType : ChatMeta.kindRecommendation;
     await chat.insertMessage(
       Message.custom(
         id: _newId('a'),

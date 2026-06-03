@@ -7,6 +7,7 @@ from uuid import uuid5, NAMESPACE_URL
 
 from db import get_conn
 from services.catalog import get_catalog_service
+from services.images import generate_image, is_image_enabled, movie_image_prompt
 from services.microdesign import compose_media_gallery, compose_news_card
 from services.microdesign.models import MicroDesignAction
 
@@ -120,6 +121,91 @@ async def build_news_feed(*, limit: int = 10, refresh: bool = False) -> NewsFeed
         )
     _save_items(items)
     return NewsFeed(items=items)
+
+
+async def generate_news_for_query(query: str, *, media_kind: str = "movie") -> NewsItem:
+    """按片名/主题生成一条「AI 资讯」：资料 + AI 生成海报图，持久化后进资讯列表。
+
+    生图失败会自动回退到 TMDB/豆瓣海报，不会让整条资讯失败。
+    """
+
+    query = query.strip()
+    if not query:
+        raise ValueError("资讯主题不能为空")
+    catalog = await get_catalog_service().search(query, media_kind=media_kind, limit=5)
+    if not catalog.items:
+        raise LookupError(f"未找到与“{query}”相关的影视资料")
+    movie = catalog.items[0]
+    news_id = _news_id(f"gen:{movie.catalog_id or movie.title}")
+
+    cover = movie.backdrop_url or movie.poster_url or ""
+    gallery_urls = [url for url in (movie.backdrop_url, movie.poster_url) if url]
+    ai_generated = False
+    if is_image_enabled():
+        asset = await generate_image(
+            movie_image_prompt(movie.title, movie.genres, movie.overview or "", kind="poster"),
+            size="1024x1536",
+        )
+        if asset is not None:
+            cover = asset.url
+            gallery_urls = [asset.url, *gallery_urls]
+            ai_generated = True
+
+    title = f"AI 影视特辑 · 《{movie.title}》"
+    summary = movie.overview or (
+        f"{movie.provider_name} 资料"
+        f"{f'，评分 {movie.rating:.1f}' if movie.rating is not None else ''}，"
+        "由 CineNest 结合 AI 视觉生成的影视资讯卡。"
+    )
+    tags = [*movie.genres[:4]]
+    if movie.year:
+        tags.append(movie.year)
+    if ai_generated:
+        tags.append("AI 生成")
+
+    poster_action = (
+        MicroDesignAction(
+            type="openPoster",
+            label="查看互动海报",
+            data={
+                "catalog_provider_id": movie.provider_id,
+                "catalog_source_id": movie.source_id,
+                "media_kind": movie.media_kind,
+            },
+        )
+        if movie.provider_id and movie.source_id
+        else None
+    )
+    blocks = [
+        compose_news_card(
+            news_id=news_id,
+            title=title,
+            summary=summary,
+            source="CineNest AI",
+            published_at="刚刚",
+            tags=tags,
+            cover=cover,
+            action=poster_action,
+        )
+    ]
+    if gallery_urls:
+        blocks.append(
+            compose_media_gallery(
+                [{"url": url, "caption": "AI 视觉"} for url in gallery_urls],
+                title="AI 视觉",
+            )
+        )
+    actions: list[MicroDesignAction] = [poster_action] if poster_action is not None else []
+    item = NewsItem(
+        id=news_id,
+        title=title,
+        source="CineNest AI",
+        published_at=datetime.now(timezone.utc).isoformat(),
+        blocks=blocks,
+        actions=actions,
+    )
+    _save_items([item])
+    return item
 
 
 async def get_news_item(news_id: str) -> NewsItem:

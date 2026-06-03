@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/poster/poster_controller.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
 
 /// 海报「导出长图」的离屏渲染视图。
@@ -29,7 +30,7 @@ Widget buildPosterExportView(ThemeData theme, PosterController c) {
                     child: c.backdrop.isEmpty
                         ? Container(color: cs.surfaceContainerHighest)
                         : CachedNetworkImage(
-                            imageUrl: c.backdrop,
+                            imageUrl: mediaUrl(c.backdrop),
                             fit: BoxFit.cover,
                             errorWidget: (_, _, _) =>
                                 Container(color: cs.surfaceContainerHighest),

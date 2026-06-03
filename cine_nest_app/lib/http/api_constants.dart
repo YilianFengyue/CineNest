@@ -24,11 +24,36 @@ abstract final class ApiConstants {
   static const String sourcesParse = '/api/sources/parse';
   static const String bilibiliSearch = '/api/bilibili/search';
 
-  // ── 成员 C：海报 & 资讯 & 对话 ──
-  static String poster(Object movieId) => '/api/poster/$movieId';
-  static const String news = '/api/news';
+  // ── 成员 C：海报 & 资讯 & 对话（microdesign.v1.1）──
   static const String wsChat = '/ws/chat';
 
   /// 推荐 Feed（确定性 REST，不走 LLM）：query 可空走热门。返回 RecommendationFeed。
   static const String feedRecommend = '/api/feed/recommend';
+
+  /// 互动海报：Catalog 条目（豆瓣/TMDB）。
+  static String posterCatalog(Object provider, Object source) =>
+      '/api/poster/catalog/$provider/$source';
+
+  /// 互动海报：资源站条目（无 Catalog ID 时）。
+  static String posterResource(Object provider, Object remote) =>
+      '/api/poster/$provider/$remote';
+
+  // 资讯
+  static const String news = '/api/news';
+  static const String newsGenerate = '/api/news/generate';
+  static String newsDetail(Object id) => '/api/news/$id';
+
+  // 对话基础设施
+  static const String agentModels = '/api/agent/models';
+  static const String chatSessions = '/api/chat/sessions';
+  static String chatMessages(Object threadId) =>
+      '/api/chat/sessions/$threadId/messages';
+  static const String microdesignSchema = '/api/microdesign/schema';
+
+  // 统一播放解析（交 A 的播放器）
+  static const String playResolve = '/api/play/resolve';
+
+  // 上传资产（多模态）
+  static const String uploads = '/api/uploads';
+  static String asset(Object id) => '/api/assets/$id';
 }

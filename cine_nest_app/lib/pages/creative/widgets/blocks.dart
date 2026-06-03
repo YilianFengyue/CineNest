@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
 
 /// 微组件库 —— 每个 Widget 消费一个 [ContentBlock]，自解析 `data` 渲染。
@@ -32,7 +33,7 @@ class BannerBlock extends StatelessWidget {
           children: [
             if (image.isNotEmpty)
               CachedNetworkImage(
-                imageUrl: image,
+                imageUrl: mediaUrl(image),
                 fit: BoxFit.cover,
                 placeholder: (_, _) =>
                     Container(color: cs.surfaceContainerHighest),
@@ -186,7 +187,7 @@ class ImageSwiperBlock extends StatelessWidget {
         itemBuilder: (context, i) => ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: CachedNetworkImage(
-            imageUrl: urls[i],
+            imageUrl: mediaUrl(urls[i]),
             width: 92,
             height: 124,
             fit: BoxFit.cover,
@@ -249,7 +250,7 @@ class VideoBarBlock extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       CachedNetworkImage(
-                        imageUrl: block.str('cover'),
+                        imageUrl: mediaUrl(block.str('cover')),
                         fit: BoxFit.cover,
                         placeholder: (_, _) =>
                             Container(color: cs.surfaceContainerHighest),
@@ -374,7 +375,7 @@ class PosterRowBlock extends StatelessWidget {
                 width: 88,
                 height: 124,
                 child: CachedNetworkImage(
-                  imageUrl: block.str('cover'),
+                  imageUrl: mediaUrl(block.str('cover')),
                   fit: BoxFit.cover,
                   placeholder: (_, _) =>
                       Container(color: cs.surfaceContainerHighest),

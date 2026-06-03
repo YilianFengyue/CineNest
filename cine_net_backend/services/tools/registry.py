@@ -11,7 +11,7 @@ from .catalog import (
 )
 from .interactive import build_interactive_answer
 from .media import build_microdesign_posts, get_playable_resource_detail, search_playable_resources
-from .news import collect_movie_news
+from .news import collect_movie_news, generate_movie_news
 from .system import get_backend_status
 
 
@@ -27,4 +27,5 @@ def get_agent_tools() -> list[BaseTool]:
         build_catalog_microdesign_poster,
         build_interactive_answer,
         collect_movie_news,
+        generate_movie_news,
     ]

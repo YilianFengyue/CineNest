@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 90.0
     llm_max_retries: int = 2
 
+    # 图片生成（OpenAI Images 兼容，如 gpt-image-2 @ api.gpt.ge）。
+    # 不单独填写时回退 llm_api_key / llm_base_url，模型默认 gpt-image-2。
+    image_enabled: bool = True
+    image_api_key: str = ""
+    image_base_url: str = ""
+    image_model: str = "gpt-image-2"
+    image_timeout_seconds: float = 120.0
+
     # TMDB 官方 API Read Access Token。Step 1 的播放资源检索不依赖 TMDB。
     tmdb_read_access_token: str = ""
     tmdb_base_url: str = "https://api.themoviedb.org/3"

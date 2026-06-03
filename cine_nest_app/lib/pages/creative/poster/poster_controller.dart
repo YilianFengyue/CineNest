@@ -1,3 +1,4 @@
+import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/poster/poster_mock.dart';
@@ -60,7 +61,7 @@ class PosterController extends GetxController {
 
   Future<void> _fetchReal(String provider, String source, String mediaKind) async {
     final res = await Request().get(
-      '/api/poster/catalog/$provider/$source',
+      ApiConstants.posterCatalog(provider, source),
       queryParameters: {'media_kind': mediaKind},
     );
     final data = res.data;

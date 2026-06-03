@@ -2,10 +2,12 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cine_nest/pages/creative/creative_actions.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/poster/poster_controller.dart';
 import 'package:cine_nest/pages/creative/poster/poster_export_view.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
@@ -61,21 +63,7 @@ class PosterPage extends StatelessWidget {
   }
 
   void _handleAction(BuildContext context, MicroAction action) {
-    final messenger = ScaffoldMessenger.of(context);
-    switch (action.type) {
-      case 'resolveAndPlay':
-        // TODO(C↔A): 跳 A 的播放器 /player，或先 GET /api/sources/parse 拿 play_url。
-        messenger.showSnackBar(
-          const SnackBar(content: Text('播放将对接 A 的播放器（联调期接入）')),
-        );
-        break;
-      case 'openPoster':
-      case 'openResourcePoster':
-        Get.toNamed('/creative-poster', arguments: action.data);
-        break;
-      default:
-        break;
-    }
+    handleCreativeAction(context, action);
   }
 }
 
@@ -113,7 +101,7 @@ class _PosterHeader extends StatelessWidget {
               ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: CachedNetworkImage(
-                  imageUrl: c.backdrop,
+                  imageUrl: mediaUrl(c.backdrop),
                   fit: BoxFit.cover,
                   errorWidget: (_, _, _) =>
                       Container(color: cs.surfaceContainerHighest),
@@ -152,7 +140,7 @@ class _PosterHeader extends StatelessWidget {
                       child: c.poster.isEmpty
                           ? Container(color: cs.surfaceContainerHighest)
                           : CachedNetworkImage(
-                              imageUrl: c.poster,
+                              imageUrl: mediaUrl(c.poster),
                               fit: BoxFit.cover,
                               errorWidget: (_, _, _) => Container(
                                 color: cs.surfaceContainerHighest,

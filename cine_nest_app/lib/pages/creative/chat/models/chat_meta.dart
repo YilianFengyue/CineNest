@@ -10,11 +10,17 @@ abstract final class ChatMeta {
   /// Agent 状态条：思考动画 + 工具来源 chip。
   static const String kindStatus = 'agent_status';
 
-  /// 推荐 feed 附件（多张帖子卡）。
+  /// 推荐 feed 附件（多张帖子卡）。值与后端 attachment.type 一致。
   static const String kindRecommendation = 'recommendation_feed';
 
   /// 互动海报附件（单部作品海报预览）。
   static const String kindPoster = 'microdesign_poster';
+
+  /// 交互卡片集合附件（聊天富媒体卡：可播放卡/轮播/影评/溯源…）。
+  static const String kindInteractive = 'interactive_cards';
+
+  /// 资讯流附件。
+  static const String kindNews = 'news_feed';
 
   /// 错误条 + 重试。
   static const String kindError = 'error';

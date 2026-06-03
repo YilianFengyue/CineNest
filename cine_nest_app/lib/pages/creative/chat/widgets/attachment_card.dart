@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/chat/models/chat_meta.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
@@ -25,6 +26,46 @@ class AttachmentCard extends StatelessWidget {
 
     if (kind == ChatMeta.kindPoster) {
       return _PosterPreview(payload: payload, onAction: onAction);
+    }
+    if (kind == ChatMeta.kindInteractive) {
+      // 交互卡片集合：payload.cards 是一串 block，直接拼贴。
+      final cards = ContentBlock.listFrom(payload['cards']);
+      if (cards.isEmpty) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(right: 36),
+          child: BlockRenderer(blocks: cards, spacing: 12, onAction: onAction),
+        ),
+      );
+    }
+    if (kind == ChatMeta.kindNews) {
+      // 资讯流：每条 item 的 blocks 各自拼贴。
+      final items = (payload['items'] as List?)?.whereType<Map>().toList() ??
+          const [];
+      if (items.isEmpty) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(right: 36),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final it in items)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: BlockRenderer(
+                    blocks: ContentBlock.listFrom(
+                      it.cast<String, dynamic>()['blocks'],
+                    ),
+                    spacing: 10,
+                    onAction: onAction,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
     }
     // 默认按推荐 feed 渲染。
     final posts = (payload['posts'] as List?)?.whereType<Map>().toList() ??
@@ -119,7 +160,7 @@ class _PostCard extends StatelessWidget {
                       child: cover.isEmpty
                           ? Container(color: cs.surfaceContainerHighest)
                           : CachedNetworkImage(
-                              imageUrl: cover,
+                              imageUrl: mediaUrl(cover),
                               fit: BoxFit.cover,
                               placeholder: (_, _) =>
                                   Container(color: cs.surfaceContainerHighest),

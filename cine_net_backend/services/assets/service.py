@@ -89,6 +89,37 @@ async def save_upload(file: UploadFile) -> AssetRecord:
     return AssetRecord(**record, url=_asset_url(asset_id))
 
 
+def save_bytes(content: bytes, *, mime: str = "image/png", filename: str = "asset.bin") -> AssetRecord:
+    """保存任意字节为资产（如 AI 生成的图片），返回可经 /api/assets 读取的记录。"""
+
+    _ensure_db()
+    if len(content) > settings.asset_max_bytes:
+        raise ValueError(f"内容超过限制：最大 {settings.asset_max_bytes} bytes")
+    asset_id = uuid4().hex
+    suffix = Path(filename).suffix[:16] or mimetypes.guess_extension(mime) or ".bin"
+    stored_name = f"{asset_id}{suffix}"
+    settings.asset_dir.mkdir(parents=True, exist_ok=True)
+    (settings.asset_dir / stored_name).write_bytes(content)
+    record = {
+        "id": asset_id,
+        "kind": _kind(mime),
+        "filename": Path(filename).name,
+        "stored_name": stored_name,
+        "mime": mime,
+        "size": len(content),
+        "created_at": _now(),
+    }
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO assets(id, kind, filename, stored_name, mime, size, created_at)
+            VALUES(:id, :kind, :filename, :stored_name, :mime, :size, :created_at)
+            """,
+            record,
+        )
+    return AssetRecord(**record, url=_asset_url(asset_id))
+
+
 def get_asset(asset_id: str) -> AssetRecord:
     _ensure_db()
     with get_conn() as conn:

@@ -20,6 +20,7 @@ _ATTACHMENT_TYPES = {
     "build_catalog_microdesign_poster": "microdesign_poster",
     "build_interactive_answer": "interactive_cards",
     "collect_movie_news": "news_feed",
+    "generate_movie_news": "news_feed",
 }
 
 
@@ -38,6 +39,8 @@ SYSTEM_PROMPT = """\
 当用户需要推荐帖子时调用 build_recommendation_feed；需要动态海报时调用 build_catalog_microdesign_poster。
 当用户在聊天中需要可点击卡片、电影轮播、评价卡或“像 ChatGPT 一样的交互回答”时，优先调用 build_interactive_answer。
 当用户询问影视资讯、热点、新闻或资讯页内容时，调用 collect_movie_news。
+当用户要求“为某部电影生成资讯/特辑/海报资讯”时，调用 generate_movie_news（会生成 AI 海报图并持久化到资讯列表）。
+做电影推荐时优先用富媒体卡片（build_interactive_answer），让回答更直观、可点击、可播放。
 用户明确要找播放地址时，调用 search_playable_resources 与 get_playable_resource_detail。
 工具字段为空时必须明确说“暂无”，不得用模型记忆补充简介、剧情、演职员、评分、封面或播放信息。
 如果工具没有返回结果，明确告诉用户暂未检索到，不要用常识补造任何影视资料或播放线路。

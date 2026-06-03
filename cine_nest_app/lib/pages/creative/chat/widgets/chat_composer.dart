@@ -1,11 +1,15 @@
 import 'dart:io';
 
+import 'package:cine_nest/http/api_constants.dart';
+import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
 import 'package:cine_nest/pages/creative/chat/services/chat_ws_service.dart';
+import 'package:cine_nest/services/logger.dart';
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide FormData, MultipartFile;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -63,20 +67,51 @@ class _ChatComposerState extends State<ChatComposer> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final text = _textController.text.trim();
-    final hasImage = _imagePath != null;
-    if ((text.isEmpty && !hasImage) || c.responding.value) return;
-    if (hasImage) {
-      c.sendImage(_imagePath!);
+    final imagePath = _imagePath;
+    if ((text.isEmpty && imagePath == null) || c.responding.value) return;
+    _textController.clear();
+    _hasText.value = false;
+
+    List<Map<String, dynamic>>? attachments;
+    if (imagePath != null) {
       setState(() {
         _imagePath = null;
         _imageName = null;
       });
+      await c.sendImage(imagePath); // 本地气泡先展示
+      final asset = await _uploadImage(imagePath); // 上传供 Agent 多模态识别
+      if (asset != null) attachments = [asset];
     }
-    if (text.isNotEmpty) c.send(text);
-    _textController.clear();
-    _hasText.value = false;
+
+    if (text.isNotEmpty) {
+      await c.send(text, attachments: attachments);
+    } else if (attachments != null) {
+      await c.send('请看这张图片', attachments: attachments);
+    }
+  }
+
+  /// 上传图片到后端，返回可挂到消息的附件描述；失败返回 null（不阻断发送）。
+  Future<Map<String, dynamic>?> _uploadImage(String path) async {
+    try {
+      final form = FormData.fromMap({
+        'file': await MultipartFile.fromFile(path, filename: path.split('/').last),
+      });
+      final res = await Request().post(ApiConstants.uploads, data: form);
+      if (res.statusCode == 200 && res.data is Map) {
+        final m = (res.data as Map).cast<String, dynamic>();
+        return {
+          'asset_id': m['asset_id'],
+          'type': 'image',
+          'mime': m['mime'] ?? 'image/png',
+          'filename': m['filename'] ?? 'image.png',
+        };
+      }
+    } catch (e) {
+      logger.w('图片上传失败: $e');
+    }
+    return null;
   }
 
   @override
@@ -286,9 +321,10 @@ class _ModelSelectorRow extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Obx(() {
-        final current = kChatModels.firstWhere(
+        final list = c.models;
+        final current = list.firstWhere(
           (m) => m.id == c.modelId.value,
-          orElse: () => kChatModels.first,
+          orElse: () => list.isNotEmpty ? list.first : kChatModels.first,
         );
         return InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -338,7 +374,7 @@ class _ModelSelectorRow extends StatelessWidget {
                 ),
               ),
             ),
-            for (final m in kChatModels)
+            for (final m in c.models)
               Obx(() {
                 final selected = c.modelId.value == m.id;
                 return ListTile(

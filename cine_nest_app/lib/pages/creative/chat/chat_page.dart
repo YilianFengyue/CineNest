@@ -8,9 +8,10 @@ import 'package:cine_nest/pages/creative/chat/widgets/recommend_sheet.dart';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cine_nest/pages/creative/creative_actions.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/preview/card_gallery_page.dart';
-import 'package:cine_nest/router/app_pages.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide ChatController;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -116,6 +117,8 @@ class ChatPage extends StatelessWidget {
         return AgentStatusCard(message);
       case ChatMeta.kindRecommendation:
       case ChatMeta.kindPoster:
+      case ChatMeta.kindInteractive:
+      case ChatMeta.kindNews:
         return AttachmentCard(
           message,
           onAction: (a) => handleChatAction(context, a),
@@ -131,26 +134,9 @@ class ChatPage extends StatelessWidget {
   }
 }
 
-/// 统一处理对话卡片里的白名单动作。
-///
-/// 当前 F8 海报详情页与 A 的播放器尚未接入，先给出明确占位提示；
-/// 后续：openPoster → 跳 F8 海报页（带 catalog id）；resolveAndPlay → 跳 A 的 /player。
+/// 对话卡片动作 → 统一分发（openPoster 跳海报、resolveAndPlay 解析播放）。
 void handleChatAction(BuildContext context, MicroAction action) {
-  final messenger = ScaffoldMessenger.of(context);
-  switch (action.type) {
-    case 'openPoster':
-    case 'openResourcePoster':
-      Get.toNamed(Routes.creativePoster, arguments: action.data);
-      break;
-    case 'resolveAndPlay':
-      // TODO(C↔A): 跳 A 的播放器 /player，或先 GET /api/sources/parse 拿 play_url。
-      messenger.showSnackBar(
-        const SnackBar(content: Text('播放将对接 A 的播放器（联调期接入）')),
-      );
-      break;
-    default:
-      break;
-  }
+  handleCreativeAction(context, action);
 }
 
 /// 对话页的 AppBar 操作（新对话 / 历史 / 推荐），由 main_app 注入到全局 AppBar。
@@ -302,14 +288,16 @@ class _ChatImageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final source = message.source;
-    final isNetwork = source.startsWith('http');
+    // 远程图(含相对 /api/assets) 走网络；本地 file 路径走 Image.file。
+    final isNetwork = source.startsWith('http') || source.startsWith('/');
+    final resolved = mediaUrl(source);
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 240, maxHeight: 280),
         child: isNetwork
             ? CachedNetworkImage(
-                imageUrl: source,
+                imageUrl: resolved,
                 fit: BoxFit.cover,
                 placeholder: (_, _) =>
                     Container(width: 180, height: 180, color: cs.surfaceContainerHighest),

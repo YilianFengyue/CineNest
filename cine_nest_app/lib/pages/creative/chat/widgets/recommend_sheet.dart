@@ -27,6 +27,7 @@ class _RecommendSheet extends StatelessWidget {
     '有什么像《星际穿越》的科幻片',
     '找几部适合周末放松的喜剧',
     '推荐高分悬疑片，最好能直接播放',
+    '帮我生成一条《沙丘2》的资讯特辑',
   ];
 
   @override
