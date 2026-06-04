@@ -34,6 +34,14 @@ def find_best_resource(movie: CatalogMovie, response: ResourceSearchResponse) ->
     )[0]
 
 
+def _looks_like_broad_topic(query: str) -> bool:
+    value = query.strip()
+    if not value:
+        return False
+    markers = ("推荐", "高分", "电影", "电视剧", "科幻", "悬疑", "喜剧", "动画", "动作", "爱情", "恐怖", "最近", "热门")
+    return any(marker in value for marker in markers) and "《" not in value
+
+
 class RecommendationService:
     """把资料候选批量映射为可播放的 MicroDesign 帖子。"""
 
@@ -73,9 +81,10 @@ class RecommendationService:
                 self._feed_cache.set(cache_key, persistent)
                 return persistent
         candidate_limit = max(limit * 2, limit)
+        normalized_query = "" if _looks_like_broad_topic(query) else query.strip()
         catalog_response = (
-            await self.catalog.search(query, media_kind=media_kind, limit=candidate_limit)
-            if query.strip()
+            await self.catalog.search(normalized_query, media_kind=media_kind, limit=candidate_limit)
+            if normalized_query
             else await self.catalog.hot(media_kind=media_kind, limit=candidate_limit)
         )
         posts = await asyncio.gather(*(self._to_post(movie) for movie in catalog_response.items))

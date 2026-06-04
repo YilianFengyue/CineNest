@@ -11,10 +11,13 @@ from services.catalog.tmdb import TMDBCatalogProvider
 
 class CatalogRegistryTests(TestCase):
     def test_load_douban_and_tmdb(self) -> None:
-        registry = CatalogRegistry()
-
-        self.assertEqual(["douban", "tmdb"], [provider.config.id for provider in registry.list_all()])
-        self.assertEqual(["douban"], [provider.config.id for provider in registry.list_available()])
+        with (
+            patch("services.catalog.tmdb.settings.tmdb_read_access_token", ""),
+            patch("services.catalog.tmdb.settings.tmdb_api_key", ""),
+        ):
+            registry = CatalogRegistry()
+            self.assertEqual(["douban", "tmdb"], [provider.config.id for provider in registry.list_all()])
+            self.assertEqual(["douban"], [provider.config.id for provider in registry.list_available()])
 
 
 class _StubDouban(DoubanCatalogProvider):

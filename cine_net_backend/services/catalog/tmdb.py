@@ -19,16 +19,18 @@ class TMDBCatalogProvider:
 
     @property
     def configured(self) -> bool:
-        return bool(settings.tmdb_read_access_token.strip())
+        return bool(settings.tmdb_read_access_token.strip() or settings.tmdb_api_key.strip())
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         if not self.configured:
-            raise RuntimeError("TMDB 尚未配置：请填写 TMDB_READ_ACCESS_TOKEN")
-        headers = {
-            "Authorization": f"Bearer {settings.tmdb_read_access_token.strip()}",
-            "Accept": "application/json",
-        }
+            raise RuntimeError("TMDB 尚未配置：请填写 TMDB_READ_ACCESS_TOKEN 或 TMDB_API_KEY")
+        headers = {"Accept": "application/json"}
         query = {"language": "zh-CN", **(params or {})}
+        token = settings.tmdb_read_access_token.strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        else:
+            query["api_key"] = settings.tmdb_api_key.strip()
         async with httpx.AsyncClient(
             timeout=self.timeout_seconds,
             follow_redirects=True,

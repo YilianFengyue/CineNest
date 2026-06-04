@@ -39,6 +39,8 @@ class NewsPage extends StatelessWidget {
             usingMock: c.usingMock.value,
             onChanged: (v) => c.favOnly.value = v,
           ),
+          if (c.usingMock.value && c.error.value.isNotEmpty)
+            _MockReasonBanner(message: c.error.value),
           Expanded(
             child: visible.isEmpty
                 ? _EmptyView(
@@ -66,6 +68,41 @@ class NewsPage extends StatelessWidget {
 
   void _handleAction(BuildContext context, MicroAction action) {
     handleCreativeAction(context, action);
+  }
+}
+
+class _MockReasonBanner extends StatelessWidget {
+  const _MockReasonBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Material(
+        color: cs.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 18, color: cs.onErrorContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: cs.onErrorContainer),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -206,7 +243,11 @@ class _CompletionBanner extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, size: 20, color: cs.onPrimaryContainer),
+                  Icon(
+                    Icons.check_circle,
+                    size: 20,
+                    color: cs.onPrimaryContainer,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -221,7 +262,11 @@ class _CompletionBanner extends StatelessWidget {
                   ),
                   IconButton(
                     tooltip: '知道了',
-                    icon: Icon(Icons.close, size: 18, color: cs.onPrimaryContainer),
+                    icon: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: cs.onPrimaryContainer,
+                    ),
                     onPressed: NewsTasksController.to.clearCompleted,
                   ),
                 ],

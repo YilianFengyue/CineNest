@@ -12,7 +12,11 @@ class NewsEntry {
   final String id;
   final String title;
   final List<ContentBlock> blocks;
-  const NewsEntry({required this.id, required this.title, required this.blocks});
+  const NewsEntry({
+    required this.id,
+    required this.title,
+    required this.blocks,
+  });
 
   /// 取首张可用封面（newsCard.cover 或 mediaGallery 首图），收藏元信息用。
   String get cover {
@@ -55,12 +59,11 @@ class NewsController extends GetxController {
     super.onInit();
     refreshNews();
     // 任务完成（NewsTasksController 检测到）→ 拉一次新资讯，新卡随即出现。
-    _completionWorker = ever<String?>(
-      NewsTasksController.to.completedQuery,
-      (q) {
-        if (q != null) refreshNews(refresh: false);
-      },
-    );
+    _completionWorker = ever<String?>(NewsTasksController.to.completedQuery, (
+      q,
+    ) {
+      if (q != null) refreshNews(refresh: false);
+    });
   }
 
   @override
@@ -86,10 +89,15 @@ class NewsController extends GetxController {
           _fallbackToMock();
         }
       } else {
+        final msg = res.data is Map ? (res.data as Map)['message'] : null;
+        error.value = msg?.toString().isNotEmpty == true
+            ? msg.toString()
+            : '资讯接口异常：HTTP ${res.statusCode}';
         _fallbackToMock();
       }
     } catch (e, st) {
       logger.e('资讯加载失败，回退 mock', error: e, stackTrace: st);
+      error.value = '资讯接口连接失败：$e';
       _fallbackToMock();
     }
     loading.value = false;
@@ -97,6 +105,9 @@ class NewsController extends GetxController {
 
   /// 后端拉不到 / 返回空 → 用 mock 兜底，保证列表永远有内容可调。
   void _fallbackToMock() {
+    if (error.value.isEmpty) {
+      error.value = '后端暂无资讯数据，已显示示例数据';
+    }
     items.value = mockNewsEntries();
     usingMock.value = true;
   }

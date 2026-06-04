@@ -30,13 +30,15 @@ def _merge_movie(primary: CatalogMovie, candidate: CatalogMovie) -> CatalogMovie
     source_map = {source.provider_id: source for source in primary.sources}
     for source in candidate.sources:
         source_map.setdefault(source.provider_id, source)
+    candidate_is_tmdb = candidate.provider_id == "tmdb"
     updates = {
         "original_title": primary.original_title or candidate.original_title,
         "year": primary.year or candidate.year,
         "rating": primary.rating if primary.rating is not None else candidate.rating,
         "rating_count": primary.rating_count if primary.rating_count is not None else candidate.rating_count,
-        "poster_url": primary.poster_url or candidate.poster_url,
-        "backdrop_url": primary.backdrop_url or candidate.backdrop_url,
+        # 豆瓣图片容易 403/防盗链；只在 TMDB 缺失或未配置时使用豆瓣图。
+        "poster_url": candidate.poster_url if candidate_is_tmdb and candidate.poster_url else primary.poster_url or candidate.poster_url,
+        "backdrop_url": candidate.backdrop_url if candidate_is_tmdb and candidate.backdrop_url else primary.backdrop_url or candidate.backdrop_url,
         "overview": primary.overview or candidate.overview,
         "genres": primary.genres or candidate.genres,
         "directors": primary.directors or candidate.directors,

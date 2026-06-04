@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import base64
+import asyncio
 import logging
 
 import httpx
@@ -55,6 +56,7 @@ async def generate_image(
     *,
     size: str = "1024x1024",
     model: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> AssetRecord | None:
     """生成一张图片并存为 asset。失败返回 None。"""
 
@@ -67,30 +69,37 @@ async def generate_image(
         "size": size,
     }
     headers = {"Authorization": f"Bearer {_api_key()}"}
-    try:
-        async with httpx.AsyncClient(timeout=settings.image_timeout_seconds) as client:
-            resp = await client.post(
-                f"{_base_url()}/images/generations",
-                headers=headers,
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            items = data.get("data") or []
-            if not items:
-                logger.warning("图片生成返回空 data")
-                return None
-            first = items[0]
-            content: bytes | None = None
-            if first.get("b64_json"):
-                content = base64.b64decode(first["b64_json"])
-            elif first.get("url"):
-                img = await client.get(first["url"])
-                img.raise_for_status()
-                content = img.content
-            if not content:
-                return None
-            return save_bytes(content, mime="image/png", filename="ai_poster.png")
-    except Exception as exc:  # noqa: BLE001 — 生图失败必须降级，不能影响主流程
-        logger.warning("图片生成失败，已降级: %s", exc)
-        return None
+    last_error: Exception | None = None
+    for attempt in range(1, 3):
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds or settings.image_timeout_seconds) as client:
+                resp = await client.post(
+                    f"{_base_url()}/images/generations",
+                    headers=headers,
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                items = data.get("data") or []
+                if not items:
+                    logger.warning("图片生成返回空 data")
+                    return None
+                first = items[0]
+                content: bytes | None = None
+                if first.get("b64_json"):
+                    content = base64.b64decode(first["b64_json"])
+                elif first.get("url"):
+                    img = await client.get(first["url"])
+                    img.raise_for_status()
+                    content = img.content
+                if not content:
+                    return None
+                return save_bytes(content, mime="image/png", filename="ai_poster.png")
+        except Exception as exc:  # noqa: BLE001 — 生图失败必须降级，不能影响主流程
+            last_error = exc
+            logger.warning("图片生成失败，第 %s 次尝试: %s", attempt, exc)
+            if attempt < 2:
+                await asyncio.sleep(1.2 * attempt)
+    if last_error is not None:
+        logger.warning("图片生成重试后仍失败，已降级: %s", last_error)
+    return None

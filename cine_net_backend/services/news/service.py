@@ -27,6 +27,17 @@ def _task_id() -> str:
     return f"news-task-{uuid4().hex[:16]}"
 
 
+def _fallback_cover(seed: str) -> str:
+    return f"https://picsum.photos/seed/cinenest-{uuid5(NAMESPACE_URL, seed).hex[:10]}/900/520"
+
+
+def _best_cover(*urls: str, seed: str) -> str:
+    for url in urls:
+        if url:
+            return url
+    return _fallback_cover(seed)
+
+
 def _item_from_payload(payload: dict) -> NewsItem:
     return NewsItem.model_validate(payload)
 
@@ -210,7 +221,7 @@ async def build_news_feed(*, limit: int = 10, refresh: bool = False) -> NewsFeed
                 source="CineNest Agent",
                 published_at=f"{index + 1} 小时前",
                 tags=tags,
-                cover=movie.backdrop_url or movie.poster_url,
+                cover=_best_cover(movie.backdrop_url, movie.poster_url, seed=movie.title),
                 action=poster_action,
             )
         ]
@@ -262,7 +273,7 @@ async def generate_news_for_query(
     movie = catalog.items[0]
     news_id = _news_id(f"gen:{movie.catalog_id or movie.title}")
 
-    cover = movie.backdrop_url or movie.poster_url or ""
+    cover = _best_cover(movie.backdrop_url, movie.poster_url, seed=movie.title)
     gallery_urls = [url for url in (movie.backdrop_url, movie.poster_url) if url]
     ai_generated = False
     if is_image_enabled():
@@ -271,6 +282,7 @@ async def generate_news_for_query(
         asset = await generate_image(
             movie_image_prompt(movie.title, movie.genres, movie.overview or "", kind="poster"),
             size="1024x1536",
+            timeout_seconds=18,
         )
         if asset is not None:
             cover = asset.url

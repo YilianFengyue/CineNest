@@ -4,7 +4,6 @@ import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
 import 'package:cine_nest/pages/creative/chat/services/chat_ws_service.dart';
-import 'package:cine_nest/pages/creative/news/news_tasks_controller.dart';
 import 'package:cine_nest/services/logger.dart';
 import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
@@ -39,6 +38,8 @@ class _ChatComposerState extends State<ChatComposer> {
   // 已选图片（本地路径），发送前在输入框上方预览。
   String? _imagePath;
   String? _imageName;
+
+  bool _generateNewsMode = false;
 
   ChatController get c => ChatController.to;
 
@@ -76,6 +77,10 @@ class _ChatComposerState extends State<ChatComposer> {
     if ((text.isEmpty && imagePath == null) || c.responding.value) return;
     _textController.clear();
     _hasText.value = false;
+    final generateNewsMode = _generateNewsMode;
+    if (generateNewsMode) {
+      setState(() => _generateNewsMode = false);
+    }
 
     List<Map<String, dynamic>>? attachments;
     if (imagePath != null) {
@@ -96,15 +101,14 @@ class _ChatComposerState extends State<ChatComposer> {
       if (asset != null) {
         attachments = [asset];
       } else {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('图片上传失败，已取消本次发送')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('图片上传失败，已取消本次发送')));
         return;
       }
     }
 
     if (text.isNotEmpty) {
-      await c.send(text, attachments: attachments);
+      final outgoing = generateNewsMode ? '生成影视资讯：$text' : text;
+      await c.send(outgoing, attachments: attachments);
     } else if (attachments != null) {
       await c.send('请看这张图片', attachments: attachments);
     }
@@ -112,27 +116,33 @@ class _ChatComposerState extends State<ChatComposer> {
 
   /// 上传图片到后端，返回可挂到消息的附件描述；失败返回 null（不阻断发送）。
   Future<Map<String, dynamic>?> _uploadImage(String path) async {
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: Pref.baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 30),
-        headers: const {
-          'user-agent': 'CineNest/1.0 (Flutter; dart:io)',
-          'connection': 'close',
-        },
-        persistentConnection: false,
-        validateStatus: (status) => status != null && status >= 200 && status < 300,
-      ),
-    )..httpClientAdapter = IOHttpClientAdapter(
-        createHttpClient: () => HttpClient()
-          ..idleTimeout = Duration.zero
-          ..autoUncompress = true,
-      );
+    final dio =
+        Dio(
+            BaseOptions(
+              baseUrl: Pref.baseUrl,
+              connectTimeout: const Duration(seconds: 15),
+              sendTimeout: const Duration(seconds: 60),
+              receiveTimeout: const Duration(seconds: 30),
+              headers: const {
+                'user-agent': 'CineNest/1.0 (Flutter; dart:io)',
+                'connection': 'close',
+              },
+              persistentConnection: false,
+              validateStatus: (status) =>
+                  status != null && status >= 200 && status < 300,
+            ),
+          )
+          ..httpClientAdapter = IOHttpClientAdapter(
+            createHttpClient: () => HttpClient()
+              ..idleTimeout = Duration.zero
+              ..autoUncompress = true,
+          );
     try {
       final form = FormData.fromMap({
-        'file': await MultipartFile.fromFile(path, filename: path.split('/').last),
+        'file': await MultipartFile.fromFile(
+          path,
+          filename: path.split('/').last,
+        ),
       });
       final res = await dio.post(ApiConstants.uploads, data: form);
       if (res.statusCode == 200 && res.data is Map) {
@@ -175,15 +185,14 @@ class _ChatComposerState extends State<ChatComposer> {
         key: _key,
         decoration: BoxDecoration(
           color: cs.surfaceContainerLow,
-          border: Border(
-            top: BorderSide(color: cs.outlineVariant, width: 0.5),
-          ),
+          border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
         ),
         padding: EdgeInsets.fromLTRB(8, 6, 8, 8 + bottomSafe),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _ModelSelectorRow(),
+            if (_generateNewsMode) _intentChip(cs),
             if (_imagePath != null) _attachmentPreview(cs),
             const SizedBox(height: 4),
             Row(
@@ -192,7 +201,10 @@ class _ChatComposerState extends State<ChatComposer> {
                 IconButton(
                   tooltip: '添加图片 / 文件',
                   onPressed: _pickAttachment,
-                  icon: Icon(Icons.add_circle_outline, color: cs.onSurfaceVariant),
+                  icon: Icon(
+                    Icons.add_circle_outline,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
                 Expanded(
                   child: TextField(
@@ -233,6 +245,22 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
+  Widget _intentChip(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: InputChip(
+          avatar: Icon(Icons.auto_awesome, size: 18, color: cs.primary),
+          label: const Text('生成影视资讯'),
+          selected: true,
+          onDeleted: () => setState(() => _generateNewsMode = false),
+          deleteIcon: const Icon(Icons.close, size: 18),
+        ),
+      ),
+    );
+  }
+
   /// 已选图片的预览条（缩略图 + 文件名 + 移除）。
   Widget _attachmentPreview(ColorScheme cs) {
     return Padding(
@@ -259,7 +287,11 @@ class _ChatComposerState extends State<ChatComposer> {
                     width: 40,
                     height: 40,
                     color: cs.surfaceContainerHighest,
-                    child: Icon(Icons.image_outlined, size: 18, color: cs.outline),
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 18,
+                      color: cs.outline,
+                    ),
                   ),
                 ),
               ),
@@ -282,7 +314,11 @@ class _ChatComposerState extends State<ChatComposer> {
                 borderRadius: BorderRadius.circular(20),
                 child: Padding(
                   padding: const EdgeInsets.all(2),
-                  child: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -332,7 +368,8 @@ class _ChatComposerState extends State<ChatComposer> {
     if (choice == null || !mounted) return;
 
     if (choice == 'gen_news') {
-      await _generateNews();
+      setState(() => _generateNewsMode = true);
+      _focusNode.requestFocus();
       return;
     }
 
@@ -342,15 +379,13 @@ class _ChatComposerState extends State<ChatComposer> {
         final res = await FilePicker.platform.pickFiles();
         final name = res?.files.single.name;
         if (mounted && name != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已选择文件「$name」，当前仅图片可进入看图模型')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已选择文件「$name」，当前仅图片可进入看图模型')));
         }
       } else {
         final img = await ImagePicker().pickImage(
-          source: choice == 'camera'
-              ? ImageSource.camera
-              : ImageSource.gallery,
+          source: choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
         );
         if (mounted && img != null) {
           setState(() {
@@ -361,50 +396,10 @@ class _ChatComposerState extends State<ChatComposer> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('选择失败，请重试')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('选择失败，请重试')));
       }
-    }
-  }
-
-  /// 「生成影视资讯」：输入片名 → 提交后台任务 → 对话里插一条进度 chip。
-  Future<void> _generateNews() async {
-    final cs = Theme.of(context).colorScheme;
-    final input = TextEditingController();
-    final query = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.auto_awesome, color: cs.primary),
-        title: const Text('生成影视资讯'),
-        content: TextField(
-          controller: input,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '输入片名 / 主题，如：星际穿越',
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, input.text.trim()),
-            child: const Text('生成'),
-          ),
-        ],
-      ),
-    );
-    if (query == null || query.isEmpty) return;
-    // 提交后台任务（资讯页队列会显示进度），并在对话里插一条进度 chip。
-    NewsTasksController.to.submit(query);
-    await c.insertNewsTaskChip(query);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已提交生成《$query》，可在资讯页查看进度')),
-      );
     }
   }
 }
@@ -465,10 +460,7 @@ class _ModelSelectorRow extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  '选择模型',
-                  style: Theme.of(ctx).textTheme.titleMedium,
-                ),
+                child: Text('选择模型', style: Theme.of(ctx).textTheme.titleMedium),
               ),
             ),
             for (final m in c.models)
@@ -522,7 +514,9 @@ class _SendButton extends StatelessWidget {
           return IconButton.filled(
             onPressed: enabled ? onSend : null,
             style: IconButton.styleFrom(
-              backgroundColor: enabled ? cs.primary : cs.surfaceContainerHighest,
+              backgroundColor: enabled
+                  ? cs.primary
+                  : cs.surfaceContainerHighest,
               foregroundColor: enabled ? cs.onPrimary : cs.onSurfaceVariant,
             ),
             icon: busy

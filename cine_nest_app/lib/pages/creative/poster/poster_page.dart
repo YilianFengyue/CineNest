@@ -1,15 +1,15 @@
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/creative_actions.dart';
 import 'package:cine_nest/pages/creative/favorites_controller.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/poster/poster_controller.dart';
 import 'package:cine_nest/pages/creative/poster/poster_export_view.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
-import 'package:cine_nest/utils/media_url.dart';
+import 'package:cine_nest/utils/placeholder_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -86,6 +86,10 @@ class _PosterHeader extends StatelessWidget {
       // 模糊头图随折叠淡出，展开时图标落在头图顶部的浅色蒙层上仍可读。
       foregroundColor: cs.onSurface,
       backgroundColor: cs.surface,
+      surfaceTintColor: cs.surface,
+      shadowColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
       actions: [
         Obx(() {
           final fav = FavoritesController.to;
@@ -113,164 +117,159 @@ class _PosterHeader extends StatelessWidget {
       title: _CollapsedTitle(title: c.title),
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
-        background: Builder(
-          builder: (ctx) {
-            final settings = ctx
-                .dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
-            final delta = settings == null
-                ? 0.0
-                : settings.maxExtent - settings.minExtent;
-            // t: 0=完全展开, 1=完全折叠。
-            final t = settings == null || delta <= 0
-                ? 0.0
-                : (1.0 - (settings.currentExtent - settings.minExtent) / delta)
-                      .clamp(0.0, 1.0);
-            return Opacity(
-              opacity: (1.0 - t).clamp(0.0, 1.0),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // 模糊背景
-                  if (c.backdrop.isNotEmpty)
+        background: ColoredBox(
+          color: cs.surface,
+          child: Builder(
+            builder: (ctx) {
+              final settings = ctx
+                  .dependOnInheritedWidgetOfExactType<
+                    FlexibleSpaceBarSettings
+                  >();
+              final delta = settings == null
+                  ? 0.0
+                  : settings.maxExtent - settings.minExtent;
+              // t: 0=完全展开, 1=完全折叠。
+              final t = settings == null || delta <= 0
+                  ? 0.0
+                  : (1.0 -
+                            (settings.currentExtent - settings.minExtent) /
+                                delta)
+                        .clamp(0.0, 1.0);
+              return Opacity(
+                opacity: (1.0 - t).clamp(0.0, 1.0),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 模糊背景：真实图失败时也走稳定占位图，避免大面积空白。
                     ImageFiltered(
                       imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: CachedNetworkImage(
-                        imageUrl: mediaUrl(c.backdrop),
+                      child: CoverImage(
+                        url: c.backdrop,
+                        seed: '${c.title}-backdrop',
                         fit: BoxFit.cover,
-                        errorWidget: (_, _, _) =>
-                            Container(color: cs.surfaceContainerHighest),
-                      ),
-                    )
-                  else
-                    Container(color: cs.surfaceContainerHighest),
-                  // 蒙层：顶部浅 surface（深色图标/状态栏可读），底部压暗（白色片名可读）再沉到 surface。
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          cs.surface.withValues(alpha: 0.75),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.45),
-                          cs.surface,
-                        ],
-                        stops: const [0.0, 0.22, 0.78, 1.0],
                       ),
                     ),
-                  ),
-                  // 海报 + 信息
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: SizedBox(
-                            width: 96,
-                            height: 138,
-                            child: c.poster.isEmpty
-                                ? Container(color: cs.surfaceContainerHighest)
-                                : CachedNetworkImage(
-                                    imageUrl: mediaUrl(c.poster),
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, _, _) => Container(
-                                      color: cs.surfaceContainerHighest,
-                                      child: Icon(
-                                        Icons.movie_outlined,
-                                        color: cs.outline,
-                                      ),
-                                    ),
-                                  ),
-                          ),
+                    // 蒙层：顶部浅 surface（深色图标/状态栏可读），底部压暗（白色片名可读）再沉到 surface。
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            cs.surface.withValues(alpha: 0.75),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.45),
+                            cs.surface,
+                          ],
+                          stops: const [0.0, 0.22, 0.78, 1.0],
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                c.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  shadows: const [
-                                    Shadow(
-                                      blurRadius: 8,
-                                      color: Colors.black54,
-                                    ),
-                                  ],
-                                ),
+                      ),
+                    ),
+                    // 海报 + 信息
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 16,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              width: 96,
+                              height: 138,
+                              child: CoverImage(
+                                url: c.poster,
+                                seed: '${c.title}-poster',
                               ),
-                              if (c.subtitle.isNotEmpty) ...[
-                                const SizedBox(height: 4),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 Text(
-                                  c.subtitle,
-                                  maxLines: 1,
+                                  c.title,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                              if (c.rating != null && c.rating! > 0) ...[
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: accent.withValues(alpha: 0.9),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        size: 16,
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
                                         color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        shadows: const [
+                                          Shadow(
+                                            blurRadius: 8,
+                                            color: Colors.black54,
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        c.rating!.toStringAsFixed(1),
-                                        style: const TextStyle(
+                                ),
+                                if (c.subtitle.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    c.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                                if (c.rating != null && c.rating! > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: accent.withValues(alpha: 0.9),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.star_rounded,
+                                          size: 16,
                                           color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 13,
                                         ),
-                                      ),
-                                      if (c.ratingLabel.isNotEmpty) ...[
-                                        const SizedBox(width: 5),
+                                        const SizedBox(width: 3),
                                         Text(
-                                          c.ratingLabel,
+                                          c.rating!.toStringAsFixed(1),
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
                                           ),
                                         ),
+                                        if (c.ratingLabel.isNotEmpty) ...[
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            c.ratingLabel,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
                                       ],
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

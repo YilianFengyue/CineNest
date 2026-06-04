@@ -45,6 +45,7 @@ class ChatController extends GetxController {
   String? _assistantMsgId; // 助手文本气泡 id
   String _assistantBuffer = ''; // 累加的助手文本（目标全文）
   String _lastUserText = ''; // 最近一条用户消息（重试用）
+  int _turnAttachmentCount = 0; // 本回合结构化附件数量
 
   // 打字机：后端 delta 多是"整段"而非逐 token，这里在前端做渐显，
   // 把整段文本一点点"吐"出来，观感接近 Gemini 的流式输出。
@@ -93,7 +94,10 @@ class ChatController extends GetxController {
   /// 发送一条用户消息并触发 Agent 流程。
   ///
   /// [attachments] 为多模态附件（如已上传图片的 `{asset_id, type, mime, filename}`）。
-  Future<void> send(String text, {List<Map<String, dynamic>>? attachments}) async {
+  Future<void> send(
+    String text, {
+    List<Map<String, dynamic>>? attachments,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || responding.value) return;
     _lastUserText = trimmed;
@@ -112,6 +116,7 @@ class ChatController extends GetxController {
     responding.value = true;
     _assistantMsgId = null;
     _assistantBuffer = '';
+    _turnAttachmentCount = 0;
     _revealed = 0;
     _revealTimer?.cancel();
     _statusMsgId = _newId('s');
@@ -149,6 +154,7 @@ class ChatController extends GetxController {
     responding.value = true;
     _assistantMsgId = null;
     _assistantBuffer = '';
+    _turnAttachmentCount = 0;
     _revealed = 0;
     _revealTimer?.cancel();
     _statusMsgId = _newId('s');
@@ -276,6 +282,9 @@ class ChatController extends GetxController {
         break;
       case AgentEventType.done:
         await _finishTurn();
+        if (_shouldFallbackInteractiveCards()) {
+          await injectRecommendationFeed(query: _lastUserText);
+        }
         _persist();
         break;
       case AgentEventType.error:
@@ -320,6 +329,7 @@ class ChatController extends GetxController {
   }
 
   Future<void> _insertAttachment(AgentEvent e) async {
+    _turnAttachmentCount += 1;
     // attachmentType 与 ChatMeta.kind* 一致；未知类型回退推荐卡。
     const known = {
       ChatMeta.kindRecommendation,
@@ -328,8 +338,9 @@ class ChatController extends GetxController {
       ChatMeta.kindNews,
       ChatMeta.kindNewsTask,
     };
-    final kind =
-        known.contains(e.attachmentType) ? e.attachmentType : ChatMeta.kindRecommendation;
+    final kind = known.contains(e.attachmentType)
+        ? e.attachmentType
+        : ChatMeta.kindRecommendation;
     await chat.insertMessage(
       Message.custom(
         id: _newId('a'),
@@ -444,6 +455,21 @@ class ChatController extends GetxController {
     responding.value = false;
   }
 
+  bool _shouldFallbackInteractiveCards() {
+    if (_turnAttachmentCount > 0) return false;
+    final text = _lastUserText.trim();
+    if (text.startsWith('生成影视资讯')) return false;
+    return text.contains('推荐') ||
+        text.contains('找部') ||
+        text.contains('找一部') ||
+        text.contains('高分') ||
+        text.contains('可播放') ||
+        text.contains('播放') ||
+        text.contains('资源') ||
+        text.contains('片源') ||
+        text.contains('像《');
+  }
+
   // ───────────────────────── 会话管理 ─────────────────────────
 
   /// 切换后端模型别名（Gemini / GPT-5.5 / Kimi-K2.6）。
@@ -453,9 +479,9 @@ class ChatController extends GetxController {
   }
 
   ChatModelOption get currentModel => models.firstWhere(
-        (m) => m.id == modelId.value,
-        orElse: () => kChatModels.first,
-      );
+    (m) => m.id == modelId.value,
+    orElse: () => kChatModels.first,
+  );
 
   Future<bool> ensureVisionModelForImage() async {
     if (currentModel.supportsImages) return true;

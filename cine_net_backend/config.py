@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     image_model: str = "gpt-image-2"
     image_timeout_seconds: float = 120.0
 
-    # TMDB 官方 API Read Access Token。Step 1 的播放资源检索不依赖 TMDB。
+    # TMDB 官方 API。优先使用 Read Access Token；也兼容 v3 API Key（TMDB_API_KEY）。
     tmdb_read_access_token: str = ""
+    tmdb_api_key: str = ""
     tmdb_base_url: str = "https://api.themoviedb.org/3"
     tmdb_image_base: str = "https://image.tmdb.org/t/p/w500"
     tmdb_backdrop_base: str = "https://image.tmdb.org/t/p/w780"
