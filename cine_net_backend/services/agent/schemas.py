@@ -18,7 +18,7 @@ class AgentInvokeRequest(BaseModel):
 class AgentAttachment(BaseModel):
     """聊天气泡可直接挂载的结构化内容。"""
 
-    type: Literal["recommendation_feed", "microdesign_poster", "interactive_cards", "news_feed"]
+    type: Literal["recommendation_feed", "microdesign_poster", "interactive_cards", "news_feed", "news_task"]
     schema_version: str = "microdesign.v1.1"
     payload: dict[str, Any]
 

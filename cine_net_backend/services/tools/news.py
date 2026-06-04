@@ -1,11 +1,12 @@
 """资讯 Agent Tool。"""
 from __future__ import annotations
 
+import asyncio
 import json
 
 from langchain.tools import tool
 
-from services.news import NewsFeed, build_news_feed, generate_news_for_query
+from services.news import NewsFeed, build_news_feed, create_news_task, run_news_task
 
 
 @tool
@@ -18,10 +19,11 @@ async def collect_movie_news(limit: int = 5) -> str:
 
 @tool
 async def generate_movie_news(query: str, media_kind: str = "movie") -> str:
-    """为某部电影/主题生成一条带 AI 海报图的资讯并持久化到资讯列表。
+    """为某部电影/主题提交一条带 AI 海报图的资讯后台任务。
 
     用户说“给XX生成一条资讯/特辑/海报资讯”“做一张XX的资讯卡”时调用。
     """
 
-    item = await generate_news_for_query(query, media_kind=media_kind)
-    return json.dumps(NewsFeed(items=[item]).model_dump(), ensure_ascii=False)
+    task = create_news_task(query, media_kind=media_kind)
+    asyncio.create_task(run_news_task(task.id))
+    return json.dumps(task.model_dump(), ensure_ascii=False)

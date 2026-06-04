@@ -102,6 +102,25 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS news_tasks (
+                id TEXT PRIMARY KEY,
+                query TEXT NOT NULL,
+                media_kind TEXT NOT NULL DEFAULT 'movie',
+                status TEXT NOT NULL,
+                stage TEXT NOT NULL,
+                news_id TEXT NOT NULL DEFAULT '',
+                error TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_news_tasks_updated ON news_tasks(updated_at DESC)"
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS watch_history (
                 movie_id INTEGER PRIMARY KEY,
                 title TEXT,

@@ -3,11 +3,13 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
+from db import get_conn, init_db
 from main import app
 
 
 class ApiTests(TestCase):
     def setUp(self) -> None:
+        init_db()
         self.client = TestClient(app)
 
     def test_health_exposes_provider_count(self) -> None:
@@ -113,3 +115,21 @@ class ApiTests(TestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual("image/png", response.headers["content-type"])
         self.assertEqual(b"image-bytes", response.content)
+
+    def test_news_generate_creates_background_task(self) -> None:
+        with patch("routers.news.run_news_task", new=AsyncMock()) as mocked_runner:
+            response = self.client.post("/api/news/generate", json={"query": "星际穿越"})
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual("queued", payload["status"])
+        self.assertEqual("星际穿越", payload["query"])
+        self.assertTrue(payload["id"].startswith("news-task-"))
+        mocked_runner.assert_awaited_once_with(payload["id"])
+
+        tasks = self.client.get("/api/news/tasks", params={"limit": 5})
+        self.assertEqual(200, tasks.status_code)
+        self.assertIn(payload["id"], {item["id"] for item in tasks.json()})
+
+        with get_conn() as conn:
+            conn.execute("DELETE FROM news_tasks WHERE id = ?", (payload["id"],))

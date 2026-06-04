@@ -1,5 +1,6 @@
 import 'package:cine_nest/pages/creative/chat/chat_page.dart';
 import 'package:cine_nest/pages/creative/news/news_page.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -40,7 +41,24 @@ class MainApp extends StatelessWidget {
 
       final tab = _tabs[index];
       return Scaffold(
-        appBar: AppBar(title: Text('CineNest · ${tab.label}')),
+        appBar: AppBar(
+          title: Text('CineNest · ${tab.label}'),
+          // 资讯 Tab：右上角放「我的收藏 / 生成队列」入口。
+          actions: index == 2
+              ? [
+                  IconButton(
+                    tooltip: '我的收藏',
+                    icon: const Icon(Icons.favorite_border),
+                    onPressed: () => Get.toNamed(Routes.creativeFavorites),
+                  ),
+                  IconButton(
+                    tooltip: '生成队列',
+                    icon: const Icon(Icons.dynamic_feed),
+                    onPressed: () => Get.toNamed(Routes.creativeNewsTasks),
+                  ),
+                ]
+              : null,
+        ),
         body: _bodyFor(index, tab),
         bottomNavigationBar: NavigationBar(
           selectedIndex: index,

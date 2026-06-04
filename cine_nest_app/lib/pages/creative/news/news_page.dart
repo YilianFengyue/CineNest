@@ -17,114 +17,50 @@ class NewsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Get.put(NewsController());
     final fav = FavoritesController.to;
-    return Stack(
-      children: [
-        Obx(() {
-          if (c.loading.value && c.items.isEmpty) {
-            return const _NewsSkeletonList();
-          }
-          // 只看收藏时按收藏 id 过滤。
-          final favOnly = c.favOnly.value;
-          final visible = favOnly
-              ? c.items.where((e) => fav.ids.contains(e.id)).toList()
-              : c.items.toList();
+    return Obx(() {
+      if (c.loading.value && c.items.isEmpty) {
+        return const _NewsSkeletonList();
+      }
+      // 只看收藏时按收藏 id 过滤。
+      final favOnly = c.favOnly.value;
+      final visible = favOnly
+          ? c.items.where((e) => fav.ids.contains(e.id)).toList()
+          : c.items.toList();
 
-          return Column(
-            children: [
-              _FilterHeader(
-                favOnly: favOnly,
-                usingMock: c.usingMock.value,
-                onChanged: (v) => c.favOnly.value = v,
-              ),
-              Expanded(
-                child: visible.isEmpty
-                    ? _EmptyView(
-                        message: favOnly ? '还没有收藏的资讯' : '暂无资讯',
-                        onRetry: () => c.refreshNews(refresh: true),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => c.refreshNews(refresh: true),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: visible.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (context, i) => _NewsEntryCard(
-                            entry: visible[i],
-                            onAction: (a) => _handleAction(context, a),
-                          ),
-                        ),
-                      ),
-              ),
-            ],
-          );
-        }),
-        // AI 生成资讯入口（Step 3 会搬进 chat 的「+」面板）。
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: Obx(
-            () => FloatingActionButton.extended(
-              onPressed: c.generating.value
-                  ? null
-                  : () => _showGenerateDialog(context, c),
-              icon: c.generating.value
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(c.generating.value ? '生成中…' : 'AI 资讯'),
-            ),
+      return Column(
+        children: [
+          _FilterHeader(
+            favOnly: favOnly,
+            usingMock: c.usingMock.value,
+            onChanged: (v) => c.favOnly.value = v,
           ),
-        ),
-      ],
-    );
+          Expanded(
+            child: visible.isEmpty
+                ? _EmptyView(
+                    message: favOnly ? '还没有收藏的资讯' : '暂无资讯',
+                    onRetry: () => c.refreshNews(refresh: true),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () => c.refreshNews(refresh: true),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) => _NewsEntryCard(
+                        entry: visible[i],
+                        onAction: (a) => _handleAction(context, a),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      );
+    });
   }
 
   void _handleAction(BuildContext context, MicroAction action) {
     handleCreativeAction(context, action);
-  }
-
-  Future<void> _showGenerateDialog(
-    BuildContext context,
-    NewsController c,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final controller = TextEditingController();
-    final query = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('AI 生成资讯'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '输入片名或主题，如：星际穿越',
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('生成'),
-          ),
-        ],
-      ),
-    );
-    if (query == null || query.isEmpty) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('AI 正在生成资讯与海报图，约需十几秒…')),
-    );
-    final ok = await c.generateNews(query);
-    messenger.showSnackBar(
-      SnackBar(content: Text(ok ? '已生成《$query》资讯' : '生成失败，换个片名试试')),
-    );
   }
 }
 

@@ -1,8 +1,18 @@
 """资讯 API。"""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from services.news import NewsFeed, NewsItem, build_news_feed, generate_news_for_query, get_news_item
+from services.news import (
+    NewsFeed,
+    NewsItem,
+    NewsTask,
+    build_news_feed,
+    create_news_task,
+    get_news_item,
+    get_news_task,
+    list_news_tasks,
+    run_news_task,
+)
 
 router = APIRouter(prefix="/api/news", tags=["news"])
 
@@ -22,16 +32,35 @@ async def list_news(
     return await build_news_feed(limit=limit, refresh=refresh)
 
 
-@router.post("/generate", response_model=NewsItem)
-async def generate_news(payload: GenerateNewsRequest) -> NewsItem:
-    """按片名/主题生成一条 AI 资讯（含 AI 海报图），持久化后即进资讯列表。"""
+@router.post("/generate", response_model=NewsTask)
+async def generate_news(payload: GenerateNewsRequest, background_tasks: BackgroundTasks) -> NewsTask:
+    """提交一条 AI 资讯生成任务，后台完成后自动进入资讯列表。"""
 
     try:
-        return await generate_news_for_query(payload.query, media_kind=payload.media_kind)
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        task = create_news_task(payload.query, media_kind=payload.media_kind)
+        background_tasks.add_task(run_news_task, task.id)
+        return task
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"资讯生成失败: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"资讯任务创建失败: {exc}") from exc
+
+
+@router.get("/tasks", response_model=list[NewsTask])
+async def news_tasks(limit: int = Query(20, ge=1, le=100)) -> list[NewsTask]:
+    """返回最近的资讯生成任务，供资讯页轮询进度。"""
+
+    return list_news_tasks(limit=limit)
+
+
+@router.get("/tasks/{task_id}", response_model=NewsTask)
+async def news_task_detail(task_id: str) -> NewsTask:
+    """读取单条资讯生成任务。"""
+
+    try:
+        return get_news_task(task_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/{news_id}", response_model=NewsItem)

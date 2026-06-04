@@ -1,3 +1,5 @@
+import 'package:cine_nest/pages/creative/favorites_page.dart';
+import 'package:cine_nest/pages/creative/news/news_tasks_page.dart';
 import 'package:cine_nest/pages/creative/poster/poster_page.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:get/get.dart';
@@ -21,8 +23,10 @@ abstract final class AppPages {
     // ── 成员 A（player）：/player, /webview-player ──
     // GetPage(name: Routes.player, page: () => const PlayerPage()),
 
-    // ── 成员 C（creative）：F8 互动海报详情页 ──
+    // ── 成员 C（creative）：F8 互动海报 / 收藏 / 资讯生成队列 ──
     GetPage(name: Routes.creativePoster, page: () => const PosterPage()),
+    GetPage(name: Routes.creativeFavorites, page: () => const FavoritesPage()),
+    GetPage(name: Routes.creativeNewsTasks, page: () => const NewsTasksPage()),
 
     // ── settings：A 负责连接、B 负责偏好 ──
     // GetPage(name: Routes.settings, page: () => const SettingsPage()),

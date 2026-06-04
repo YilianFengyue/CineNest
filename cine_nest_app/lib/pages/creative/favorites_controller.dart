@@ -53,9 +53,11 @@ class FavoritesController extends GetxController {
     await _box.put(_key, Map<String, dynamic>.from(_meta));
   }
 
-  /// 收藏的展示元信息列表（后续收藏页用）。
-  List<Map<String, dynamic>> metaList() => _meta.values
-      .whereType<Map>()
-      .map((e) => e.cast<String, dynamic>())
-      .toList();
+  /// 收藏条目（含 id + 元信息），收藏页用。
+  List<Map<String, dynamic>> entries() => _meta.entries.map((e) {
+    final m = e.value is Map
+        ? (e.value as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
+    return {'id': e.key, ...m};
+  }).toList();
 }

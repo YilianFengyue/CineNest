@@ -82,7 +82,9 @@ class _PosterHeader extends StatelessWidget {
       expandedHeight: 340,
       pinned: true,
       stretch: true,
-      foregroundColor: Colors.white,
+      // 折叠后顶栏 = 中性 surface（绝不会因动态取色变红）+ 深色图标/标题；
+      // 模糊头图随折叠淡出，展开时图标落在头图顶部的浅色蒙层上仍可读。
+      foregroundColor: cs.onSurface,
       backgroundColor: cs.surface,
       actions: [
         Obx(() {
@@ -111,138 +113,164 @@ class _PosterHeader extends StatelessWidget {
       title: _CollapsedTitle(title: c.title),
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 模糊背景
-            if (c.backdrop.isNotEmpty)
-              ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: CachedNetworkImage(
-                  imageUrl: mediaUrl(c.backdrop),
-                  fit: BoxFit.cover,
-                  errorWidget: (_, _, _) =>
-                      Container(color: cs.surfaceContainerHighest),
-                ),
-              )
-            else
-              Container(color: cs.surfaceContainerHighest),
-            // 暗化蒙层（顶部为状态栏可读，底部沉到 surface）
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.35),
-                    Colors.black.withValues(alpha: 0.15),
-                    cs.surface,
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
-                ),
-              ),
-            ),
-            // 海报 + 信息
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+        background: Builder(
+          builder: (ctx) {
+            final settings = ctx
+                .dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+            final delta = settings == null
+                ? 0.0
+                : settings.maxExtent - settings.minExtent;
+            // t: 0=完全展开, 1=完全折叠。
+            final t = settings == null || delta <= 0
+                ? 0.0
+                : (1.0 - (settings.currentExtent - settings.minExtent) / delta)
+                      .clamp(0.0, 1.0);
+            return Opacity(
+              opacity: (1.0 - t).clamp(0.0, 1.0),
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      width: 96,
-                      height: 138,
-                      child: c.poster.isEmpty
-                          ? Container(color: cs.surfaceContainerHighest)
-                          : CachedNetworkImage(
-                              imageUrl: mediaUrl(c.poster),
-                              fit: BoxFit.cover,
-                              errorWidget: (_, _, _) => Container(
-                                color: cs.surfaceContainerHighest,
-                                child: Icon(Icons.movie_outlined,
-                                    color: cs.outline),
-                              ),
-                            ),
+                  // 模糊背景
+                  if (c.backdrop.isNotEmpty)
+                    ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: CachedNetworkImage(
+                        imageUrl: mediaUrl(c.backdrop),
+                        fit: BoxFit.cover,
+                        errorWidget: (_, _, _) =>
+                            Container(color: cs.surfaceContainerHighest),
+                      ),
+                    )
+                  else
+                    Container(color: cs.surfaceContainerHighest),
+                  // 蒙层：顶部浅 surface（深色图标/状态栏可读），底部压暗（白色片名可读）再沉到 surface。
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          cs.surface.withValues(alpha: 0.75),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.45),
+                          cs.surface,
+                        ],
+                        stops: const [0.0, 0.22, 0.78, 1.0],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                  // 海报 + 信息
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          c.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            shadows: const [
-                              Shadow(blurRadius: 8, color: Colors.black54),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            width: 96,
+                            height: 138,
+                            child: c.poster.isEmpty
+                                ? Container(color: cs.surfaceContainerHighest)
+                                : CachedNetworkImage(
+                                    imageUrl: mediaUrl(c.poster),
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, _, _) => Container(
+                                      color: cs.surfaceContainerHighest,
+                                      child: Icon(
+                                        Icons.movie_outlined,
+                                        color: cs.outline,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                c.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  shadows: const [
+                                    Shadow(
+                                      blurRadius: 8,
+                                      color: Colors.black54,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (c.subtitle.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  c.subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                              if (c.rating != null && c.rating! > 0) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: accent.withValues(alpha: 0.9),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        c.rating!.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      if (c.ratingLabel.isNotEmpty) ...[
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          c.ratingLabel,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        if (c.subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            c.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                        if (c.rating != null && c.rating! > 0) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.star_rounded,
-                                    size: 16, color: Colors.white),
-                                const SizedBox(width: 3),
-                                Text(
-                                  c.rating!.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                if (c.ratingLabel.isNotEmpty) ...[
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    c.ratingLabel,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -263,9 +291,8 @@ class _CollapsedTitle extends StatelessWidget {
         : settings.maxExtent - settings.minExtent;
     final t = settings == null || deltaExtent <= 0
         ? 0.0
-        : (1.0 -
-                (settings.currentExtent - settings.minExtent) / deltaExtent)
-            .clamp(0.0, 1.0);
+        : (1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent)
+              .clamp(0.0, 1.0);
     // 折叠到约 70% 才显示标题，避免与大标题重叠。
     return Opacity(
       opacity: t < 0.7 ? 0.0 : (t - 0.7) / 0.3,
@@ -347,14 +374,11 @@ abstract final class _PosterExporter {
         '${dir.path}/cinenest_poster_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: '我在 CineNest 发现了《${c.title}》',
-      );
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: '我在 CineNest 发现了《${c.title}》');
     } catch (e) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('长图生成失败，请重试')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('长图生成失败，请重试')));
     }
   }
 }

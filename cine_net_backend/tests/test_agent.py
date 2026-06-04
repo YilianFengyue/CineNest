@@ -52,8 +52,21 @@ class AgentAttachmentTests(TestCase):
         self.assertIsNotNone(attachment)
         self.assertEqual("news_feed", attachment.type)
 
+    def test_news_generate_tool_message_becomes_task_attachment(self) -> None:
+        message = ToolMessage(
+            content=json.dumps({"id": "news-task-1", "query": "沙丘", "status": "queued"}),
+            name="generate_movie_news",
+            tool_call_id="call-4",
+        )
+
+        attachment = _attachment_from_tool_message(message)
+
+        self.assertIsNotNone(attachment)
+        self.assertEqual("news_task", attachment.type)
+        self.assertEqual("news-task-1", attachment.payload["id"])
+
     def test_non_visual_tool_does_not_become_attachment(self) -> None:
-        message = ToolMessage(content="{}", name="get_backend_status", tool_call_id="call-4")
+        message = ToolMessage(content="{}", name="get_backend_status", tool_call_id="call-5")
 
         self.assertIsNone(_attachment_from_tool_message(message))
 

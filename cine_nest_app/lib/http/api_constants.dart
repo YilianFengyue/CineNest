@@ -43,6 +43,9 @@ abstract final class ApiConstants {
   static const String newsGenerate = '/api/news/generate';
   static String newsDetail(Object id) => '/api/news/$id';
 
+  /// 资讯生成任务队列（异步生成的状态轮询；后端 codex 实现中）。
+  static const String newsTasks = '/api/news/tasks';
+
   // 对话基础设施
   static const String agentModels = '/api/agent/models';
   static const String chatSessions = '/api/chat/sessions';
