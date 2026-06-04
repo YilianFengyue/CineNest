@@ -39,6 +39,35 @@ class NewsTask {
   bool get isActive => status == 'queued' || status == 'running';
   bool get isDone => status == 'done';
   bool get isFailed => status == 'failed';
+
+  /// 0~1 进度（用于进度条）。后端没有数值进度，这里按 status/stage 估一个友好值。
+  double get progress {
+    switch (status) {
+      case 'done':
+      case 'failed':
+        return 1.0;
+      case 'running':
+        if (stage.contains('图')) return 0.82; // 生图阶段
+        if (stage.contains('资料') || stage.contains('搜')) return 0.5; // 搜资料
+        return 0.65;
+      default:
+        return 0.15; // queued
+    }
+  }
+
+  /// 友好状态文案。
+  String get statusLabel {
+    switch (status) {
+      case 'done':
+        return '已完成';
+      case 'failed':
+        return '失败';
+      case 'running':
+        return stage.isEmpty ? '生成中' : stage;
+      default:
+        return stage.isEmpty ? '排队中' : stage;
+    }
+  }
 }
 
 /// 资讯生成任务队列控制器（F12）。
@@ -47,11 +76,21 @@ class NewsTask {
 /// 后端（codex 实现中）把生成改成后台异步：提交立即返回，生图在后台跑、完成落库。
 /// 后端未就绪时回退一组 mock 任务，UI 先可调。
 class NewsTasksController extends GetxController {
-  static NewsTasksController get to => Get.find<NewsTasksController>();
+  /// 全局单例（懒加载常驻）：chat 与资讯页共用同一个轮询源。
+  static NewsTasksController get to => Get.isRegistered<NewsTasksController>()
+      ? Get.find<NewsTasksController>()
+      : Get.put(NewsTasksController(), permanent: true);
 
   final RxList<NewsTask> tasks = <NewsTask>[].obs;
   final RxBool usingMock = false.obs;
   final RxBool submitting = false.obs;
+
+  /// 最近一条"刚完成"的任务（用于资讯页完成通知）；null 表示无待提示。
+  final RxnString completedQuery = RxnString();
+  String completedNewsId = '';
+
+  final Set<String> _seenDone = {};
+  bool _primed = false; // 首次拉取只记录已完成，不弹历史通知
 
   Timer? _poll;
 
@@ -60,6 +99,28 @@ class NewsTasksController extends GetxController {
     super.onInit();
     fetch();
     _poll = Timer.periodic(const Duration(seconds: 3), (_) => fetch());
+  }
+
+  /// 当前进行中的任务（队列条只显示这些）。
+  List<NewsTask> get active => tasks.where((t) => t.isActive).toList();
+
+  /// 清掉完成通知（用户点过"查看"后）。
+  void clearCompleted() => completedQuery.value = null;
+
+  /// 检测新完成的任务 → 设置完成通知。
+  void _detectCompletion() {
+    final doneNow = tasks.where((t) => t.isDone);
+    if (!_primed) {
+      _seenDone.addAll(doneNow.map((t) => t.id));
+      _primed = true;
+      return;
+    }
+    for (final t in doneNow) {
+      if (_seenDone.add(t.id)) {
+        completedQuery.value = t.query;
+        completedNewsId = t.newsId ?? '';
+      }
+    }
   }
 
   @override
@@ -79,6 +140,7 @@ class NewsTasksController extends GetxController {
             .map((e) => NewsTask.fromJson(e.cast<String, dynamic>()))
             .toList();
         usingMock.value = false;
+        _detectCompletion();
         return;
       }
       _fallbackToMock();

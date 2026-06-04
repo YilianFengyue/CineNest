@@ -11,6 +11,7 @@ import 'package:cine_nest/pages/creative/chat/widgets/recommend_sheet.dart';
 import 'package:cine_nest/pages/creative/creative_actions.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/preview/card_gallery_page.dart';
+import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -166,6 +167,8 @@ class _ChatView extends StatelessWidget {
           message,
           onAction: (a) => handleChatAction(context, a),
         );
+      case ChatMeta.kindNewsTask:
+        return _NewsTaskChip(message);
       case ChatMeta.kindError:
         return _ErrorCard(
           text: message.metadata?[ChatMeta.text] as String? ?? '出错了',
@@ -333,6 +336,80 @@ class _ChatImageBubble extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => broken(),
               ),
+      ),
+    );
+  }
+}
+
+/// 资讯生成任务 chip —— 用户在对话里提交「生成影视资讯」后的进度入口。
+///
+/// 点击跳到资讯 Tab 看队列进度（真实进度由资讯页轮询展示）。
+class _NewsTaskChip extends StatelessWidget {
+  const _NewsTaskChip(this.message);
+
+  final CustomMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final payload =
+        (message.metadata?[ChatMeta.payload] as Map?)?.cast<String, dynamic>() ??
+        const {};
+    final query = (payload['query'] ?? '').toString();
+    final status = (payload['status'] ?? 'queued').toString();
+    final done = status == 'done';
+    final failed = status == 'failed';
+
+    final text = failed
+        ? '《$query》生成失败'
+        : done
+        ? '《$query》资讯已生成 · 点击查看'
+        : '正在生成《$query》资讯 · 去资讯页看进度';
+
+    Widget leading() {
+      if (done) return Icon(Icons.check_circle, size: 18, color: cs.primary);
+      if (failed) return Icon(Icons.error_outline, size: 18, color: cs.error);
+      return SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(right: 36),
+        child: Material(
+          color: cs.secondaryContainer,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => MainNavController.to.go(2),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  leading(),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 18, color: cs.onSecondaryContainer),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

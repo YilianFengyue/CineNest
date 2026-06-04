@@ -4,6 +4,7 @@ import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
 import 'package:cine_nest/pages/creative/chat/services/chat_ws_service.dart';
+import 'package:cine_nest/pages/creative/news/news_tasks_controller.dart';
 import 'package:cine_nest/services/logger.dart';
 import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
@@ -303,6 +304,13 @@ class _ChatComposerState extends State<ChatComposer> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: Icon(Icons.auto_awesome, color: cs.primary),
+              title: const Text('生成影视资讯'),
+              subtitle: const Text('输入片名，AI 生成带海报的资讯特辑'),
+              onTap: () => Navigator.pop(ctx, 'gen_news'),
+            ),
+            const Divider(height: 1),
+            ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('拍照'),
               onTap: () => Navigator.pop(ctx, 'camera'),
@@ -322,6 +330,11 @@ class _ChatComposerState extends State<ChatComposer> {
       ),
     );
     if (choice == null || !mounted) return;
+
+    if (choice == 'gen_news') {
+      await _generateNews();
+      return;
+    }
 
     try {
       if (choice == 'file') {
@@ -352,6 +365,46 @@ class _ChatComposerState extends State<ChatComposer> {
           const SnackBar(content: Text('选择失败，请重试')),
         );
       }
+    }
+  }
+
+  /// 「生成影视资讯」：输入片名 → 提交后台任务 → 对话里插一条进度 chip。
+  Future<void> _generateNews() async {
+    final cs = Theme.of(context).colorScheme;
+    final input = TextEditingController();
+    final query = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.auto_awesome, color: cs.primary),
+        title: const Text('生成影视资讯'),
+        content: TextField(
+          controller: input,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '输入片名 / 主题，如：星际穿越',
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, input.text.trim()),
+            child: const Text('生成'),
+          ),
+        ],
+      ),
+    );
+    if (query == null || query.isEmpty) return;
+    // 提交后台任务（资讯页队列会显示进度），并在对话里插一条进度 chip。
+    NewsTasksController.to.submit(query);
+    await c.insertNewsTaskChip(query);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已提交生成《$query》，可在资讯页查看进度')),
+      );
     }
   }
 }

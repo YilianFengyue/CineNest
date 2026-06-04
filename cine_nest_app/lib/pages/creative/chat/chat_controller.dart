@@ -326,6 +326,7 @@ class ChatController extends GetxController {
       ChatMeta.kindPoster,
       ChatMeta.kindInteractive,
       ChatMeta.kindNews,
+      ChatMeta.kindNewsTask,
     };
     final kind =
         known.contains(e.attachmentType) ? e.attachmentType : ChatMeta.kindRecommendation;
@@ -337,6 +338,22 @@ class ChatController extends GetxController {
         metadata: {ChatMeta.kind: kind, ChatMeta.payload: e.payload},
       ),
     );
+  }
+
+  /// 插入一条"资讯生成任务"chip（用户从 ➕ 面板提交「生成影视资讯」后本地展示）。
+  Future<void> insertNewsTaskChip(String query) async {
+    await chat.insertMessage(
+      Message.custom(
+        id: _newId('a'),
+        authorId: ChatUsers.bot,
+        createdAt: DateTime.now().toUtc(),
+        metadata: {
+          ChatMeta.kind: ChatMeta.kindNewsTask,
+          ChatMeta.payload: {'query': query, 'status': 'queued'},
+        },
+      ),
+    );
+    _persist();
   }
 
   Future<void> _appendDelta(String content) async {

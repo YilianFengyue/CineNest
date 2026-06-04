@@ -2,6 +2,7 @@ import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/news/news_mock.dart';
+import 'package:cine_nest/pages/creative/news/news_tasks_controller.dart';
 import 'package:cine_nest/services/logger.dart';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
@@ -46,10 +47,26 @@ class NewsController extends GetxController {
   /// 「新建资讯」生成中标记（避免重复触发）。
   final RxBool generating = false.obs;
 
+  /// 监听后台任务完成 → 自动刷新资讯列表。
+  Worker? _completionWorker;
+
   @override
   void onInit() {
     super.onInit();
     refreshNews();
+    // 任务完成（NewsTasksController 检测到）→ 拉一次新资讯，新卡随即出现。
+    _completionWorker = ever<String?>(
+      NewsTasksController.to.completedQuery,
+      (q) {
+        if (q != null) refreshNews(refresh: false);
+      },
+    );
+  }
+
+  @override
+  void onClose() {
+    _completionWorker?.dispose();
+    super.onClose();
   }
 
   Future<void> refreshNews({bool refresh = false}) async {

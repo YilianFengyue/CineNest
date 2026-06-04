@@ -2,7 +2,10 @@ import 'package:cine_nest/pages/creative/creative_actions.dart';
 import 'package:cine_nest/pages/creative/favorites_controller.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/news/news_controller.dart';
+import 'package:cine_nest/pages/creative/news/news_tasks_controller.dart';
+import 'package:cine_nest/pages/creative/news/news_tasks_page.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -29,6 +32,8 @@ class NewsPage extends StatelessWidget {
 
       return Column(
         children: [
+          const _QueueSection(),
+          const _CompletionBanner(),
           _FilterHeader(
             favOnly: favOnly,
             usingMock: c.usingMock.value,
@@ -120,6 +125,112 @@ class _FilterHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── 生成队列区（资讯页顶部，显示进行中任务 + 进度条）──────────
+
+class _QueueSection extends StatelessWidget {
+  const _QueueSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Obx(() {
+      final active = NewsTasksController.to.active;
+      if (active.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 15, color: cs.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '生成队列 · ${active.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Get.toNamed(Routes.creativeNewsTasks),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: const Text('全部'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (final t in active)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: NewsTaskCard(task: t),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+// ── 完成通知 banner（点击查看新生成的资讯）────────────────────
+
+class _CompletionBanner extends StatelessWidget {
+  const _CompletionBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Obx(() {
+      final q = NewsTasksController.to.completedQuery.value;
+      if (q == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+        child: Material(
+          color: cs.primaryContainer,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              NewsTasksController.to.clearCompleted();
+              NewsController.to.refreshNews(refresh: false);
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, size: 20, color: cs.onPrimaryContainer),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '《$q》资讯已生成，点击查看',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: cs.onPrimaryContainer,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '知道了',
+                    icon: Icon(Icons.close, size: 18, color: cs.onPrimaryContainer),
+                    onPressed: NewsTasksController.to.clearCompleted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 

@@ -2,20 +2,20 @@ import 'package:cine_nest/pages/creative/news/news_tasks_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// 资讯生成任务队列页（F12）。
+/// 资讯生成任务页（F12）—— 全部任务历史（只读）。
 ///
-/// 顶部输入主题 → 提交一条异步生成任务；下方实时显示队列里每条任务的状态
-/// （排队 / 生成中 / 已完成 / 失败）。完成的任务可点"查看"回资讯列表。
+/// 实时显示每条任务的状态（排队 / 生成中 / 已完成 / 失败）与进度条。
+/// 生成入口在「对话页 ➕ → 生成影视资讯」，这里只看进度，完成可点"查看"。
 /// 设计：Material You tonal、零阴影、紧凑。
 class NewsTasksPage extends StatelessWidget {
   const NewsTasksPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.put(NewsTasksController());
+    final c = NewsTasksController.to;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('资讯生成队列'),
+        title: const Text('生成任务'),
         actions: [
           Obx(
             () => c.usingMock.value
@@ -27,146 +27,58 @@ class NewsTasksPage extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _GenerateBar(c: c),
-          const Divider(height: 1),
-          Expanded(
-            child: Obx(() {
-              final list = c.tasks;
-              if (list.isEmpty) return const _EmptyTasks();
-              return RefreshIndicator(
-                onRefresh: c.fetch,
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: list.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _TaskCard(task: list[i]),
-                ),
-              );
-            }),
+      body: Obx(() {
+        final list = c.tasks;
+        if (list.isEmpty) return const _EmptyTasks();
+        return RefreshIndicator(
+          onRefresh: c.fetch,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: list.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (_, i) => NewsTaskCard(task: list[i]),
           ),
-        ],
-      ),
+        );
+      }),
     );
   }
 }
 
-/// 顶部生成输入条。
-class _GenerateBar extends StatefulWidget {
-  const _GenerateBar({required this.c});
-  final NewsTasksController c;
+/// 单条任务卡（带进度条）。资讯页队列区与本页共用。
+class NewsTaskCard extends StatelessWidget {
+  const NewsTaskCard({super.key, required this.task, this.onView});
 
-  @override
-  State<_GenerateBar> createState() => _GenerateBarState();
-}
-
-class _GenerateBarState extends State<_GenerateBar> {
-  final _input = TextEditingController();
-
-  @override
-  void dispose() {
-    _input.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final q = _input.text.trim();
-    if (q.isEmpty) return;
-    _input.clear();
-    FocusScope.of(context).unfocus();
-    await widget.c.submit(q);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _input,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                hintText: '输入片名 / 主题生成资讯，如：星际穿越',
-                filled: true,
-                fillColor: cs.surfaceContainerHigh,
-                prefixIcon: const Icon(Icons.auto_awesome, size: 20),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                border: const OutlineInputBorder(
-                  borderSide: BorderSide.none,
-                  borderRadius: BorderRadius.all(Radius.circular(14)),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Obx(
-            () => FilledButton(
-              onPressed: widget.c.submitting.value ? null : _submit,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-              child: widget.c.submitting.value
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('生成'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 单条任务卡。
-class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.task});
   final NewsTask task;
+
+  /// "查看"回调（完成任务）；不传则默认 pop 回上一页。
+  final VoidCallback? onView;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final v = _visual(cs);
+    final color = task.isFailed
+        ? cs.error
+        : (task.isDone ? cs.primary : cs.onSurfaceVariant);
 
     return Material(
       color: cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: task.isDone ? () => Get.back() : null,
+        onTap: task.isDone ? (onView ?? Get.back) : null,
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 状态图标 / 进度圈
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: task.isActive
-                    ? Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: cs.primary,
-                        ),
-                      )
-                    : Icon(v.icon, color: v.color, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  _StatusDot(task: task),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
                       task.query,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -174,42 +86,66 @@ class _TaskCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      task.isFailed
-                          ? (task.error ?? '生成失败')
-                          : (task.stage.isEmpty ? v.label : task.stage),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: v.color),
+                  ),
+                  Text(
+                    task.statusLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: color,
+                      fontWeight: FontWeight.w500,
                     ),
+                  ),
+                  if (task.isDone) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right, size: 18, color: cs.outline),
                   ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: task.isActive ? null : task.progress,
+                  minHeight: 5,
+                  backgroundColor: cs.surfaceContainerHighest,
+                  color: task.isFailed ? cs.error : cs.primary,
                 ),
               ),
-              if (task.isDone)
-                TextButton(onPressed: () => Get.back(), child: const Text('查看')),
+              if (task.isFailed && (task.error ?? '').isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  task.error!,
+                  style: TextStyle(fontSize: 12, color: cs.error),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  ({IconData icon, Color color, String label}) _visual(ColorScheme cs) {
-    switch (task.status) {
-      case 'done':
-        return (icon: Icons.check_circle, color: cs.primary, label: '已完成');
-      case 'failed':
-        return (icon: Icons.error_outline, color: cs.error, label: '失败');
-      case 'running':
-        return (icon: Icons.sync, color: cs.primary, label: '生成中');
-      default:
-        return (
-          icon: Icons.schedule,
-          color: cs.onSurfaceVariant,
-          label: '排队中',
-        );
+/// 状态圆点 / 转圈。
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.task});
+  final NewsTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (task.isActive) {
+      return SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2.4, color: cs.primary),
+      );
     }
+    return Icon(
+      task.isDone ? Icons.check_circle : Icons.error_outline,
+      size: 20,
+      color: task.isDone ? cs.primary : cs.error,
+    );
   }
 }
 

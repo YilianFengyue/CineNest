@@ -22,6 +22,9 @@ abstract final class ChatMeta {
   /// 资讯流附件。
   static const String kindNews = 'news_feed';
 
+  /// 资讯生成任务 chip（在对话里提交「生成影视资讯」后展示进度入口）。
+  static const String kindNewsTask = 'news_task';
+
   /// 错误条 + 重试。
   static const String kindError = 'error';
 
