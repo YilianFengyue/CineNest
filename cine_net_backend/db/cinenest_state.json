@@ -8,19 +8,34 @@
   },
   "watch_history": [
     {
-      "movie_id": 1523145,
-      "title": "你会心碎",
-      "visited_at": "2026-06-04 20:35:09"
+      "movie_id": 1582770,
+      "title": "征服者2",
+      "visited_at": "2026-06-04 20:54:18"
+    },
+    {
+      "movie_id": 1339713,
+      "title": "痴迷",
+      "visited_at": "2026-06-04 20:54:16"
+    },
+    {
+      "movie_id": 1122573,
+      "title": "金谍行动",
+      "visited_at": "2026-06-04 20:53:11"
     },
     {
       "movie_id": 1579,
       "title": "启示",
-      "visited_at": "2026-06-04 20:34:58"
+      "visited_at": "2026-06-04 20:49:03"
     },
     {
       "movie_id": 1304313,
       "title": "木乃伊",
-      "visited_at": "2026-06-04 20:19:59"
+      "visited_at": "2026-06-04 20:47:59"
+    },
+    {
+      "movie_id": 1523145,
+      "title": "你会心碎",
+      "visited_at": "2026-06-04 20:35:09"
     },
     {
       "movie_id": 1103473,
@@ -36,6 +51,20 @@
       "movie_id": 1371023,
       "title": "चाँद मेरा दिल",
       "visited_at": "2026-06-03 21:53:10"
+    }
+  ],
+  "collections": [
+    {
+      "movie_id": 1339713,
+      "title": "痴迷",
+      "poster_url": "/api/proxy/image?url=https://image.tmdb.org/t/p/w500/y9cuIc3fM6G3aIXySmDqsgRGUE1.jpg",
+      "collected_at": "2026-06-04 20:54:10"
+    },
+    {
+      "movie_id": 1582770,
+      "title": "征服者2",
+      "poster_url": "/api/proxy/image?url=https://image.tmdb.org/t/p/w500/hsJG5r6etrMNwW00BVp4NC7zi67.jpg",
+      "collected_at": "2026-06-04 20:53:23"
     }
   ]
 }

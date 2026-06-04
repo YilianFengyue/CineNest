@@ -1,3 +1,4 @@
+import 'package:cine_nest/pages/feed/collection/collection_view.dart';
 import 'package:cine_nest/pages/feed/detail/detail_view.dart';
 import 'package:cine_nest/pages/feed/feed_view.dart';
 import 'package:cine_nest/pages/feed/history/history_view.dart';
@@ -17,6 +18,7 @@ abstract final class AppPages {
     GetPage(name: Routes.movieDetail, page: () => const MovieDetailPage()),
     GetPage(name: Routes.preference, page: () => const PreferencePage()),
     GetPage(name: Routes.history, page: () => const HistoryPage()),
+    GetPage(name: Routes.collection, page: () => const CollectionPage()),
     GetPage(name: Routes.player, page: () => const PlayerPage()),
     GetPage(name: Routes.sourcePicker, page: () => const SourcePickerPage()),
     GetPage(name: Routes.webviewPlayer, page: () => const WebViewPlayerPage()),

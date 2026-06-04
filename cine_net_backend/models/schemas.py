@@ -22,6 +22,7 @@ class Movie(BaseModel):
     backdrop_url: Optional[str] = None
     directors: list[str] = Field(default_factory=list)
     cast: list[str] = Field(default_factory=list)
+    is_collected: bool = False
 
 
 class Post(BaseModel):
@@ -62,3 +63,16 @@ class WatchHistoryItem(BaseModel):
 class WatchHistoryRequest(BaseModel):
     movie_id: int
     title: str
+
+
+class CollectionItem(BaseModel):
+    movie_id: int
+    title: str
+    poster_url: Optional[str] = None
+    collected_at: str
+
+
+class CollectionToggleRequest(BaseModel):
+    movie_id: int
+    title: str
+    poster_url: Optional[str] = None

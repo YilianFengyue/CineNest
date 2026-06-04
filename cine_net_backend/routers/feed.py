@@ -3,12 +3,24 @@ from fastapi import APIRouter, HTTPException, Query
 from config import settings
 from db.database import (
     add_watch_history,
+    get_collections,
     get_user_preference,
     get_watch_history,
     get_watch_history_titles,
+    is_movie_collected,
     save_user_preference,
+    toggle_collection,
 )
-from models.schemas import Feedback, Movie, Post, UserPreference, WatchHistoryItem, WatchHistoryRequest
+from models.schemas import (
+    CollectionItem,
+    CollectionToggleRequest,
+    Feedback,
+    Movie,
+    Post,
+    UserPreference,
+    WatchHistoryItem,
+    WatchHistoryRequest,
+)
 from services.agent.service import movie_agent_service
 from services.tmdb import tmdb_service
 
@@ -236,15 +248,18 @@ async def _preference_posts(pref: UserPreference) -> list[Post]:
 async def get_movie(movie_id: int):
     if not settings.tmdb_api_key:
         movie = _fallback_movie(movie_id)
+        movie.is_collected = is_movie_collected(movie_id)
         add_watch_history(movie_id=movie.id, title=movie.title)
         return movie
     try:
         movie_data = await tmdb_service.detail(movie_id)
+        movie_data.is_collected = is_movie_collected(movie_id)
         add_watch_history(movie_id=movie_data.id, title=movie_data.title)
         return movie_data
     except Exception as exc:
         print(f"[TMDB fallback] movie detail failed: {exc}", flush=True)
         movie = _fallback_movie(movie_id)
+        movie.is_collected = is_movie_collected(movie_id)
         add_watch_history(movie_id=movie.id, title=movie.title)
         return movie
 
@@ -266,6 +281,29 @@ async def record_history(req: WatchHistoryRequest):
         return {"ok": True}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Record history failed: {exc}") from exc
+
+
+@router.post("/collections/toggle")
+async def toggle_movie_collection(req: CollectionToggleRequest):
+    """切换电影收藏状态。"""
+    try:
+        is_collected = toggle_collection(
+            movie_id=req.movie_id,
+            title=req.title,
+            poster_url=req.poster_url
+        )
+        return {"ok": True, "is_collected": is_collected}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Toggle collection failed: {exc}") from exc
+
+
+@router.get("/collections", response_model=list[CollectionItem])
+async def get_user_collections():
+    """获取用户收藏的电影列表。"""
+    try:
+        return get_collections()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Get collections failed: {exc}") from exc
 
 
 @router.get("/feed", response_model=list[Post])

@@ -7,6 +7,7 @@ abstract final class Routes {
   static const String movieDetail = '/movie-detail';
   static const String preference = '/preference';
   static const String history = '/history';
+  static const String collection = '/collection';
 
   // Member A
   static const String sourcePicker = '/source-picker';

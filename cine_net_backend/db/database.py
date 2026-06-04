@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from models.schemas import UserPreference, WatchHistoryItem
+from models.schemas import UserPreference, WatchHistoryItem, CollectionItem
 
 STATE_PATH = Path(__file__).resolve().parent / "cinenest_state.json"
 
@@ -18,6 +18,7 @@ def _default_state() -> dict[str, Any]:
     return {
         "preferences": _empty_preference().model_dump(),
         "watch_history": [],
+        "collections": [],
     }
 
 
@@ -32,6 +33,7 @@ def _read_state() -> dict[str, Any]:
         return _default_state()
     data.setdefault("preferences", _empty_preference().model_dump())
     data.setdefault("watch_history", [])
+    data.setdefault("collections", [])
     return data
 
 
@@ -112,3 +114,60 @@ def get_watch_history() -> list[WatchHistoryItem]:
         for item in history
         if isinstance(item, dict) and "movie_id" in item and "title" in item and "visited_at" in item
     ]
+
+
+def toggle_collection(movie_id: int, title: str, poster_url: str | None = None) -> bool:
+    """切换收藏状态。返回 True 表示现在已收藏，False 表示已取消收藏。"""
+    state = _read_state()
+    collections = state.get("collections")
+    if not isinstance(collections, list):
+        collections = []
+
+    existing = None
+    for item in collections:
+        if isinstance(item, dict) and item.get("movie_id") == movie_id:
+            existing = item
+            break
+
+    if existing:
+        collections.remove(existing)
+        state["collections"] = collections
+        _write_state(state)
+        return False
+    else:
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        collections.insert(
+            0,
+            {
+                "movie_id": movie_id,
+                "title": title,
+                "poster_url": poster_url,
+                "collected_at": now_str,
+            },
+        )
+        state["collections"] = collections
+        _write_state(state)
+        return True
+
+
+def get_collections() -> list[CollectionItem]:
+    state = _read_state()
+    collections = state.get("collections")
+    if not isinstance(collections, list):
+        return []
+    return [
+        CollectionItem(**item)
+        for item in collections
+        if isinstance(item, dict) and "movie_id" in item and "title" in item
+    ]
+
+
+def is_movie_collected(movie_id: int) -> bool:
+    state = _read_state()
+    collections = state.get("collections")
+    if not isinstance(collections, list):
+        return False
+    return any(
+        isinstance(item, dict) and item.get("movie_id") == movie_id
+        for item in collections
+    )
