@@ -1,4 +1,5 @@
 import 'package:cine_nest/pages/creative/creative_actions.dart';
+import 'package:cine_nest/pages/creative/favorites_controller.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/news/news_controller.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
@@ -15,37 +16,50 @@ class NewsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Get.put(NewsController());
+    final fav = FavoritesController.to;
     return Stack(
       children: [
         Obx(() {
           if (c.loading.value && c.items.isEmpty) {
             return const _NewsSkeletonList();
           }
-          if (c.items.isEmpty) {
-            return _EmptyView(
-              message: c.error.value.isEmpty ? '暂无资讯' : c.error.value,
-              onRetry: () => c.refreshNews(refresh: true),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () => c.refreshNews(refresh: true),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: c.items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, i) {
-                final entry = c.items[i];
-                return BlockRenderer(
-                  blocks: entry.blocks,
-                  spacing: 10,
-                  onAction: (a) => _handleAction(context, a),
-                );
-              },
-            ),
+          // 只看收藏时按收藏 id 过滤。
+          final favOnly = c.favOnly.value;
+          final visible = favOnly
+              ? c.items.where((e) => fav.ids.contains(e.id)).toList()
+              : c.items.toList();
+
+          return Column(
+            children: [
+              _FilterHeader(
+                favOnly: favOnly,
+                usingMock: c.usingMock.value,
+                onChanged: (v) => c.favOnly.value = v,
+              ),
+              Expanded(
+                child: visible.isEmpty
+                    ? _EmptyView(
+                        message: favOnly ? '还没有收藏的资讯' : '暂无资讯',
+                        onRetry: () => c.refreshNews(refresh: true),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => c.refreshNews(refresh: true),
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          itemBuilder: (context, i) => _NewsEntryCard(
+                            entry: visible[i],
+                            onAction: (a) => _handleAction(context, a),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
           );
         }),
-        // AI 生成资讯入口
+        // AI 生成资讯入口（Step 3 会搬进 chat 的「+」面板）。
         Positioned(
           right: 16,
           bottom: 16,
@@ -110,6 +124,112 @@ class NewsPage extends StatelessWidget {
     final ok = await c.generateNews(query);
     messenger.showSnackBar(
       SnackBar(content: Text(ok ? '已生成《$query》资讯' : '生成失败，换个片名试试')),
+    );
+  }
+}
+
+// ── 筛选头（全部 / 收藏 + mock 标识）────────────────────────
+
+class _FilterHeader extends StatelessWidget {
+  const _FilterHeader({
+    required this.favOnly,
+    required this.usingMock,
+    required this.onChanged,
+  });
+
+  final bool favOnly;
+  final bool usingMock;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Row(
+        children: [
+          ChoiceChip(
+            label: const Text('全部'),
+            selected: !favOnly,
+            onSelected: (_) => onChanged(false),
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            avatar: Icon(
+              Icons.favorite,
+              size: 16,
+              color: favOnly ? cs.onSecondaryContainer : cs.onSurfaceVariant,
+            ),
+            label: const Text('收藏'),
+            selected: favOnly,
+            onSelected: (_) => onChanged(true),
+          ),
+          const Spacer(),
+          if (usingMock)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: cs.tertiaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '示例数据',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onTertiaryContainer,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 单条资讯卡（blocks 拼贴 + 右上角收藏爱心）─────────────────
+
+class _NewsEntryCard extends StatelessWidget {
+  const _NewsEntryCard({required this.entry, required this.onAction});
+
+  final NewsEntry entry;
+  final void Function(MicroAction action) onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fav = FavoritesController.to;
+    return Stack(
+      children: [
+        BlockRenderer(blocks: entry.blocks, spacing: 10, onAction: onAction),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Obx(() {
+            final isFav = fav.isFav(entry.id);
+            return Material(
+              color: Colors.black.withValues(alpha: 0.32),
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: IconButton(
+                tooltip: isFav ? '取消收藏' : '收藏',
+                visualDensity: VisualDensity.compact,
+                iconSize: 20,
+                icon: Icon(
+                  isFav ? Icons.favorite : Icons.favorite_border,
+                  color: isFav ? cs.error : Colors.white,
+                ),
+                onPressed: () => fav.toggle(
+                  entry.id,
+                  title: entry.title,
+                  cover: entry.cover,
+                  type: 'news',
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }

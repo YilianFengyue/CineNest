@@ -17,9 +17,8 @@ enum WsState { idle, connecting, connected, closed, error }
 /// 连接后端 `/ws/chat`，发送 `{message, thread_id, model}` 文本帧，
 /// 把服务端的 JSON 帧解析成 [AgentEvent] 通过 [events] 广播。
 ///
-/// 后端会按 `thread_id` 在服务端保留多轮上下文（`InMemorySaver`），
+/// 后端会按 `thread_id` 在服务端保留多轮上下文（SQLite checkpointer），
 /// 因此即便中途断线重连，只要带同一 `thread_id` 仍可续上对话记忆。
-/// （服务端记忆重启即丢，跨会话持久化属后端待办，见 docs 返工清单。）
 class ChatWsService {
   ChatWsService();
 
@@ -103,7 +102,7 @@ class ChatWsService {
 
   /// 发送一条用户消息。连接断开会自动尝试重连。
   ///
-  /// [model] 为前端模型选择（后端当前忽略，待 Codex 适配后生效）。
+  /// [model] 为前端选择的模型 id，后端映射到 Gemini / GPT-5.5 / Kimi-K2.6。
   Future<bool> send({
     required String message,
     required String threadId,
@@ -143,25 +142,37 @@ class ChatModelOption {
   final String label;
   final String model;
   final bool configured;
+  final bool supportsImages;
 
-  const ChatModelOption(this.id, this.label, {this.model = '', this.configured = true});
+  const ChatModelOption(
+    this.id,
+    this.label, {
+    this.model = '',
+    this.configured = true,
+    this.supportsImages = false,
+  });
 
   factory ChatModelOption.fromJson(Map<String, dynamic> json) => ChatModelOption(
     json['id'] as String? ?? 'default',
     json['label'] as String? ?? '模型',
     model: json['model'] as String? ?? '',
     configured: json['configured'] as bool? ?? true,
+    supportsImages: json['supports_images'] as bool? ?? false,
   );
 
   /// 下拉副标题：已配置显示真实模型名，未配置标注。
-  String get hint => configured ? (model.isEmpty ? '可用' : model) : '未配置';
+  String get hint {
+    if (!configured) return '未配置';
+    final name = model.isEmpty ? '可用' : model;
+    return supportsImages ? '$name · 可看图' : name;
+  }
 }
 
 /// 兜底模型列表（后端拉取失败时用，id 与后端别名一致）。
 const List<ChatModelOption> kChatModels = [
-  ChatModelOption('default', 'CineNest 默认', model: '均衡稳定'),
-  ChatModelOption('fast', '快速', model: '更快响应'),
-  ChatModelOption('deep', '深度', model: '更强推理'),
+  ChatModelOption('default', 'Gemini', model: 'gemini-3.5-flash', supportsImages: true),
+  ChatModelOption('fast', 'GPT-5.5', model: 'gpt-5.5', supportsImages: true),
+  ChatModelOption('deep', 'Kimi-K2.6', model: 'Kimi-K2.6'),
 ];
 
 /// 当前选中的模型（持久化于 setting box）。

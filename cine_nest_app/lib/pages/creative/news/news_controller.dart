@@ -1,6 +1,7 @@
 import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
+import 'package:cine_nest/pages/creative/news/news_mock.dart';
 import 'package:cine_nest/services/logger.dart';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,17 @@ class NewsEntry {
   final String title;
   final List<ContentBlock> blocks;
   const NewsEntry({required this.id, required this.title, required this.blocks});
+
+  /// 取首张可用封面（newsCard.cover 或 mediaGallery 首图），收藏元信息用。
+  String get cover {
+    for (final b in blocks) {
+      final c = b.str('cover');
+      if (c.isNotEmpty) return c;
+      final urls = b.strList('urls');
+      if (urls.isNotEmpty) return urls.first;
+    }
+    return '';
+  }
 }
 
 /// 资讯 Tab 控制器（F12）。
@@ -24,6 +36,12 @@ class NewsController extends GetxController {
   final RxBool loading = true.obs;
   final RxString error = ''.obs;
   final RxList<NewsEntry> items = <NewsEntry>[].obs;
+
+  /// 当前展示的是否为 mock 兜底数据（后端拉不到时）。
+  final RxBool usingMock = false.obs;
+
+  /// 「只看收藏」筛选开关。
+  final RxBool favOnly = false.obs;
 
   /// 「新建资讯」生成中标记（避免重复触发）。
   final RxBool generating = false.obs;
@@ -43,17 +61,27 @@ class NewsController extends GetxController {
         queryParameters: {'limit': 20, 'refresh': refresh},
       );
       if (res.statusCode == 200 && res.data is Map) {
-        final raw = (res.data as Map)['items'];
-        items.value = _parse(raw);
-        if (items.isEmpty) error.value = '暂无资讯';
+        final parsed = _parse((res.data as Map)['items']);
+        if (parsed.isNotEmpty) {
+          items.value = parsed;
+          usingMock.value = false;
+        } else {
+          _fallbackToMock();
+        }
       } else {
-        if (items.isEmpty) error.value = '资讯加载失败';
+        _fallbackToMock();
       }
     } catch (e, st) {
-      logger.e('资讯加载失败', error: e, stackTrace: st);
-      if (items.isEmpty) error.value = '连接后端失败，请检查设置中的地址';
+      logger.e('资讯加载失败，回退 mock', error: e, stackTrace: st);
+      _fallbackToMock();
     }
     loading.value = false;
+  }
+
+  /// 后端拉不到 / 返回空 → 用 mock 兜底，保证列表永远有内容可调。
+  void _fallbackToMock() {
+    items.value = mockNewsEntries();
+    usingMock.value = true;
   }
 
   /// 让 AI 为某主题生成一条带海报图的资讯，成功后刷新列表置顶。

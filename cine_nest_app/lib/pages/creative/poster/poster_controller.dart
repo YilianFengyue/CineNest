@@ -116,6 +116,16 @@ class PosterController extends GetxController {
 
   Future<void> reload() => _load();
 
+  /// 收藏 key：优先用 catalog id（片维度，跨资讯/推荐/海报复用），否则退回标题。
+  String get favKey {
+    final p = _args['catalog_provider_id'] as String?;
+    final s = _args['catalog_source_id'] as String?;
+    if (p != null && p.isNotEmpty && s != null && s.isNotEmpty) {
+      return 'poster:$p:$s';
+    }
+    return title.isNotEmpty ? 'poster:$title' : '';
+  }
+
   /// 按 style 取强调色（驱动头部渐变 / 评分高亮），全部落在 colorScheme 内。
   Color accent(ColorScheme cs) {
     switch (style) {

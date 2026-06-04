@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/creative_actions.dart';
+import 'package:cine_nest/pages/creative/favorites_controller.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/poster/poster_controller.dart';
 import 'package:cine_nest/pages/creative/poster/poster_export_view.dart';
@@ -84,6 +85,23 @@ class _PosterHeader extends StatelessWidget {
       foregroundColor: Colors.white,
       backgroundColor: cs.surface,
       actions: [
+        Obx(() {
+          final fav = FavoritesController.to;
+          final isFav = fav.isFav(c.favKey);
+          return IconButton(
+            tooltip: isFav ? '取消收藏' : '收藏',
+            icon: Icon(isFav ? Icons.favorite : Icons.favorite_border),
+            color: isFav ? cs.error : null,
+            onPressed: c.favKey.isEmpty
+                ? null
+                : () => fav.toggle(
+                    c.favKey,
+                    title: c.title,
+                    cover: c.poster.isNotEmpty ? c.poster : c.backdrop,
+                    type: 'poster',
+                  ),
+          );
+        }),
         IconButton(
           tooltip: '导出长图分享',
           icon: const Icon(Icons.ios_share),

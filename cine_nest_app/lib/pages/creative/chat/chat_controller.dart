@@ -429,10 +429,29 @@ class ChatController extends GetxController {
 
   // ───────────────────────── 会话管理 ─────────────────────────
 
-  /// 切换模型（前端展示；后端待接 model 字段）。
+  /// 切换后端模型别名（Gemini / GPT-5.5 / Kimi-K2.6）。
   Future<void> setModel(String id) async {
     modelId.value = id;
     await ChatModelPref.set(id);
+  }
+
+  ChatModelOption get currentModel => models.firstWhere(
+        (m) => m.id == modelId.value,
+        orElse: () => kChatModels.first,
+      );
+
+  Future<bool> ensureVisionModelForImage() async {
+    if (currentModel.supportsImages) return true;
+    ChatModelOption? fallback;
+    for (final model in models) {
+      if (model.configured && model.supportsImages) {
+        fallback = model;
+        break;
+      }
+    }
+    if (fallback == null) return false;
+    await setModel(fallback.id);
+    return true;
   }
 
   /// 新建会话：落盘当前会话，清空消息，换新 thread_id。

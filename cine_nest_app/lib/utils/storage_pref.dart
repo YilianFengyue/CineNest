@@ -60,7 +60,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.uiScale, defaultValue: 1.0);
 
   // ───────────────────────── 对话（成员 C · F9）─────────────────────────
-  /// 当前选中的对话模型 id（前端展示用，后端待接 model 字段）。
+  /// 当前选中的对话模型 id（后端映射到具体模型）。
   static String get chatModelId =>
       _setting.get(SettingBoxKey.chatModel, defaultValue: 'default');
   static Future<void> setChatModelId(String value) =>

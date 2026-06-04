@@ -5,7 +5,9 @@ import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
 import 'package:cine_nest/pages/creative/chat/services/chat_ws_service.dart';
 import 'package:cine_nest/services/logger.dart';
+import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -15,8 +17,8 @@ import 'package:provider/provider.dart';
 
 /// 自定义输入区（成员 C · F9）。
 ///
-/// 顶行：模型选择器（写死展示，后端待接 model 字段）。
-/// 主行：附件按钮（图片/文件，多模态上传待后端支持）+ 多行输入框 + 发送。
+/// 顶行：模型选择器（Gemini / GPT-5.5 / Kimi-K2.6）。
+/// 主行：附件按钮（图片/文件）+ 多行输入框 + 发送。
 ///
 /// 必须放进 [Positioned] 并把自身高度写回 [ComposerHeightNotifier]，
 /// 否则消息列表底部会被输入框遮住（镜像 flutter_chat_ui 默认 Composer 的做法）。
@@ -76,13 +78,28 @@ class _ChatComposerState extends State<ChatComposer> {
 
     List<Map<String, dynamic>>? attachments;
     if (imagePath != null) {
+      final messenger = ScaffoldMessenger.of(context);
+      final canUseImage = await c.ensureVisionModelForImage();
+      if (!canUseImage) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('当前没有可看图的模型，请先检查后端模型配置')),
+        );
+        return;
+      }
       setState(() {
         _imagePath = null;
         _imageName = null;
       });
       await c.sendImage(imagePath); // 本地气泡先展示
       final asset = await _uploadImage(imagePath); // 上传供 Agent 多模态识别
-      if (asset != null) attachments = [asset];
+      if (asset != null) {
+        attachments = [asset];
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('图片上传失败，已取消本次发送')),
+        );
+        return;
+      }
     }
 
     if (text.isNotEmpty) {
@@ -94,22 +111,50 @@ class _ChatComposerState extends State<ChatComposer> {
 
   /// 上传图片到后端，返回可挂到消息的附件描述；失败返回 null（不阻断发送）。
   Future<Map<String, dynamic>?> _uploadImage(String path) async {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: Pref.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: const {
+          'user-agent': 'CineNest/1.0 (Flutter; dart:io)',
+          'connection': 'close',
+        },
+        persistentConnection: false,
+        validateStatus: (status) => status != null && status >= 200 && status < 300,
+      ),
+    )..httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () => HttpClient()
+          ..idleTimeout = Duration.zero
+          ..autoUncompress = true,
+      );
     try {
       final form = FormData.fromMap({
         'file': await MultipartFile.fromFile(path, filename: path.split('/').last),
       });
-      final res = await Request().post(ApiConstants.uploads, data: form);
+      final res = await dio.post(ApiConstants.uploads, data: form);
       if (res.statusCode == 200 && res.data is Map) {
         final m = (res.data as Map).cast<String, dynamic>();
+        final assetId = (m['asset_id'] ?? m['id'])?.toString() ?? '';
+        if (assetId.isEmpty) {
+          logger.w('图片上传响应缺少 asset_id/id: ${res.data}');
+          return null;
+        }
         return {
-          'asset_id': m['asset_id'],
-          'type': 'image',
+          'asset_id': assetId,
+          'kind': m['kind'] ?? 'image',
           'mime': m['mime'] ?? 'image/png',
           'filename': m['filename'] ?? 'image.png',
         };
       }
+      logger.w('图片上传失败: HTTP ${res.statusCode} ${res.data}');
+    } on DioException catch (e) {
+      logger.w('图片上传失败: ${Request.dioError(e)}');
     } catch (e) {
       logger.w('图片上传失败: $e');
+    } finally {
+      dio.close(force: true);
     }
     return null;
   }
@@ -280,12 +325,12 @@ class _ChatComposerState extends State<ChatComposer> {
 
     try {
       if (choice == 'file') {
-        // 文件（非图片）暂不预览：后端 Agent 多模态待支持，先提示。
+        // 文件（非图片）暂不预览：后端已存档，后续接 RAG 后可继续扩展。
         final res = await FilePicker.platform.pickFiles();
         final name = res?.files.single.name;
         if (mounted && name != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已选择文件「$name」，多模态上传待后端支持')),
+            SnackBar(content: Text('已选择文件「$name」，当前仅图片可进入看图模型')),
           );
         }
       } else {
@@ -295,7 +340,6 @@ class _ChatComposerState extends State<ChatComposer> {
               : ImageSource.gallery,
         );
         if (mounted && img != null) {
-          // TODO(C→Codex): 后端 Agent 接多模态后，把图片随 message 上传给模型。
           setState(() {
             _imagePath = img.path;
             _imageName = img.name;

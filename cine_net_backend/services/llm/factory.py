@@ -8,24 +8,55 @@ from langchain_openai import ChatOpenAI
 from config import settings
 from .models import ChatModelInfo
 
+GEMINI_MODEL = "gemini-3.5-flash"
+GPT_MODEL = "gpt-5.5"
+KIMI_MODEL = "Kimi-K2.6"
+
 
 def _model_name(model_id: str = "default") -> str:
     model_id = (model_id or "default").strip()
     aliases = {
-        "default": settings.llm_model,
-        "fast": settings.llm_model_fast or settings.llm_model,
-        "deep": settings.llm_model_deep or settings.llm_model,
+        "default": settings.llm_model or GEMINI_MODEL,
+        "fast": settings.llm_model_fast or GPT_MODEL,
+        "deep": settings.llm_model_deep or KIMI_MODEL,
     }
-    return aliases.get(model_id, settings.llm_model)
+    return aliases.get(model_id, aliases["default"])
+
+
+def _looks_image_capable(model_name: str) -> bool:
+    lowered = (model_name or "").lower()
+    return any(
+        hint in lowered
+        for hint in (
+            "gemini",
+            "gpt-4o",
+            "gpt-5",
+            "vision",
+            "qwen-vl",
+            "qwen2-vl",
+            "qwen2.5-vl",
+            "claude-3",
+            "claude-4",
+        )
+    )
 
 
 def list_chat_models() -> list[ChatModelInfo]:
     """返回前端模型选择可展示的模型列表。"""
 
+    default_model = _model_name("default")
+    gpt_model = _model_name("fast")
+    kimi_model = _model_name("deep")
+    default_supports_images = True
     raw = [
-        ("default", "默认模型", settings.llm_model, True),
-        ("fast", "快速模型", settings.llm_model_fast or settings.llm_model, False),
-        ("deep", "深度模型", settings.llm_model_deep or settings.llm_model, True),
+        ("default", "Gemini", default_model, default_supports_images),
+        (
+            "fast",
+            "GPT-5.5",
+            gpt_model,
+            (gpt_model == default_model and default_supports_images) or _looks_image_capable(gpt_model),
+        ),
+        ("deep", "Kimi-K2.6", kimi_model, kimi_model == default_model or _looks_image_capable(kimi_model)),
     ]
     seen: set[str] = set()
     models: list[ChatModelInfo] = []
