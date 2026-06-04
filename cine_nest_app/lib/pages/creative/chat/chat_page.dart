@@ -133,15 +133,18 @@ class _ChatView extends StatelessWidget {
       animation: animation,
       isRemoved: isRemoved,
       groupStatus: groupStatus,
+      // 头像顶对齐首行（默认底对齐，长消息会把头像垂到底部）。
+      sentMessageRowAlignment: CrossAxisAlignment.start,
+      receivedMessageRowAlignment: CrossAxisAlignment.start,
       leadingWidget: isSentByMe
           ? null
           : Padding(
-              padding: const EdgeInsets.only(right: 8, bottom: 2),
+              padding: const EdgeInsets.only(right: 8, top: 2),
               child: avatar,
             ),
       trailingWidget: isSentByMe
           ? Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 2),
+              padding: const EdgeInsets.only(left: 8, top: 2),
               child: avatar,
             )
           : null,

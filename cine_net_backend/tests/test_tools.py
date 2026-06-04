@@ -31,6 +31,7 @@ class ToolRegistryTests(TestCase):
                 "build_microdesign_posts",
                 "build_interactive_answer",
                 "collect_movie_news",
+                "generate_movie_news",
             },
             names,
         )

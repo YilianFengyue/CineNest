@@ -101,6 +101,15 @@ class ApiTests(TestCase):
 
         self.assertEqual(200, response.status_code)
         asset_id = response.json()["id"]
+        self.assertEqual(asset_id, response.json()["asset_id"])
         read = self.client.get(f"/api/assets/{asset_id}")
         self.assertEqual(200, read.status_code)
         self.assertEqual(b"hello cinenest", read.content)
+
+    def test_image_proxy_returns_remote_image(self) -> None:
+        with patch("routers.uploads._download_remote_image", new=AsyncMock(return_value=(b"image-bytes", "image/png"))):
+            response = self.client.get("/api/image-proxy", params={"url": "https://img.example/poster.png"})
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("image/png", response.headers["content-type"])
+        self.assertEqual(b"image-bytes", response.content)

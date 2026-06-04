@@ -10,7 +10,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from config import settings
 from services.assets import AgentInputAttachment, asset_data_url, get_asset
-from services.llm import get_chat_model
+from services.llm import get_chat_model, model_supports_images
 from services.tools import get_agent_tools
 
 from .schemas import AgentAttachment, AgentInvokeResponse, AgentStreamEvent
@@ -40,6 +40,8 @@ SYSTEM_PROMPT = """\
 当用户在聊天中需要可点击卡片、电影轮播、评价卡或“像 ChatGPT 一样的交互回答”时，优先调用 build_interactive_answer。
 当用户询问影视资讯、热点、新闻或资讯页内容时，调用 collect_movie_news。
 当用户要求“为某部电影生成资讯/特辑/海报资讯”时，调用 generate_movie_news（会生成 AI 海报图并持久化到资讯列表）。
+当用户上传图片时，先观察图片本身：描述画面、人物、文字、海报/截图/剧照线索；如果用户要识片、找片、推荐或播放，再结合可见线索调用 Catalog/Resource 工具核验。
+图片内容可以作为用户提供的视觉证据，但影视事实、评分、播放源和播放 URL 仍必须通过工具确认。
 做电影推荐时优先用富媒体卡片（build_interactive_answer），让回答更直观、可点击、可播放。
 用户明确要找播放地址时，调用 search_playable_resources 与 get_playable_resource_detail。
 工具字段为空时必须明确说“暂无”，不得用模型记忆补充简介、剧情、演职员、评分、封面或播放信息。
@@ -119,7 +121,12 @@ async def _get_sqlite_checkpointer() -> AsyncSqliteSaver:
     return saver
 
 
-def _message_payload(message: str, attachments: list[AgentInputAttachment] | None = None):
+def _message_payload(
+    message: str,
+    attachments: list[AgentInputAttachment] | None = None,
+    *,
+    model: str = "default",
+):
     attachments = attachments or []
     if not attachments:
         return message
@@ -131,8 +138,13 @@ def _message_payload(message: str, attachments: list[AgentInputAttachment] | Non
         except LookupError:
             file_notes.append(f"未找到上传资产 {item.asset_id}")
             continue
-        if record.kind == "image":
+        if record.kind == "image" and model_supports_images(model):
             content.append({"type": "image_url", "image_url": {"url": asset_data_url(record)}})
+        elif record.kind == "image":
+            file_notes.append(
+                f"用户上传了图片 {record.filename}，但当前模型别名 {model} 不支持视觉输入。"
+                "请提示用户切换到支持图片的模型后再分析图片。"
+            )
         else:
             file_notes.append(f"用户上传了文件 {record.filename}（{record.mime}），当前已存档，后续可进入 RAG。")
     if file_notes:
@@ -166,7 +178,7 @@ async def invoke_agent(
     try:
         agent = await get_cine_agent(model)
         result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": _message_payload(message, attachments)}]},
+            {"messages": [{"role": "user", "content": _message_payload(message, attachments, model=model)}]},
             config=_config(thread_id),
         )
     except Exception as exc:
@@ -197,7 +209,7 @@ async def stream_agent(
     try:
         agent = await get_cine_agent(model)
         async for update in agent.astream(
-            {"messages": [{"role": "user", "content": _message_payload(message, attachments)}]},
+            {"messages": [{"role": "user", "content": _message_payload(message, attachments, model=model)}]},
             config=_config(thread_id),
             stream_mode="updates",
         ):

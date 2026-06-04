@@ -45,6 +45,16 @@ def list_chat_models() -> list[ChatModelInfo]:
     return models
 
 
+def model_supports_images(model_id: str = "default") -> bool:
+    """当前模型别名是否允许接收 image_url 多模态内容。"""
+
+    model_id = (model_id or "default").strip()
+    for item in list_chat_models():
+        if item.id == model_id:
+            return item.supports_images
+    return False
+
+
 def is_llm_configured(model_id: str = "default") -> bool:
     """是否已经填写 OpenAI 兼容聚合站配置。"""
 

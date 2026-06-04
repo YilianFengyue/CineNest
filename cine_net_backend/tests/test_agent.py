@@ -1,9 +1,16 @@
 import json
 from unittest import TestCase
+from unittest.mock import patch
 
 from langchain_core.messages import ToolMessage
 
-from services.agent.factory import AgentServiceUnavailableError, _attachment_from_tool_message, _friendly_upstream_error
+from services.agent.factory import (
+    AgentServiceUnavailableError,
+    _attachment_from_tool_message,
+    _friendly_upstream_error,
+    _message_payload,
+)
+from services.assets.models import AssetRecord, AgentInputAttachment
 
 
 class AgentAttachmentTests(TestCase):
@@ -59,3 +66,28 @@ class AgentAttachmentTests(TestCase):
         self.assertIsInstance(friendly, AgentServiceUnavailableError)
         self.assertIn("HTTP 502", str(friendly))
         self.assertNotIn("traceback", str(friendly))
+
+    def test_image_attachment_is_text_note_for_non_vision_model(self) -> None:
+        record = AssetRecord(
+            id="asset-1",
+            kind="image",
+            filename="poster.png",
+            stored_name="asset-1.png",
+            mime="image/png",
+            size=10,
+            created_at="2026-06-04T00:00:00+00:00",
+            url="/api/assets/asset-1",
+        )
+        with (
+            patch("services.agent.factory.get_asset", return_value=record),
+            patch("services.agent.factory.model_supports_images", return_value=False),
+        ):
+            payload = _message_payload(
+                "看看这张图",
+                [AgentInputAttachment(asset_id="asset-1")],
+                model="fast",
+            )
+
+        self.assertIsInstance(payload, list)
+        self.assertNotIn("image_url", {part.get("type") for part in payload})
+        self.assertIn("不支持视觉输入", payload[-1]["text"])
