@@ -51,3 +51,14 @@ class UserPreference(BaseModel):
 class Feedback(BaseModel):
     movie_id: int
     liked: bool  # True=喜欢, False=不感兴趣
+
+
+class WatchHistoryItem(BaseModel):
+    movie_id: int
+    title: str
+    visited_at: str
+
+
+class WatchHistoryRequest(BaseModel):
+    movie_id: int
+    title: str

@@ -1,5 +1,6 @@
 import 'package:cine_nest/pages/feed/detail/detail_view.dart';
 import 'package:cine_nest/pages/feed/feed_view.dart';
+import 'package:cine_nest/pages/feed/history/history_view.dart';
 import 'package:cine_nest/pages/feed/preference/preference_view.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:cine_nest/pages/player/views/player_page.dart';
@@ -15,6 +16,7 @@ abstract final class AppPages {
     GetPage(name: '/feed', page: () => const FeedPage()),
     GetPage(name: Routes.movieDetail, page: () => const MovieDetailPage()),
     GetPage(name: Routes.preference, page: () => const PreferencePage()),
+    GetPage(name: Routes.history, page: () => const HistoryPage()),
     GetPage(name: Routes.player, page: () => const PlayerPage()),
     GetPage(name: Routes.sourcePicker, page: () => const SourcePickerPage()),
     GetPage(name: Routes.webviewPlayer, page: () => const WebViewPlayerPage()),

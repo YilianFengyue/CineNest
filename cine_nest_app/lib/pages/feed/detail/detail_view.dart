@@ -44,6 +44,15 @@ class MovieDetailPage extends GetView<MovieDetailController> {
             SliverAppBar(
               expandedHeight: 300,
               pinned: true,
+              actions: [
+                Obx(() => IconButton(
+                  onPressed: () => controller.toggleFavorite(),
+                  icon: Icon(
+                    controller.isFavorited.value ? Icons.favorite : Icons.favorite_border,
+                    color: controller.isFavorited.value ? Colors.red : Colors.white,
+                  ),
+                )),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,

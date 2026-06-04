@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from models.schemas import UserPreference
+from models.schemas import UserPreference, WatchHistoryItem
 
 STATE_PATH = Path(__file__).resolve().parent / "cinenest_state.json"
 
@@ -99,4 +99,16 @@ def get_watch_history_titles() -> list[str]:
         item.get("title", "")
         for item in history[:10]
         if isinstance(item, dict) and item.get("title")
+    ]
+
+
+def get_watch_history() -> list[WatchHistoryItem]:
+    state = _read_state()
+    history = state.get("watch_history")
+    if not isinstance(history, list):
+        return []
+    return [
+        WatchHistoryItem(**item)
+        for item in history
+        if isinstance(item, dict) and "movie_id" in item and "title" in item and "visited_at" in item
     ]

@@ -4,10 +4,11 @@ from config import settings
 from db.database import (
     add_watch_history,
     get_user_preference,
+    get_watch_history,
     get_watch_history_titles,
     save_user_preference,
 )
-from models.schemas import Feedback, Movie, Post, UserPreference
+from models.schemas import Feedback, Movie, Post, UserPreference, WatchHistoryItem, WatchHistoryRequest
 from services.agent.service import movie_agent_service
 from services.tmdb import tmdb_service
 
@@ -234,14 +235,37 @@ async def _preference_posts(pref: UserPreference) -> list[Post]:
 @router.get("/movie/{movie_id}", response_model=Movie)
 async def get_movie(movie_id: int):
     if not settings.tmdb_api_key:
-        return _fallback_movie(movie_id)
+        movie = _fallback_movie(movie_id)
+        add_watch_history(movie_id=movie.id, title=movie.title)
+        return movie
     try:
         movie_data = await tmdb_service.detail(movie_id)
         add_watch_history(movie_id=movie_data.id, title=movie_data.title)
         return movie_data
     except Exception as exc:
         print(f"[TMDB fallback] movie detail failed: {exc}", flush=True)
-        return _fallback_movie(movie_id)
+        movie = _fallback_movie(movie_id)
+        add_watch_history(movie_id=movie.id, title=movie.title)
+        return movie
+
+
+@router.get("/history", response_model=list[WatchHistoryItem])
+async def get_history():
+    """获取观看历史记录列表。"""
+    try:
+        return get_watch_history()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Get watch history failed: {exc}") from exc
+
+
+@router.post("/history/record")
+async def record_history(req: WatchHistoryRequest):
+    """手动记录观看历史（通常前端在进入详情页时调用 GET /movie/{id} 即可，此接口为备用或测试用）。"""
+    try:
+        add_watch_history(movie_id=req.movie_id, title=req.title)
+        return {"ok": True}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Record history failed: {exc}") from exc
 
 
 @router.get("/feed", response_model=list[Post])

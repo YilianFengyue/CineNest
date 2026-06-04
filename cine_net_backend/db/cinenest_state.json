@@ -1,0 +1,41 @@
+{
+  "preferences": {
+    "liked_genres": [
+      "历史"
+    ],
+    "disliked_genres": [],
+    "free_text": ""
+  },
+  "watch_history": [
+    {
+      "movie_id": 1523145,
+      "title": "你会心碎",
+      "visited_at": "2026-06-04 20:35:09"
+    },
+    {
+      "movie_id": 1579,
+      "title": "启示",
+      "visited_at": "2026-06-04 20:34:58"
+    },
+    {
+      "movie_id": 1304313,
+      "title": "木乃伊",
+      "visited_at": "2026-06-04 20:19:59"
+    },
+    {
+      "movie_id": 1103473,
+      "title": "ಕೆಡಿ - ದಿ ಡೆವಿಲ್",
+      "visited_at": "2026-06-04 19:58:20"
+    },
+    {
+      "movie_id": 60394,
+      "title": "The Buried Secret of M. Night Shyamalan",
+      "visited_at": "2026-06-03 22:06:10"
+    },
+    {
+      "movie_id": 1371023,
+      "title": "चाँद मेरा दिल",
+      "visited_at": "2026-06-03 21:53:10"
+    }
+  ]
+}
