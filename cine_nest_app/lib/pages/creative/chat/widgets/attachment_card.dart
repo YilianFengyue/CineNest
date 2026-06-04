@@ -1,7 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/chat/models/chat_meta.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
-import 'package:cine_nest/utils/media_url.dart';
+import 'package:cine_nest/utils/placeholder_image.dart';
 import 'package:cine_nest/pages/creative/widgets/block_renderer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
@@ -157,20 +156,7 @@ class _PostCard extends StatelessWidget {
                     child: SizedBox(
                       width: 84,
                       height: 118,
-                      child: cover.isEmpty
-                          ? Container(color: cs.surfaceContainerHighest)
-                          : CachedNetworkImage(
-                              imageUrl: mediaUrl(cover),
-                              fit: BoxFit.cover,
-                              placeholder: (_, _) =>
-                                  Container(color: cs.surfaceContainerHighest),
-                              errorWidget: (_, _, _) => Container(
-                                color: cs.surfaceContainerHighest,
-                                alignment: Alignment.center,
-                                child: Icon(Icons.movie_outlined,
-                                    color: cs.outline),
-                              ),
-                            ),
+                      child: CoverImage(url: cover, seed: title),
                     ),
                   ),
                   const SizedBox(width: 12),

@@ -2,6 +2,7 @@ import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/services/logger.dart';
+import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 /// 一条资讯 = 一串可渲染 blocks（newsCard + 可选 mediaGallery）。
@@ -64,6 +65,11 @@ class NewsController extends GetxController {
       final res = await Request().post(
         ApiConstants.newsGenerate,
         data: {'query': q},
+        // AI 生图较慢，单独放长收/发超时，避免被默认 10s 掐断。
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 180),
+        ),
       );
       if (res.statusCode == 200) {
         await refreshNews(refresh: false);

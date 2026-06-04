@@ -1,21 +1,24 @@
 import 'package:cine_nest/pages/creative/chat/chat_page.dart';
 import 'package:cine_nest/pages/creative/news/news_page.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+/// 主导航控制器（共建基建）。
+///
+/// 把"当前 Tab"提升为响应式状态，这样对话页的侧边抽屉也能切回其它 Tab。
+class MainNavController extends GetxController {
+  static MainNavController get to => Get.find<MainNavController>();
+  final RxInt index = 0.obs;
+  void go(int i) => index.value = i;
+}
 
 /// 应用主壳：底部导航框架（Day1 共建）。
 ///
-/// 这里只搭「导航骨架」，每个 Tab 的真实页面由各模块 Owner 后续填充：
-///   · 首页(F1 帖子流) → 成员 B   · 对话(F9) → 成员 C
-///   · 资讯(F12) → 成员 C         · 设置(F7 连接 / F6 偏好) → 成员 A·B
-class MainApp extends StatefulWidget {
+/// 设计要点：**对话 Tab（F9）是全屏体验**——它自带 AppBar + 侧边历史抽屉 + 输入框，
+/// 像详情页一样不显示底部 4-tab 导航；其余 Tab（首页/资讯/设置）才挂底部导航。
+/// 在对话页要切去别的 Tab，走抽屉里的目的地入口（仿 Gemini 的汉堡抽屉）。
+class MainApp extends StatelessWidget {
   const MainApp({super.key});
-
-  @override
-  State<MainApp> createState() => _MainAppState();
-}
-
-class _MainAppState extends State<MainApp> {
-  int _index = 0;
 
   static const _tabs = [
     _TabDef('首页', Icons.movie_outlined, Icons.movie, '成员 B · F1 AI 推荐帖子流'),
@@ -26,34 +29,38 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    final tab = _tabs[_index];
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('CineNest · ${tab.label}'),
-        // 对话 Tab（成员 C · F9）注入新对话 / 历史 / 推荐操作。
-        actions: _index == 1 ? chatAppBarActions(context) : null,
-      ),
-      body: _bodyFor(_index, tab),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(
-              icon: Icon(t.icon),
-              selectedIcon: Icon(t.activeIcon),
-              label: t.label,
-            ),
-        ],
-      ),
-    );
+    final nav = Get.isRegistered<MainNavController>()
+        ? MainNavController.to
+        : Get.put(MainNavController(), permanent: true);
+
+    return Obx(() {
+      final index = nav.index.value;
+      // 对话 Tab 全屏，自带导航 chrome，不套外层 Scaffold / 底部导航。
+      if (index == 1) return const ChatPage();
+
+      final tab = _tabs[index];
+      return Scaffold(
+        appBar: AppBar(title: Text('CineNest · ${tab.label}')),
+        body: _bodyFor(index, tab),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: nav.go,
+          destinations: [
+            for (final t in _tabs)
+              NavigationDestination(
+                icon: Icon(t.icon),
+                selectedIcon: Icon(t.activeIcon),
+                label: t.label,
+              ),
+          ],
+        ),
+      );
+    });
   }
 
-  /// 对话(F9) 与资讯(F12) Tab（成员 C）已接真实页面，其余 Tab 暂留占位待各 Owner 填充。
+  /// 资讯(F12) Tab 已接真实页面，其余 Tab 暂留占位待各 Owner 填充。
   Widget _bodyFor(int index, _TabDef tab) {
     switch (index) {
-      case 1:
-        return const ChatPage();
       case 2:
         return const NewsPage();
       default:

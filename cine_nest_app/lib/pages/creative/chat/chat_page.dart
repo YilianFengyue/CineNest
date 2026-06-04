@@ -1,35 +1,32 @@
-import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
-import 'package:cine_nest/pages/creative/chat/models/chat_meta.dart';
-import 'package:cine_nest/pages/creative/chat/services/chat_store.dart';
-import 'package:cine_nest/pages/creative/chat/widgets/agent_status_card.dart';
-import 'package:cine_nest/pages/creative/chat/widgets/attachment_card.dart';
-import 'package:cine_nest/pages/creative/chat/widgets/chat_composer.dart';
-import 'package:cine_nest/pages/creative/chat/widgets/recommend_sheet.dart';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cine_nest/pages/creative/chat/chat_controller.dart';
+import 'package:cine_nest/pages/creative/chat/models/chat_meta.dart';
+import 'package:cine_nest/pages/creative/chat/widgets/agent_status_card.dart';
+import 'package:cine_nest/pages/creative/chat/widgets/attachment_card.dart';
+import 'package:cine_nest/pages/creative/chat/widgets/chat_composer.dart';
+import 'package:cine_nest/pages/creative/chat/widgets/chat_history_drawer.dart';
+import 'package:cine_nest/pages/creative/chat/widgets/recommend_sheet.dart';
 import 'package:cine_nest/pages/creative/creative_actions.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
 import 'package:cine_nest/pages/creative/preview/card_gallery_page.dart';
 import 'package:cine_nest/utils/media_url.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide ChatController;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 import 'package:get/get.dart';
 
-/// AI 头像（Pinterest 占位，后续可换品牌头像）。
-const String _kBotAvatar =
-    'https://i.pinimg.com/1200x/1e/13/03/1e13037dc1891540fd0f1761f99a0d69.jpg';
+/// AI 头像（本地 asset，避免 Pinterest 域名被墙拉不到）。
+const String _kBotAvatarAsset = 'assets/pinterest1.png';
+const String _kUserAvatarAsset = 'assets/pinterest2.png';
 
-/// 用户头像占位。
-const String _kUserAvatar =
-    'https://i.pinimg.com/736x/43/27/dd/4327ddd546e01c0a5cd6de3c2f173f78.jpg';
-
-/// F9 AI 对话页 —— 基于 flutter_chat_ui v2 的电影 Agent 对话。
+/// F9 AI 对话页 —— 仿 Gemini 的全屏对话。
 ///
-/// 接后端 `/ws/chat` 流式 Agent：用户气泡 + 思考/来源状态条 + Markdown 回复
-/// + 推荐/海报结构化卡片。主题取系统 Material You（[ChatTheme.fromThemeData]）。
+/// 自带 AppBar（汉堡 → 侧边历史抽屉）+ 流式 Agent 回复 + 消息操作栏（复制/重生成）
+/// + 推荐/海报/资讯结构化卡片。主题取系统 Material You（[ChatTheme.fromThemeData]）。
 class ChatPage extends StatelessWidget {
   const ChatPage({super.key});
 
@@ -40,19 +37,62 @@ class ChatPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = _c;
+    return Scaffold(
+      appBar: AppBar(
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            tooltip: '历史对话',
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
+        title: const Text('CineNest 助手'),
+        actions: [
+          IconButton(
+            tooltip: '为你推荐',
+            icon: const Icon(Icons.auto_awesome_outlined),
+            onPressed: () => showRecommendSheet(context),
+          ),
+          IconButton(
+            tooltip: '新对话',
+            icon: const Icon(Icons.add_comment_outlined),
+            onPressed: c.newSession,
+          ),
+        ],
+      ),
+      drawer: const ChatHistoryDrawer(),
+      body: _ChatView(c: c),
+    );
+  }
+}
+
+class _ChatView extends StatelessWidget {
+  const _ChatView({required this.c});
+
+  final ChatController c;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Chat(
       chatController: c.chat,
       currentUserId: ChatUsers.me,
-      resolveUser: (id) async => User(
-        id: id,
-        name: id == ChatUsers.bot ? 'CineNest' : '我',
-        imageSource: id == ChatUsers.bot ? _kBotAvatar : _kUserAvatar,
-      ),
+      resolveUser: (id) async => User(id: id, name: id == ChatUsers.bot ? 'CineNest' : '我'),
       theme: ChatTheme.fromThemeData(theme),
       builders: Builders(
-        textMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
-            FlyerChatTextMessage(message: message, index: index),
+        textMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) {
+          final bubble = FlyerChatTextMessage(message: message, index: index);
+          // Agent 回复气泡下挂"复制 / 重新生成"操作栏（仿 Gemini）。
+          if (isSentByMe || message.text.trim().isEmpty) return bubble;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              bubble,
+              _BotMessageActions(text: message.text, index: index),
+            ],
+          );
+        },
         imageMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
             _ChatImageBubble(message: message),
         customMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
@@ -86,7 +126,7 @@ class ChatPage extends StatelessWidget {
     final showAvatar = groupStatus == null || groupStatus.isLast;
     final avatar = showAvatar
         ? _ChatAvatar(isBot: message.authorId == ChatUsers.bot)
-        : const SizedBox(width: 30);
+        : const SizedBox(width: 32);
     return ChatMessage(
       message: message,
       index: index,
@@ -139,98 +179,89 @@ void handleChatAction(BuildContext context, MicroAction action) {
   handleCreativeAction(context, action);
 }
 
-/// 对话页的 AppBar 操作（新对话 / 历史 / 推荐），由 main_app 注入到全局 AppBar。
-List<Widget> chatAppBarActions(BuildContext context) {
-  return [
-    IconButton(
-      tooltip: '为你推荐',
-      icon: const Icon(Icons.auto_awesome_outlined),
-      onPressed: () => showRecommendSheet(context),
-    ),
-    IconButton(
-      tooltip: '历史对话',
-      icon: const Icon(Icons.history),
-      onPressed: () => _showHistory(context),
-    ),
-    IconButton(
-      tooltip: '新对话',
-      icon: const Icon(Icons.add_comment_outlined),
-      onPressed: () => ChatController.to.newSession(),
-    ),
-  ];
-}
+/// Agent 回复下的操作栏 —— 复制 / 重新生成（仿 Gemini）。
+class _BotMessageActions extends StatelessWidget {
+  const _BotMessageActions({required this.text, required this.index});
 
-Future<void> _showHistory(BuildContext context) async {
-  final cs = Theme.of(context).colorScheme;
-  final sessions = ChatStore.sessions();
-  await showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    backgroundColor: cs.surface,
-    isScrollControlled: true,
-    builder: (ctx) {
-      return SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.6,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Text('历史对话', style: Theme.of(ctx).textTheme.titleMedium),
-              ),
-              if (sessions.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                  child: Text(
-                    '还没有历史对话',
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                )
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: sessions.length,
-                    itemBuilder: (_, i) {
-                      final s = sessions[i];
-                      return ListTile(
-                        leading: const Icon(Icons.chat_bubble_outline),
-                        title: Text(
-                          s.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text('${s.messageCount} 条消息'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () async {
-                            await ChatController.to.deleteSession(s.id);
-                            if (ctx.mounted) Navigator.pop(ctx);
-                          },
-                        ),
-                        onTap: () {
-                          ChatController.to.loadSession(s.id);
-                          Navigator.pop(ctx);
-                        },
-                      );
-                    },
-                  ),
+  final String text;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final c = ChatController.to;
+    // 仅最后一条 Agent 消息允许"重新生成"。
+    final isLast = index == c.chat.messages.length - 1;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _IconAction(
+            icon: Icons.copy_rounded,
+            tooltip: '复制',
+            color: cs.onSurfaceVariant,
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: text));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('已复制'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
                 ),
-            ],
+              );
+            },
           ),
-        ),
-      );
-    },
-  );
+          if (isLast)
+            Obx(
+              () => c.responding.value
+                  ? const SizedBox.shrink()
+                  : _IconAction(
+                      icon: Icons.refresh_rounded,
+                      tooltip: '重新生成',
+                      color: cs.onSurfaceVariant,
+                      onTap: c.retry,
+                    ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
-/// 对话头像 —— 优先加载网络头像，拉不到（如 pinimg 被墙）则画渐变圆 + 图标兜底。
-///
-/// 不用 flyer 的 Avatar：它失败时只回退文字首字母，观感差；这里给一个体面的兜底。
+/// 小号涟漪图标按钮。
+class _IconAction extends StatelessWidget {
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 17, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// 对话头像 —— 本地 asset 圆头像（CircleAvatar 组件，自动对齐），
+/// asset 缺失时回退到 colorScheme 底色 + 图标，不依赖网络。
 class _ChatAvatar extends StatelessWidget {
   const _ChatAvatar({required this.isBot});
 
@@ -239,46 +270,25 @@ class _ChatAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final url = isBot ? _kBotAvatar : _kUserAvatar;
-    final fallback = _fallback(cs);
-    return ClipOval(
-      child: SizedBox(
-        width: 30,
-        height: 30,
-        child: CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.cover,
-          placeholder: (_, _) => fallback,
-          errorWidget: (_, _, _) => fallback,
-        ),
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: isBot ? cs.primaryContainer : cs.surfaceContainerHighest,
+      foregroundImage: AssetImage(isBot ? _kBotAvatarAsset : _kUserAvatarAsset),
+      onForegroundImageError: (_, _) {},
+      child: Icon(
+        isBot ? Icons.auto_awesome : Icons.person,
+        size: 16,
+        color: isBot ? cs.onPrimaryContainer : cs.onSurfaceVariant,
       ),
-    );
-  }
-
-  Widget _fallback(ColorScheme cs) {
-    if (isBot) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [cs.primary, cs.tertiary],
-          ),
-        ),
-        child: Icon(Icons.auto_awesome, size: 16, color: cs.onPrimary),
-      );
-    }
-    return ColoredBox(
-      color: cs.surfaceContainerHighest,
-      child: Icon(Icons.person, size: 18, color: cs.onSurfaceVariant),
     );
   }
 }
 
 /// 图片气泡 —— 本地选择的图（file 路径）与网络图都能渲染。
 ///
-/// 自写而非依赖 flyer_chat_image_message：本地相册/拍照得到的是文件路径，
-/// 用 [Image.file] 直渲染最稳；网络图走 [CachedNetworkImage] 兜底。
+/// ⚠️ 关键：安卓相册/拍照返回的本地路径以 `/` 开头（如 `/data/.../xxx.jpg`），
+/// 不能用 `startsWith('/')` 判网络，否则会被当成后端地址拼成 URL 去请求而显示灰块。
+/// 这里只把 http(s) 与后端资产路径 `/api/` 当远程，其余一律按本地文件渲染。
 class _ChatImageBubble extends StatelessWidget {
   const _ChatImageBubble({required this.message});
 
@@ -288,37 +298,37 @@ class _ChatImageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final source = message.source;
-    // 远程图(含相对 /api/assets) 走网络；本地 file 路径走 Image.file。
-    final isNetwork = source.startsWith('http') || source.startsWith('/');
-    final resolved = mediaUrl(source);
+    final isRemote = source.startsWith('http://') ||
+        source.startsWith('https://') ||
+        source.startsWith('/api/');
+
+    Widget broken() => Container(
+      width: 180,
+      height: 120,
+      color: cs.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(Icons.broken_image_outlined, color: cs.outline),
+    );
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 240, maxHeight: 280),
-        child: isNetwork
+        child: isRemote
             ? CachedNetworkImage(
-                imageUrl: resolved,
+                imageUrl: mediaUrl(source),
                 fit: BoxFit.cover,
-                placeholder: (_, _) =>
-                    Container(width: 180, height: 180, color: cs.surfaceContainerHighest),
-                errorWidget: (_, _, _) => Container(
+                placeholder: (_, _) => Container(
                   width: 180,
-                  height: 120,
+                  height: 180,
                   color: cs.surfaceContainerHighest,
-                  alignment: Alignment.center,
-                  child: Icon(Icons.broken_image_outlined, color: cs.outline),
                 ),
+                errorWidget: (_, _, _) => broken(),
               )
             : Image.file(
                 File(source),
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  width: 180,
-                  height: 120,
-                  color: cs.surfaceContainerHighest,
-                  alignment: Alignment.center,
-                  child: Icon(Icons.broken_image_outlined, color: cs.outline),
-                ),
+                errorBuilder: (_, _, _) => broken(),
               ),
       ),
     );
@@ -397,8 +407,7 @@ class _EmptyState extends StatelessWidget {
                   color: cs.onPrimaryContainer, size: 32),
             ),
             const SizedBox(height: 16),
-            Text('我是 CineNest 影视助手',
-                style: theme.textTheme.titleMedium),
+            Text('我是 CineNest 影视助手', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             Text(
               '告诉我你想看什么，我帮你找片、聊剧情、生成互动海报。',

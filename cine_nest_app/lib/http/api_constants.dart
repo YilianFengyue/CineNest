@@ -8,7 +8,7 @@ abstract final class ApiConstants {
   ///
   /// 真机/模拟器联调：填 PC 的局域网/热点 IP（PC 上 `uvicorn --host 0.0.0.0`）。
   /// ⚠️ 临时联调值，提交前应改回 `127.0.0.1` 或交由 F7 设置页配置。
-  static const String defaultBaseUrl = 'http://100.64.122.30:8000';
+  static const String defaultBaseUrl = 'http://100.67.48.35:8000';
 
   /// 健康检查（F7 连接测试用）。
   static const String health = '/api/health';

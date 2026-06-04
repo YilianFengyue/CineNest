@@ -20,11 +20,12 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 90.0
     llm_max_retries: int = 2
 
-    # 图片生成（OpenAI Images 兼容，如 gpt-image-2 @ api.gpt.ge）。
-    # 不单独填写时回退 llm_api_key / llm_base_url，模型默认 gpt-image-2。
+    # 图片生成（OpenAI Images 兼容，gpt-image-2 @ api.gpt.ge）。
+    # key 默认复用 llm_api_key；base 固定指向 gpt.ge 的图片站，无需额外 .env。
+    # 若图片站与 LLM 不同供应商，再单独填 IMAGE_API_KEY。
     image_enabled: bool = True
     image_api_key: str = ""
-    image_base_url: str = ""
+    image_base_url: str = "https://api.gpt.ge/v1"
     image_model: str = "gpt-image-2"
     image_timeout_seconds: float = 120.0
 

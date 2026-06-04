@@ -43,8 +43,13 @@ class ChatController extends GetxController {
   // 当前回合的临时状态。
   String? _statusMsgId; // Agent 状态条消息 id
   String? _assistantMsgId; // 助手文本气泡 id
-  String _assistantBuffer = ''; // 累加的助手文本
+  String _assistantBuffer = ''; // 累加的助手文本（目标全文）
   String _lastUserText = ''; // 最近一条用户消息（重试用）
+
+  // 打字机：后端 delta 多是"整段"而非逐 token，这里在前端做渐显，
+  // 把整段文本一点点"吐"出来，观感接近 Gemini 的流式输出。
+  Timer? _revealTimer;
+  int _revealed = 0; // 已显示到的字符数
 
   @override
   void onInit() {
@@ -73,6 +78,7 @@ class ChatController extends GetxController {
   @override
   void onClose() {
     _persist();
+    _revealTimer?.cancel();
     _eventSub?.cancel();
     ws.dispose();
     chat.dispose();
@@ -106,6 +112,8 @@ class ChatController extends GetxController {
     responding.value = true;
     _assistantMsgId = null;
     _assistantBuffer = '';
+    _revealed = 0;
+    _revealTimer?.cancel();
     _statusMsgId = _newId('s');
     await chat.insertMessage(
       Message.custom(
@@ -141,6 +149,8 @@ class ChatController extends GetxController {
     responding.value = true;
     _assistantMsgId = null;
     _assistantBuffer = '';
+    _revealed = 0;
+    _revealTimer?.cancel();
     _statusMsgId = _newId('s');
     await chat.insertMessage(
       Message.custom(
@@ -331,29 +341,47 @@ class ChatController extends GetxController {
 
   Future<void> _appendDelta(String content) async {
     if (content.isEmpty) return;
-    _assistantBuffer = _assistantBuffer.isEmpty
-        ? content
-        : '$_assistantBuffer\n\n$content';
+    // 直接累加（不再插 `\n\n`，避免多余空行）；逐 token 或整段都适用。
+    _assistantBuffer += content;
 
     if (_assistantMsgId == null) {
       _assistantMsgId = _newId('m');
+      _revealed = 0;
       await chat.insertMessage(
         Message.text(
           id: _assistantMsgId!,
           authorId: ChatUsers.bot,
           createdAt: DateTime.now().toUtc(),
-          text: _assistantBuffer,
+          text: '',
         ),
       );
-    } else {
-      final idx = chat.messages.indexWhere((m) => m.id == _assistantMsgId);
-      if (idx != -1) {
-        final old = chat.messages[idx];
-        if (old is TextMessage) {
-          await chat.updateMessage(old, old.copyWith(text: _assistantBuffer));
-        }
-      }
     }
+    _startReveal();
+  }
+
+  /// 打字机渐显：每 ~24ms 吐出一截，剩得多吐得多（先快后慢），
+  /// 整体收敛在 1 秒内，长短文本都顺滑。
+  void _startReveal() {
+    _revealTimer?.cancel();
+    _revealTimer = Timer.periodic(const Duration(milliseconds: 24), (t) {
+      if (_assistantMsgId == null || _revealed >= _assistantBuffer.length) {
+        t.cancel();
+        return;
+      }
+      final remaining = _assistantBuffer.length - _revealed;
+      final step = remaining < 8 ? remaining : (remaining ~/ 8).clamp(2, 60);
+      _revealed = (_revealed + step).clamp(0, _assistantBuffer.length);
+      _updateAssistantText(_assistantBuffer.substring(0, _revealed));
+    });
+  }
+
+  /// 更新助手气泡当前显示的文本。
+  void _updateAssistantText(String text) {
+    if (_assistantMsgId == null) return;
+    final idx = chat.messages.indexWhere((m) => m.id == _assistantMsgId);
+    if (idx == -1) return;
+    final old = chat.messages[idx];
+    if (old is TextMessage) chat.updateMessage(old, old.copyWith(text: text));
   }
 
   Future<void> _insertError(String text) async {
@@ -369,6 +397,9 @@ class ChatController extends GetxController {
 
   /// 收尾一个回合：停转状态条、标记助手消息已送达、解锁发送。
   Future<void> _finishTurn() async {
+    // 收尾时停掉打字机，把整段文本一次补全（避免停在半截）。
+    _revealTimer?.cancel();
+    _revealed = _assistantBuffer.length;
     await _setStatusThinking(false);
     // 若状态条没有任何工具记录（纯闲聊），移除它以保持简洁。
     final status = _statusMsg;
@@ -381,10 +412,13 @@ class ChatController extends GetxController {
       final idx = chat.messages.indexWhere((m) => m.id == _assistantMsgId);
       if (idx != -1) {
         final old = chat.messages[idx];
-        if (old is TextMessage && old.sentAt == null) {
+        if (old is TextMessage) {
           await chat.updateMessage(
             old,
-            old.copyWith(sentAt: DateTime.now().toUtc()),
+            old.copyWith(
+              text: _assistantBuffer,
+              sentAt: old.sentAt ?? DateTime.now().toUtc(),
+            ),
           );
         }
       }

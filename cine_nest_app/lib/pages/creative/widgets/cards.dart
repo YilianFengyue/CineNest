@@ -1,6 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cine_nest/pages/creative/models/content_block.dart';
-import 'package:cine_nest/utils/media_url.dart';
+import 'package:cine_nest/utils/placeholder_image.dart';
 import 'package:flutter/material.dart';
 
 /// microdesign v1.1 富交互卡片库（成员 C）。
@@ -29,29 +28,14 @@ MicroAction? _first(List<MicroAction> actions, String type) {
 Widget _cover(
   BuildContext context,
   String url, {
+  String seed = '',
   double w = 84,
   double h = 118,
   double radius = 12,
 }) {
-  final cs = Theme.of(context).colorScheme;
   return ClipRRect(
     borderRadius: BorderRadius.circular(radius),
-    child: SizedBox(
-      width: w,
-      height: h,
-      child: url.isEmpty
-          ? Container(color: cs.surfaceContainerHighest)
-          : CachedNetworkImage(
-              imageUrl: mediaUrl(url),
-              fit: BoxFit.cover,
-              placeholder: (_, _) => Container(color: cs.surfaceContainerHighest),
-              errorWidget: (_, _, _) => Container(
-                color: cs.surfaceContainerHighest,
-                alignment: Alignment.center,
-                child: Icon(Icons.movie_outlined, color: cs.outline),
-              ),
-            ),
-    ),
+    child: CoverImage(url: url, seed: seed, width: w, height: h),
   );
 }
 
@@ -132,7 +116,7 @@ class PlayableMovieCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _cover(context, block.str('cover')),
+                  _cover(context, block.str('cover'), seed: block.str('title')),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -283,6 +267,7 @@ class MovieCarouselCard extends StatelessWidget {
                           _cover(
                             context,
                             m['cover'] as String? ?? '',
+                            seed: m['title'] as String? ?? '',
                             w: 108,
                             h: 150,
                           ),
@@ -565,14 +550,7 @@ class NewsCardBlock extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: CachedNetworkImage(
-                      imageUrl: mediaUrl(cover),
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) =>
-                          Container(color: cs.surfaceContainerHighest),
-                      errorWidget: (_, _, _) =>
-                          Container(color: cs.surfaceContainerHighest),
-                    ),
+                    child: CoverImage(url: cover, seed: block.str('title')),
                   ),
                 ),
               ],
@@ -632,7 +610,6 @@ class MediaGalleryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final urls = block.strList('urls');
     if (urls.isEmpty) return const SizedBox.shrink();
     final title = block.str('title');
@@ -661,14 +638,7 @@ class MediaGalleryCard extends StatelessWidget {
             itemCount: urls.length,
             itemBuilder: (context, i) => ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: mediaUrl(urls[i]),
-                fit: BoxFit.cover,
-                placeholder: (_, _) =>
-                    Container(color: cs.surfaceContainerHighest),
-                errorWidget: (_, _, _) =>
-                    Container(color: cs.surfaceContainerHighest),
-              ),
+              child: CoverImage(url: urls[i], seed: '$title-$i'),
             ),
           )
         else
@@ -681,17 +651,11 @@ class MediaGalleryCard extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) => ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: CachedNetworkImage(
-                  imageUrl: mediaUrl(urls[i]),
+                child: CoverImage(
+                  url: urls[i],
+                  seed: '$title-$i',
                   width: 92,
                   height: 124,
-                  fit: BoxFit.cover,
-                  placeholder: (_, _) =>
-                      Container(color: cs.surfaceContainerHighest),
-                  errorWidget: (_, _, _) => Container(
-                    width: 92,
-                    color: cs.surfaceContainerHighest,
-                  ),
                 ),
               ),
             ),
@@ -738,19 +702,10 @@ class VideoExplainCard extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      block.str('cover').isEmpty
-                          ? Container(color: cs.surfaceContainerHighest)
-                          : CachedNetworkImage(
-                              imageUrl: mediaUrl(block.str('cover')),
-                              fit: BoxFit.cover,
-                              placeholder: (_, _) =>
-                                  Container(color: cs.surfaceContainerHighest),
-                              errorWidget: (_, _, _) => Container(
-                                color: cs.surfaceContainerHighest,
-                                child: Icon(Icons.movie_outlined,
-                                    color: cs.outline),
-                              ),
-                            ),
+                      CoverImage(
+                        url: block.str('cover'),
+                        seed: block.str('title'),
+                      ),
                       Center(
                         child: Container(
                           decoration: const BoxDecoration(
