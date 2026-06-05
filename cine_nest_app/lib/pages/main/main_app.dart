@@ -1,7 +1,7 @@
 import 'package:cine_nest/pages/creative/chat/chat_page.dart';
 import 'package:cine_nest/pages/creative/news/news_page.dart';
 import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
-import 'package:cine_nest/pages/feed/preference/preference_view.dart';
+import 'package:cine_nest/pages/settings/settings_page.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -92,7 +92,7 @@ class MainApp extends StatelessWidget {
       case 2:
         return const NewsPage();
       case 3:
-        return const PreferencePage();
+        return const SettingsPage();
       default:
         return _Placeholder(title: tab.label, hint: tab.hint);
     }
