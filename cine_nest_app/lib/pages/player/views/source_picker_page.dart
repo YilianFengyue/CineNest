@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:cine_nest/models/video_source.dart';
 import 'package:cine_nest/pages/player/services/source_api_service.dart';
+import 'package:cine_nest/pages/player/widgets/player_chrome.dart';
+import 'package:cine_nest/pages/player/widgets/player_theme.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -20,17 +21,15 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
   final _api = const SourceApiService();
   late final Player _player;
   late final VideoController _videoController;
-
   StreamSubscription<String>? _errorSubscription;
+
   String _movieName = 'The Shawshank Redemption';
-  String _title = 'CineNest Player';
-  String _message = 'Searching sources...';
+  String _title = '播放器';
+  String _statusMessage = '正在搜索播放源…';
   String? _error;
   String? _url;
   bool _loadingSources = true;
   bool _switching = false;
-  bool _fullscreen = false;
-  bool _showVideoControls = false;
   double _rate = 1.0;
 
   List<VideoSource> _sources = const [];
@@ -44,20 +43,16 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     _player = Player();
     _videoController = VideoController(_player);
     _errorSubscription = _player.stream.error.listen((error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _error = error;
         _switching = false;
-        _message = 'Playback failed. Choose another source or retry.';
+        _statusMessage = '播放失败，可换源或重试';
       });
     });
     _readArgs();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _loadSources();
-      }
+      if (mounted) _loadSources();
     });
   }
 
@@ -65,16 +60,15 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
   void dispose() {
     _errorSubscription?.cancel();
     _player.dispose();
-    _restoreOrientation();
     super.dispose();
   }
 
   void _readArgs() {
     final args = Get.arguments;
     final title = args is Map ? args['title']?.toString() : null;
-    _movieName = title == null || title.trim().isEmpty
-        ? _movieName
-        : title.trim();
+    if (title != null && title.trim().isNotEmpty) {
+      _movieName = title.trim();
+    }
     _title = _movieName;
   }
 
@@ -83,7 +77,7 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
       _loadingSources = true;
       _switching = true;
       _error = null;
-      _message = 'Searching sources for $_movieName...';
+      _statusMessage = '正在搜索「$_movieName」的播放源…';
       _sources = const [];
       _selectedSource = null;
       _parsedSource = null;
@@ -94,16 +88,16 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     var sources = <VideoSource>[];
     try {
       sources = await _api.searchSources(_movieName);
-    } catch (e) {
-      warning = 'Source search failed, using fallback. ';
+    } catch (_) {
+      warning = '影视站搜索失败，已降级为内置源。';
       sources = _api.fallbackSources(_movieName);
     }
 
     try {
       final bili = await _api.searchBilibili('$_movieName 解说');
       sources = _mergeSources([...sources, ...bili]);
-    } catch (e) {
-      warning = '${warning}Bilibili search failed. ';
+    } catch (_) {
+      warning = '${warning}Bilibili 搜索失败。';
       sources = _mergeSources([
         ...sources,
         _api.fallbackBilibili('$_movieName 解说'),
@@ -111,15 +105,13 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     }
 
     sources = _sortSources(sources);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() {
       _sources = sources;
       _loadingSources = false;
-      _message = sources.isEmpty
-          ? '${warning}No source found.'
-          : '${warning}Found ${sources.length} source(s). Preparing default source...';
+      _statusMessage = sources.isEmpty
+          ? '$warning未找到播放源'
+          : '$warning找到 ${sources.length} 个源，正在尝试默认源…';
     });
 
     if (sources.isNotEmpty) {
@@ -133,12 +125,8 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     final merged = <VideoSource>[];
     final seen = <String>{};
     for (final source in sources) {
-      if (source.id.trim().isEmpty) {
-        continue;
-      }
-      if (seen.add(source.id)) {
-        merged.add(source);
-      }
+      if (source.id.trim().isEmpty) continue;
+      if (seen.add(source.id)) merged.add(source);
     }
     return merged;
   }
@@ -156,9 +144,7 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     if (source.id.startsWith('demo:') || source.type == SourceType.netdisk) {
       return 1;
     }
-    if (source.type == SourceType.web) {
-      return 2;
-    }
+    if (source.type == SourceType.web) return 2;
     return 3;
   }
 
@@ -168,18 +154,12 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
         .toList();
     for (final source in directCandidates) {
       final ok = await _switchSource(source, autoAdvance: true);
-      if (ok) {
-        return;
-      }
+      if (ok) return;
     }
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() {
       _switching = false;
-      _message =
-          'No direct video source worked. Choose Bilibili/WebView below.';
+      _statusMessage = '直连源全部失败，请在下方手动选择 Bilibili / 浏览器源';
     });
   }
 
@@ -193,14 +173,14 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
       _error = null;
       _selectedSource = source;
       _selectedEpisodeIndex = episodeIndex;
-      _message = 'Preparing ${source.name}...';
+      _statusMessage = '正在准备「${source.name}」…';
     });
 
     try {
       final parsed = await _parseForPlayback(source, episodeIndex);
       final playUrl = parsed.playUrl;
       if (playUrl == null || playUrl.isEmpty) {
-        throw Exception('This source has no play URL.');
+        throw Exception('该源没有可播放地址');
       }
 
       if (!_isDirectVideo(playUrl)) {
@@ -214,7 +194,7 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
           _parsedSource = parsed;
           _url = playUrl;
           _switching = false;
-          _message = 'Open this source with WebView.';
+          _statusMessage = '该源需通过浏览器播放';
         });
         return false;
       }
@@ -224,24 +204,19 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
       _title = parsed.name.isEmpty ? source.name : parsed.name;
       await _player.open(Media(playUrl));
       await _player.setRate(_rate);
-      if (!mounted) {
-        return true;
-      }
+      if (!mounted) return true;
       setState(() {
         _switching = false;
-        _message = _episodeLabel(parsed, episodeIndex);
+        _error = null; // 清掉换源前残留的错误，防止"已成功但仍显示失败"
+        _statusMessage = _episodeLabel(parsed, episodeIndex);
       });
       return true;
     } catch (e) {
-      if (!mounted) {
-        return false;
-      }
+      if (!mounted) return false;
       setState(() {
         _switching = false;
         _error = e.toString();
-        _message = autoAdvance
-            ? 'Default source failed, trying next source...'
-            : 'Source failed. Choose another source or retry.';
+        _statusMessage = autoAdvance ? '默认源失败，尝试下一个…' : '该源失败，可换源或重试';
       });
       return false;
     }
@@ -251,21 +226,17 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     VideoSource source,
     int episodeIndex,
   ) async {
-    if (source.playUrl != null && source.playUrl!.isNotEmpty) {
-      return source;
-    }
+    if (source.playUrl != null && source.playUrl!.isNotEmpty) return source;
     return _api.parseSource(source.id, episodeIndex: episodeIndex);
   }
 
   String _episodeLabel(VideoSource source, int episodeIndex) {
-    if (source.episodes.length <= 1) {
-      return 'Playing';
-    }
-    final episode = source.episodes.firstWhere(
+    if (source.episodes.length <= 1) return '正在播放';
+    final ep = source.episodes.firstWhere(
       (item) => item.index == episodeIndex,
       orElse: () => source.episodes.first,
     );
-    return 'Playing ${episode.title}';
+    return '正在播放 ${ep.title.isEmpty ? '第${episodeIndex + 1}集' : ep.title}';
   }
 
   bool _isDirectVideo(String url) {
@@ -275,123 +246,55 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
         lower.contains('/upgcxcode/');
   }
 
-  Future<void> _toggleFullscreen() async {
-    if (_fullscreen) {
-      await _exitFullscreen();
-      return;
-    }
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    if (mounted) {
-      setState(() => _fullscreen = true);
-    }
-  }
-
-  Future<void> _exitFullscreen() async {
-    await _restoreOrientation();
-    if (mounted && _fullscreen) {
-      setState(() => _fullscreen = false);
-    }
-  }
-
-  Future<void> _restoreOrientation() async {
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-  }
-
   Future<void> _setRate(double value) async {
     await _player.setRate(value);
-    if (mounted) {
-      setState(() => _rate = value);
-    }
+    if (mounted) setState(() => _rate = value);
   }
 
   void _openWebView() {
     final url = _url;
-    if (url == null || url.isEmpty) {
-      return;
-    }
+    if (url == null || url.isEmpty) return;
     Get.toNamed(Routes.webviewPlayer, arguments: {'url': url, 'title': _title});
+  }
+
+  PlayerActions _buildActions(BuildContext context) {
+    final episodes = _parsedSource?.episodes ?? const <VideoEpisode>[];
+    final episodeBadge = episodes.length > 1
+        ? '第 ${_selectedEpisodeIndex + 1} / ${episodes.length} 集'
+        : null;
+    return PlayerActions(
+      title: _title,
+      episodeLabel: episodeBadge,
+      rate: _rate,
+      sources: _sources,
+      currentSourceId: _selectedSource?.id,
+      episodes: episodes,
+      currentEpisodeIndex: _selectedEpisodeIndex,
+      switching: _switching,
+      onBack: () => Navigator.of(context).maybePop(),
+      onPickSource: (src) => _switchSource(src),
+      onPickEpisode: (ep) {
+        final src = _selectedSource;
+        if (src != null) _switchSource(src, episodeIndex: ep.index);
+      },
+      onChangeRate: _setRate,
+      onOpenWebView: _url == null ? null : _openWebView,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final video = _VideoFrame(
-      controller: _videoController,
-      loading: _switching,
-      error: _error,
-      showControls: _showVideoControls,
-      player: _player,
-      onTap: () => setState(() => _showVideoControls = !_showVideoControls),
-      onFullscreen: _toggleFullscreen,
-      onRetry: _selectedSource == null
-          ? _loadSources
-          : () => _switchSource(
-              _selectedSource!,
-              episodeIndex: _selectedEpisodeIndex,
-            ),
-      onWebView: _url == null ? null : _openWebView,
-    );
-
-    if (_fullscreen) {
-      return WillPopScope(
-        onWillPop: () async {
-          await _exitFullscreen();
-          return false;
-        },
-        child: Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              Center(
-                child: AspectRatio(aspectRatio: 16 / 9, child: video),
-              ),
-              Positioned(
-                top: 12,
-                left: 12,
-                child: SafeArea(
-                  child: Material(
-                    color: Colors.black54,
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      tooltip: 'Exit fullscreen',
-                      onPressed: _exitFullscreen,
-                      icon: const Icon(
-                        Icons.fullscreen_exit,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: SafeArea(
-                  child: _SpeedButton(
-                    rate: _rate,
-                    onRateChanged: _setRate,
-                    dark: true,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    final actions = _buildActions(context);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_movieName),
+        title: Text(_movieName, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
-            tooltip: 'Refresh sources',
+            tooltip: '刷新源',
             onPressed: _loadingSources ? null : _loadSources,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
@@ -399,7 +302,40 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(aspectRatio: 16 / 9, child: video),
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: ColoredBox(
+                color: Colors.black,
+                child: _url == null
+                    ? _PlaceholderArea(
+                        loading: _switching,
+                        message: _statusMessage,
+                        error: _error,
+                        onRetry: _selectedSource == null
+                            ? _loadSources
+                            : () => _switchSource(
+                                  _selectedSource!,
+                                  episodeIndex: _selectedEpisodeIndex,
+                                ),
+                      )
+                    : MaterialVideoControlsTheme(
+                        normal: buildPlayerTheme(
+                          context: context,
+                          fullscreen: false,
+                          actions: actions,
+                        ),
+                        fullscreen: buildPlayerTheme(
+                          context: context,
+                          fullscreen: true,
+                          actions: actions,
+                        ),
+                        child: Video(
+                          controller: _videoController,
+                          controls: MaterialVideoControls,
+                        ),
+                      ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -407,23 +343,27 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
                 children: [
                   Text(_title, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 4),
-                  Text(_message),
-                  const SizedBox(height: 12),
-                  _ProgressBar(player: _player),
-                  const SizedBox(height: 12),
-                  _Controls(
-                    player: _player,
-                    rate: _rate,
-                    onRateChanged: _setRate,
-                    onFullscreen: _toggleFullscreen,
-                    onWebView: _url == null ? null : _openWebView,
-                    onRetry: _selectedSource == null
-                        ? _loadSources
-                        : () => _switchSource(
-                            _selectedSource!,
-                            episodeIndex: _selectedEpisodeIndex,
-                          ),
+                  Text(
+                    _statusMessage,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: _error != null
+                              ? cs.error
+                              : cs.onSurfaceVariant,
+                        ),
                   ),
+                  if (_url != null && _error != null) ...[
+                    const SizedBox(height: 8),
+                    _ErrorCard(
+                      message: _error!,
+                      onRetry: _selectedSource == null
+                          ? _loadSources
+                          : () => _switchSource(
+                                _selectedSource!,
+                                episodeIndex: _selectedEpisodeIndex,
+                              ),
+                      onOpenWebView: _url == null ? null : _openWebView,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   _EpisodeGrid(
                     source: _parsedSource,
@@ -438,7 +378,7 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Sources',
+                    '播放源',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
@@ -458,295 +398,111 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
   }
 }
 
-class _VideoFrame extends StatelessWidget {
-  const _VideoFrame({
-    required this.controller,
+class _PlaceholderArea extends StatelessWidget {
+  const _PlaceholderArea({
     required this.loading,
+    required this.message,
     required this.error,
-    required this.showControls,
-    required this.player,
-    required this.onTap,
-    required this.onFullscreen,
     required this.onRetry,
-    this.onWebView,
   });
 
-  final VideoController controller;
   final bool loading;
+  final String message;
   final String? error;
-  final bool showControls;
-  final Player player;
-  final VoidCallback onTap;
-  final VoidCallback onFullscreen;
   final VoidCallback onRetry;
-  final VoidCallback? onWebView;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.black),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: Video(controller: controller, controls: null),
-          ),
-          if (loading) const Center(child: CircularProgressIndicator()),
-          if (showControls && error == null && !loading)
-            _VideoTapControls(player: player, onFullscreen: onFullscreen),
-          if (error != null)
-            _ErrorOverlay(
-              error: error!,
-              onRetry: onRetry,
-              onWebView: onWebView,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VideoTapControls extends StatelessWidget {
-  const _VideoTapControls({required this.player, required this.onFullscreen});
-
-  final Player player;
-  final VoidCallback onFullscreen;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: Colors.black.withAlpha(90)),
-      child: Stack(
-        children: [
-          Center(
-            child: StreamBuilder<bool>(
-              stream: player.stream.playing,
-              initialData: player.state.playing,
-              builder: (context, snapshot) {
-                final playing = snapshot.data ?? false;
-                return Material(
-                  color: Colors.black54,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    iconSize: 48,
-                    color: Colors.white,
-                    onPressed: playing ? player.pause : player.play,
-                    icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                  ),
-                );
-              },
-            ),
-          ),
-          Positioned(
-            right: 12,
-            bottom: 12,
-            child: Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              child: IconButton(
-                color: Colors.white,
-                onPressed: onFullscreen,
-                icon: const Icon(Icons.fullscreen),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Controls extends StatelessWidget {
-  const _Controls({
-    required this.player,
-    required this.rate,
-    required this.onRateChanged,
-    required this.onFullscreen,
-    required this.onRetry,
-    this.onWebView,
-  });
-
-  final Player player;
-  final double rate;
-  final ValueChanged<double> onRateChanged;
-  final VoidCallback onFullscreen;
-  final VoidCallback onRetry;
-  final VoidCallback? onWebView;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        StreamBuilder<bool>(
-          stream: player.stream.playing,
-          initialData: player.state.playing,
-          builder: (context, snapshot) {
-            final playing = snapshot.data ?? false;
-            return FilledButton.tonalIcon(
-              onPressed: playing ? player.pause : player.play,
-              icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-              label: Text(playing ? 'Pause' : 'Play'),
-            );
-          },
-        ),
-        _SpeedButton(rate: rate, onRateChanged: onRateChanged),
-        OutlinedButton.icon(
-          onPressed: onFullscreen,
-          icon: const Icon(Icons.fullscreen),
-          label: const Text('Fullscreen'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Retry'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onWebView,
-          icon: const Icon(Icons.public),
-          label: const Text('WebView'),
-        ),
-      ],
-    );
-  }
-}
-
-class _SpeedButton extends StatelessWidget {
-  const _SpeedButton({
-    required this.rate,
-    required this.onRateChanged,
-    this.dark = false,
-  });
-
-  final double rate;
-  final ValueChanged<double> onRateChanged;
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = PopupMenuButton<double>(
-      initialValue: rate,
-      onSelected: onRateChanged,
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 0.5, child: Text('0.5x')),
-        PopupMenuItem(value: 1.0, child: Text('1.0x')),
-        PopupMenuItem(value: 1.25, child: Text('1.25x')),
-        PopupMenuItem(value: 1.5, child: Text('1.5x')),
-        PopupMenuItem(value: 2.0, child: Text('2.0x')),
-      ],
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: dark ? Colors.black54 : Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: dark
-                ? Colors.white70
-                : Theme.of(context).colorScheme.outline,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.speed,
-                size: 18,
-                color: dark
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${rate}x',
-                style: TextStyle(
-                  color: dark
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: cs.primary,
+                  backgroundColor: Colors.white24,
                 ),
+              )
+            else
+              Icon(
+                error != null
+                    ? Icons.error_outline_rounded
+                    : Icons.play_circle_outline_rounded,
+                color: error != null ? cs.error : Colors.white70,
+                size: 40,
+              ),
+            const SizedBox(height: 12),
+            Text(
+              error ?? message,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white),
+            ),
+            if (!loading && error != null) ...[
+              const SizedBox(height: 12),
+              FilledButton.tonal(
+                onPressed: onRetry,
+                child: const Text('重试'),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
-    if (!dark) {
-      return child;
-    }
-    return Material(color: Colors.transparent, child: child);
   }
 }
 
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.player});
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({
+    required this.message,
+    required this.onRetry,
+    this.onOpenWebView,
+  });
 
-  final Player player;
+  final String message;
+  final VoidCallback onRetry;
+  final VoidCallback? onOpenWebView;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Duration>(
-      stream: player.stream.duration,
-      initialData: player.state.duration,
-      builder: (context, durationSnapshot) {
-        final duration = durationSnapshot.data ?? Duration.zero;
-        return StreamBuilder<Duration>(
-          stream: player.stream.position,
-          initialData: player.state.position,
-          builder: (context, positionSnapshot) {
-            final position = positionSnapshot.data ?? Duration.zero;
-            final max = duration.inMilliseconds <= 0
-                ? 1.0
-                : duration.inMilliseconds.toDouble();
-            final value = position.inMilliseconds
-                .clamp(0, max.toInt())
-                .toDouble();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Slider(
-                  value: value,
-                  max: max,
-                  onChanged: (next) {
-                    player.seek(Duration(milliseconds: next.round()));
-                  },
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(_formatDuration(position)),
-                    StreamBuilder<bool>(
-                      stream: player.stream.buffering,
-                      initialData: player.state.buffering,
-                      builder: (context, snapshot) {
-                        return Text(
-                          snapshot.data == true ? 'Buffering' : 'Ready',
-                        );
-                      },
-                    ),
-                    Text(_formatDuration(duration)),
-                  ],
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: cs.onErrorContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: cs.onErrorContainer, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(onPressed: onRetry, child: const Text('重试')),
+          if (onOpenWebView != null)
+            TextButton(
+              onPressed: onOpenWebView,
+              child: const Text('浏览器播放'),
+            ),
+        ],
+      ),
     );
-  }
-
-  static String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    if (hours > 0) {
-      return '$hours:$minutes:$seconds';
-    }
-    return '$minutes:$seconds';
   }
 }
 
@@ -766,17 +522,15 @@ class _EpisodeGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final episodes = source?.episodes ?? const <VideoEpisode>[];
-    if (episodes.length <= 1) {
-      return const SizedBox.shrink();
-    }
+    if (episodes.length <= 1) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Episodes', style: Theme.of(context).textTheme.titleMedium),
+        Text('选集', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         LayoutBuilder(
           builder: (context, constraints) {
-          final count = constraints.maxWidth > 600 ? 8 : 4;
+            final count = constraints.maxWidth > 600 ? 8 : 4;
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -802,11 +556,14 @@ class _EpisodeGrid extends StatelessWidget {
                           ),
                   style: FilledButton.styleFrom(
                     backgroundColor: selected
-                        ? Theme.of(context).colorScheme.primaryContainer
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                    foregroundColor: selected
+                        ? Theme.of(context).colorScheme.onPrimary
                         : null,
                   ),
                   child: Text(
-                    '\u7b2c${index + 1}\u96c6',
+                    '第${index + 1}集',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -835,9 +592,7 @@ class _SourceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (sources.isEmpty) {
-      return const Text('No sources yet.');
-    }
+    if (sources.isEmpty) return const Text('暂无播放源');
     return LayoutBuilder(
       builder: (context, constraints) {
         final count = constraints.maxWidth > 700 ? 3 : 2;
@@ -882,15 +637,17 @@ class _SourceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = selected
-        ? colorScheme.primary
-        : colorScheme.outlineVariant;
-    final label = [
-      source.type.name,
+    final cs = Theme.of(context).colorScheme;
+    final borderColor = selected ? cs.primary : cs.outlineVariant;
+    final tags = <String>[
+      switch (source.type) {
+        SourceType.bilibili => 'Bilibili',
+        SourceType.netdisk => '网盘',
+        SourceType.web => '影视站',
+      },
       if (source.quality != null && source.quality!.isNotEmpty) source.quality!,
-      if (source.type == SourceType.bilibili) 'WebView',
-    ].join(' / ');
+      if (source.type == SourceType.bilibili) '浏览器',
+    ];
 
     return InkWell(
       onTap: disabled ? null : onTap,
@@ -898,8 +655,8 @@ class _SourceTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: selected
-              ? colorScheme.primaryContainer.withAlpha(120)
-              : colorScheme.surface,
+              ? cs.primaryContainer.withValues(alpha: 0.5)
+              : cs.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor),
         ),
@@ -913,12 +670,10 @@ class _SourceTile extends StatelessWidget {
                 children: [
                   Icon(
                     source.type == SourceType.bilibili
-                        ? Icons.ondemand_video
-                        : Icons.play_circle_outline,
+                        ? Icons.ondemand_video_rounded
+                        : Icons.play_circle_outline_rounded,
                     size: 18,
-                    color: selected
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -933,57 +688,10 @@ class _SourceTile extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                label,
+                tags.join(' / '),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorOverlay extends StatelessWidget {
-  const _ErrorOverlay({
-    required this.error,
-    required this.onRetry,
-    this.onWebView,
-  });
-
-  final String error;
-  final VoidCallback onRetry;
-  final VoidCallback? onWebView;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: Colors.black.withAlpha(210)),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 42),
-              const SizedBox(height: 12),
-              Text(
-                error,
-                style: const TextStyle(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilledButton(onPressed: onRetry, child: const Text('Retry')),
-                  OutlinedButton(
-                    onPressed: onWebView,
-                    child: const Text('Open WebView'),
-                  ),
-                ],
               ),
             ],
           ),

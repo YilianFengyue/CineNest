@@ -12,7 +12,6 @@ abstract final class Routes {
 
   // Member A
   static const String sourcePicker = '/source-picker';
-  static const String player = '/player';
   static const String webviewPlayer = '/webview-player';
 
   // Member C

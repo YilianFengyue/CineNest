@@ -131,13 +131,14 @@ class _SourceDebugPanelState extends State<SourceDebugPanel> {
       }
 
       final title = parsed.name.isEmpty ? source.name : parsed.name;
+      // 直链走统一的 /source-picker（会重新搜索并自动选源播放）；非直链仍走 webview。
       final route = _isDirectVideo(playUrl)
-          ? Routes.player
+          ? Routes.sourcePicker
           : Routes.webviewPlayer;
       Get.toNamed(
         route,
-        arguments: route == Routes.player
-            ? {'source_id': source.id, 'title': title}
+        arguments: route == Routes.sourcePicker
+            ? {'title': title}
             : {'url': playUrl, 'title': title},
       );
       setState(() => _message = 'Parsed successfully.');

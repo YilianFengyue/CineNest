@@ -7,7 +7,6 @@ import 'package:cine_nest/pages/feed/feed_view.dart';
 import 'package:cine_nest/pages/feed/history/history_view.dart';
 import 'package:cine_nest/pages/feed/preference/preference_view.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
-import 'package:cine_nest/pages/player/views/player_page.dart';
 import 'package:cine_nest/pages/player/views/source_picker_page.dart';
 import 'package:cine_nest/pages/player/views/webview_player_page.dart';
 import 'package:get/get.dart';
@@ -26,7 +25,6 @@ abstract final class AppPages {
     GetPage(name: Routes.collection, page: () => const CollectionPage()),
 
     // Member A
-    GetPage(name: Routes.player, page: () => const PlayerPage()),
     GetPage(name: Routes.sourcePicker, page: () => const SourcePickerPage()),
     GetPage(name: Routes.webviewPlayer, page: () => const WebViewPlayerPage()),
 
