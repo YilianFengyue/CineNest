@@ -18,6 +18,7 @@ class TMDBHTTPClient:
         # 强行清理 Token 首尾可能存在的换行符、空格、引号，防止请求头被损坏
         self.access_token: str = raw_token.strip().replace('"', '').replace("'", "")
         self.image_base: str = getattr(settings, "tmdb_image_base", "https://image.tmdb.org/t/p/w500").rstrip("/")
+        self.proxy_url: str = str(getattr(settings, "tmdb_proxy_url", "") or "").strip()
 
     async def request(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """封装底层的异步 GET 请求（显式拼接 URL，消除 GET Body 隐患）"""
@@ -40,12 +41,23 @@ class TMDBHTTPClient:
         url = f"{self.base_url}{endpoint}{query_str}"
 
         try:
-            # Allow proxy environment variables so TMDB can work when a local proxy is enabled.
-            async with httpx.AsyncClient(timeout=10.0, verify=False, trust_env=True) as client:
-                # 注意：这里只传 url 和 headers，绝对不传 params=params 参数！
-                response = await client.get(url, headers=headers)
-                response.raise_for_status()
-                return response.json()
+            # First try direct/env proxy. If the network blocks TMDB, retry with
+            # the local proxy used by the Android/Gradle setup.
+            try:
+                async with httpx.AsyncClient(timeout=10.0, verify=False, trust_env=True) as client:
+                    response = await client.get(url, headers=headers)
+            except httpx.RequestError:
+                if not self.proxy_url:
+                    raise
+                async with httpx.AsyncClient(
+                    timeout=10.0,
+                    verify=False,
+                    trust_env=False,
+                    proxy=self.proxy_url,
+                ) as client:
+                    response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code
             detail = f"TMDB API 异常 (状态码 {status_code}): {exc.response.text}"

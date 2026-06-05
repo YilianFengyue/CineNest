@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     tmdb_base_url: str = "https://api.themoviedb.org/3"
     tmdb_image_base: str = "https://image.tmdb.org/t/p/w500"
     tmdb_backdrop_base: str = "https://image.tmdb.org/t/p/w780"
+    tmdb_proxy_url: str = "http://127.0.0.1:7890"
 
     # MacCMS 聚合资源层
     resource_provider_config: Path = BASE_DIR / "services" / "resources" / "providers.yaml"

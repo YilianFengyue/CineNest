@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'discovery_controller.dart';
 import '../feed_controller.dart';
 
@@ -106,10 +107,7 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final movie = controller.movieList[index];
-                      String imageUrl = movie.posterUrl ?? '';
-                      if (imageUrl.startsWith('/api')) {
-                        imageUrl = '${controller.baseUrl}$imageUrl';
-                      }
+                      final imageUrl = mediaUrl(movie.posterUrl ?? '');
 
                       return RepaintBoundary(
                         child: GestureDetector(

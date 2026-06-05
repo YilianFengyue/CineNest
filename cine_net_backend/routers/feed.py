@@ -227,6 +227,13 @@ def _genre_ids(genres: list[str]) -> list[int]:
     return ids
 
 
+def _safe_add_watch_history(movie_id: int, title: str) -> None:
+    try:
+        add_watch_history(movie_id=movie_id, title=title)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[history fallback] add watch history failed: {exc}", flush=True)
+
+
 async def _preference_posts(pref: UserPreference) -> list[Post]:
     liked_ids = _genre_ids(pref.liked_genres)
     disliked_ids = _genre_ids(pref.disliked_genres)
@@ -322,18 +329,18 @@ async def get_movie(movie_id: int):
     if not settings.tmdb_api_key:
         movie = _fallback_movie(movie_id)
         movie.is_collected = is_movie_collected(movie_id)
-        add_watch_history(movie_id=movie.id, title=movie.title)
+        _safe_add_watch_history(movie.id, movie.title)
         return movie
     try:
         movie_data = await tmdb_service.detail(movie_id)
         movie_data.is_collected = is_movie_collected(movie_id)
-        add_watch_history(movie_id=movie_data.id, title=movie_data.title)
+        _safe_add_watch_history(movie_data.id, movie_data.title)
         return movie_data
     except Exception as exc:  # noqa: BLE001
         print(f"[TMDB fallback] movie detail failed: {exc}", flush=True)
         movie = _fallback_movie(movie_id)
         movie.is_collected = is_movie_collected(movie_id)
-        add_watch_history(movie_id=movie.id, title=movie.title)
+        _safe_add_watch_history(movie.id, movie.title)
         return movie
 
 

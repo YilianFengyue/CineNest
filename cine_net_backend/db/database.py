@@ -11,7 +11,12 @@ from models.schemas import CollectionItem, UserPreference, WatchHistoryItem
 
 def get_conn() -> sqlite3.Connection:
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(settings.database_path)
+    conn = sqlite3.connect(settings.database_path, timeout=10)
+    # Some Windows development environments lock SQLite rollback journal files.
+    # The app only stores local course-demo state, so disabling the journal keeps
+    # preferences/history usable instead of failing every request with disk I/O.
+    conn.execute("PRAGMA journal_mode=OFF")
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.row_factory = sqlite3.Row
     return conn
 

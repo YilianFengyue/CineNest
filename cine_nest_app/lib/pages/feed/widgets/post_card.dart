@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cine_nest/models/post.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/router/app_pages.dart';
+import 'package:cine_nest/utils/media_url.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 
@@ -15,10 +16,7 @@ class PostCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     // 处理图片 URL：如果是以 /api 开头的相对路径，自动拼接 baseUrl
-    String imageUrl = post.posterUrl ?? post.movie.posterUrl ?? '';
-    if (imageUrl.startsWith('/api')) {
-      imageUrl = '${Request.dio.options.baseUrl}$imageUrl';
-    }
+    final imageUrl = mediaUrl(post.posterUrl ?? post.movie.posterUrl ?? '');
 
     return InkWell(
       onTap: () {
