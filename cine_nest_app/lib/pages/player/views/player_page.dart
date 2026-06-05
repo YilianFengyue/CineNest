@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cine_nest/models/video_source.dart';
 import 'package:cine_nest/pages/player/services/source_api_service.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
@@ -24,10 +25,13 @@ class _PlayerPageState extends State<PlayerPage> {
   String _title = 'CineNest Player';
   String? _url;
   String? _sourceId;
+  VideoSource? _parsedSource;
+  int _selectedEpisodeIndex = 0;
   String _message = 'Preparing player...';
   String? _error;
   bool _loading = true;
   bool _fullscreen = false;
+  bool _showVideoControls = false;
   double _rate = 1.0;
 
   @override
@@ -107,7 +111,11 @@ class _PlayerPageState extends State<PlayerPage> {
     try {
       var playUrl = _url;
       if ((playUrl == null || playUrl.isEmpty) && _sourceId != null) {
-        final source = await _api.parseSource(_sourceId!);
+        final source = await _api.parseSource(
+          _sourceId!,
+          episodeIndex: _selectedEpisodeIndex,
+        );
+        _parsedSource = source;
         playUrl = source.playUrl;
         _title = source.name.isEmpty ? _title : source.name;
       }
@@ -203,8 +211,15 @@ class _PlayerPageState extends State<PlayerPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Video(controller: _videoController),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () =>
+                setState(() => _showVideoControls = !_showVideoControls),
+            child: Video(controller: _videoController, controls: null),
+          ),
           if (_loading) const Center(child: CircularProgressIndicator()),
+          if (_showVideoControls && _error == null && !_loading)
+            _VideoTapControls(player: _player, onFullscreen: _toggleFullscreen),
           if (_error != null)
             _ErrorOverlay(
               error: _error!,
@@ -246,6 +261,17 @@ class _PlayerPageState extends State<PlayerPage> {
                   ),
                 ),
               ),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: SafeArea(
+                  child: _SpeedButton(
+                    rate: _rate,
+                    onRateChanged: _setRate,
+                    dark: true,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -274,6 +300,18 @@ class _PlayerPageState extends State<PlayerPage> {
                 onFullscreen: _toggleFullscreen,
                 onWebView: _url == null ? null : _openWebView,
                 onRetry: _load,
+              ),
+              _EpisodeGrid(
+                source: _parsedSource,
+                selectedEpisodeIndex: _selectedEpisodeIndex,
+                loading: _loading,
+                onEpisodeSelected: (episode) {
+                  setState(() {
+                    _selectedEpisodeIndex = episode.index;
+                    _url = null;
+                  });
+                  _load();
+                },
               ),
               if (_url != null) ...[
                 const SizedBox(height: 16),
@@ -330,22 +368,7 @@ class _Controls extends StatelessWidget {
             );
           },
         ),
-        PopupMenuButton<double>(
-          initialValue: rate,
-          onSelected: onRateChanged,
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 0.5, child: Text('0.5x')),
-            PopupMenuItem(value: 1.0, child: Text('1.0x')),
-            PopupMenuItem(value: 1.25, child: Text('1.25x')),
-            PopupMenuItem(value: 1.5, child: Text('1.5x')),
-            PopupMenuItem(value: 2.0, child: Text('2.0x')),
-          ],
-          child: ActionChip(
-            avatar: const Icon(Icons.speed),
-            label: Text('${rate}x'),
-            onPressed: null,
-          ),
-        ),
+        _SpeedButton(rate: rate, onRateChanged: onRateChanged),
         OutlinedButton.icon(
           onPressed: onFullscreen,
           icon: const Icon(Icons.fullscreen),
@@ -362,6 +385,196 @@ class _Controls extends StatelessWidget {
           label: const Text('WebView'),
         ),
       ],
+    );
+  }
+}
+
+class _VideoTapControls extends StatelessWidget {
+  const _VideoTapControls({required this.player, required this.onFullscreen});
+
+  final Player player;
+  final VoidCallback onFullscreen;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(color: Colors.black.withAlpha(90)),
+      child: Stack(
+        children: [
+          Center(
+            child: StreamBuilder<bool>(
+              stream: player.stream.playing,
+              initialData: player.state.playing,
+              builder: (context, snapshot) {
+                final playing = snapshot.data ?? false;
+                return Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    iconSize: 48,
+                    color: Colors.white,
+                    onPressed: playing ? player.pause : player.play,
+                    icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            right: 12,
+            bottom: 12,
+            child: Material(
+              color: Colors.black54,
+              shape: const CircleBorder(),
+              child: IconButton(
+                color: Colors.white,
+                onPressed: onFullscreen,
+                icon: const Icon(Icons.fullscreen),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeedButton extends StatelessWidget {
+  const _SpeedButton({
+    required this.rate,
+    required this.onRateChanged,
+    this.dark = false,
+  });
+
+  final double rate;
+  final ValueChanged<double> onRateChanged;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = PopupMenuButton<double>(
+      initialValue: rate,
+      onSelected: onRateChanged,
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 0.5, child: Text('0.5x')),
+        PopupMenuItem(value: 1.0, child: Text('1.0x')),
+        PopupMenuItem(value: 1.25, child: Text('1.25x')),
+        PopupMenuItem(value: 1.5, child: Text('1.5x')),
+        PopupMenuItem(value: 2.0, child: Text('2.0x')),
+      ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: dark ? Colors.black54 : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: dark
+                ? Colors.white70
+                : Theme.of(context).colorScheme.outline,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.speed,
+                size: 18,
+                color: dark
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${rate}x',
+                style: TextStyle(
+                  color: dark
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!dark) {
+      return child;
+    }
+    return Material(color: Colors.transparent, child: child);
+  }
+}
+
+class _EpisodeGrid extends StatelessWidget {
+  const _EpisodeGrid({
+    required this.source,
+    required this.selectedEpisodeIndex,
+    required this.loading,
+    required this.onEpisodeSelected,
+  });
+
+  final VideoSource? source;
+  final int selectedEpisodeIndex;
+  final bool loading;
+  final ValueChanged<VideoEpisode> onEpisodeSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final episodes = source?.episodes ?? const <VideoEpisode>[];
+    if (episodes.length <= 1) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Episodes', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+            final count = constraints.maxWidth > 600 ? 8 : 4;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: episodes.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: count,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.9,
+                ),
+                itemBuilder: (context, index) {
+                  final episode = episodes[index];
+                  final selected = index == selectedEpisodeIndex;
+                  return FilledButton.tonal(
+                    onPressed: loading
+                        ? null
+                        : () => onEpisodeSelected(
+                              VideoEpisode(
+                                index: index,
+                                title: episode.title,
+                                playUrl: episode.playUrl,
+                              ),
+                            ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: selected
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                    ),
+                    child: Text(
+                      '\u7b2c${index + 1}\u96c6',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

@@ -134,7 +134,12 @@ class _SourceDebugPanelState extends State<SourceDebugPanel> {
       final route = _isDirectVideo(playUrl)
           ? Routes.player
           : Routes.webviewPlayer;
-      Get.toNamed(route, arguments: {'url': playUrl, 'title': title});
+      Get.toNamed(
+        route,
+        arguments: route == Routes.player
+            ? {'source_id': source.id, 'title': title}
+            : {'url': playUrl, 'title': title},
+      );
       setState(() => _message = 'Parsed successfully.');
     } catch (e) {
       setState(() => _message = 'Parse failed: $e');

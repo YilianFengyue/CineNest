@@ -17,10 +17,10 @@ async def search_sources(movie_name: str):
 
 
 @router.get("/sources/parse", response_model=VideoSource)
-async def parse_source(source_id: str):
+async def parse_source(source_id: str, episode_index: int = 0):
     """Parse a source id into a playable URL or a fallback web URL."""
     try:
-        return await engine_parse_source(source_id)
+        return await engine_parse_source(source_id, episode_index=episode_index)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

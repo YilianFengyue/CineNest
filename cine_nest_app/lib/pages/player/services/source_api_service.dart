@@ -17,7 +17,10 @@ class SourceApiService {
   }
 
   /// Parse a source id into a playable URL.
-  Future<VideoSource> parseSource(String sourceId) async {
+  Future<VideoSource> parseSource(
+    String sourceId, {
+    int episodeIndex = 0,
+  }) async {
     final local = parseLocalSource(sourceId);
     if (local != null) {
       return local;
@@ -25,7 +28,7 @@ class SourceApiService {
 
     final response = await Request().get(
       ApiConstants.sourcesParse,
-      queryParameters: {'source_id': sourceId},
+      queryParameters: {'source_id': sourceId, 'episode_index': episodeIndex},
     );
     if (response.data is Map) {
       return VideoSource.fromJson(

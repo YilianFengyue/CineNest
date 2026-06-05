@@ -1,3 +1,3 @@
-from .schemas import Movie, Post, VideoSource, UserPreference, Feedback
+from .schemas import Feedback, Movie, Post, UserPreference, VideoEpisode, VideoSource
 
-__all__ = ["Movie", "Post", "VideoSource", "UserPreference", "Feedback"]
+__all__ = ["Movie", "Post", "VideoEpisode", "VideoSource", "UserPreference", "Feedback"]

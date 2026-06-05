@@ -32,6 +32,12 @@ class Post(BaseModel):
     poster_url: Optional[str] = None  # C 的 Micro Design 海报，空则前端回退 movie.poster_url
 
 
+class VideoEpisode(BaseModel):
+    index: int
+    title: str
+    play_url: str
+
+
 class VideoSource(BaseModel):
     id: str
     name: str
@@ -40,6 +46,7 @@ class VideoSource(BaseModel):
     play_url: Optional[str] = None
     cover: Optional[str] = None
     play_count: Optional[int] = None
+    episodes: list[VideoEpisode] = Field(default_factory=list)
 
 
 class UserPreference(BaseModel):
