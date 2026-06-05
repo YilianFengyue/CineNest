@@ -13,6 +13,7 @@ class Movie {
   final String? backdropUrl; // 背景图
   final List<String> directors;
   final List<String> cast;
+  final bool isCollected;
 
   const Movie({
     required this.id,
@@ -26,6 +27,7 @@ class Movie {
     this.backdropUrl,
     this.directors = const [],
     this.cast = const [],
+    this.isCollected = false,
   });
 
   factory Movie.fromJson(Map<String, dynamic> json) => Movie(
@@ -40,6 +42,7 @@ class Movie {
     backdropUrl: json['backdrop_url'] as String?,
     directors: (json['directors'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     cast: (json['cast'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+    isCollected: json['is_collected'] as bool? ?? false,
   );
 
   Map<String, dynamic> toJson() => {
@@ -54,5 +57,6 @@ class Movie {
     'backdrop_url': backdropUrl,
     'directors': directors,
     'cast': cast,
+    'is_collected': isCollected,
   };
 }

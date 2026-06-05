@@ -14,7 +14,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 /// Dio HTTP 客户端封装（移植自 PiliPlus 的 `lib/http/init.dart`）。
 ///
 /// 保留的通用基建：
-///   · 单例 + HTTP/2 适配器（带 HTTP/1.1 回退）
+///   · 单例 + HTTP/1.1 适配器（FastAPI/uvicorn 默认通道）
 ///   · gzip / brotli 响应解压（Http2Adapter 不自动解压）
 ///   · [RetryInterceptor] 通用重试
 ///   · debug 下的 LogInterceptor、后台线程 JSON 解析
@@ -28,7 +28,10 @@ class Request {
   static final _brotliDecoder = BrotliDecoder();
 
   static final Request _instance = Request._internal();
-  static final bool _enableHttp2 = Pref.enableHttp2;
+  // FastAPI/uvicorn 默认是 HTTP/1.1；移动端强行 HTTP/2 会出现
+  // "Connection is being forcefully terminated"。保留 Pref 字段给以后设置页扩展，
+  // 当前主通道固定走 HTTP/1.1。
+  static const bool _enableHttp2 = false;
   static late final Dio dio;
 
   factory Request() => _instance;
@@ -80,8 +83,8 @@ class Request {
 
     dio
       ..transformer = BackgroundTransformer()
-      ..options.validateStatus =
-          (int? status) => status != null && status >= 200 && status < 300;
+      ..options.validateStatus = (int? status) =>
+          status != null && status >= 200 && status < 300;
   }
 
   /// 运行期切换后端基址（设置页填写 PC 的 IP:Port 后调用）。见 ConnectionService。

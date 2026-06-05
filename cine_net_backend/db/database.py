@@ -1,102 +1,271 @@
+"""CineNest 后端 SQLite 存储。"""
 from __future__ import annotations
 
 import datetime
 import json
-from pathlib import Path
-from typing import Any
+import sqlite3
 
-from models.schemas import UserPreference
+from config import settings
+from models.schemas import CollectionItem, UserPreference, WatchHistoryItem
 
-STATE_PATH = Path(__file__).resolve().parent / "cinenest_state.json"
+
+def get_conn() -> sqlite3.Connection:
+    settings.database_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(settings.database_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db() -> None:
+    """初始化课设所需的轻量表。"""
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS preferences (
+                id INTEGER PRIMARY KEY,
+                liked_genres TEXT,
+                disliked_genres TEXT,
+                free_text TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT 'default',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                attachments_json TEXT NOT NULL DEFAULT '[]',
+                tool_calls_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chat_messages_session_time ON chat_messages(session_id, created_at)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS assets (
+                id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                stored_name TEXT NOT NULL,
+                mime TEXT NOT NULL,
+                size INTEGER NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS recommendation_posts (
+                id TEXT PRIMARY KEY,
+                query TEXT NOT NULL,
+                media_kind TEXT NOT NULL,
+                title TEXT NOT NULL,
+                catalog_provider_id TEXT NOT NULL DEFAULT '',
+                catalog_source_id TEXT NOT NULL DEFAULT '',
+                resource_provider_id TEXT NOT NULL DEFAULT '',
+                resource_remote_id TEXT NOT NULL DEFAULT '',
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_recommendation_posts_query ON recommendation_posts(query, expires_at)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS news_items (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                source TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                published_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS news_tasks (
+                id TEXT PRIMARY KEY,
+                query TEXT NOT NULL,
+                media_kind TEXT NOT NULL DEFAULT 'movie',
+                status TEXT NOT NULL,
+                stage TEXT NOT NULL,
+                news_id TEXT NOT NULL DEFAULT '',
+                error TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_news_tasks_updated ON news_tasks(updated_at DESC)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watch_history (
+                movie_id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                visited_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS collections (
+                movie_id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                poster_url TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 def _empty_preference() -> UserPreference:
     return UserPreference(liked_genres=[], disliked_genres=[], free_text="")
 
 
-def _default_state() -> dict[str, Any]:
-    return {
-        "preferences": _empty_preference().model_dump(),
-        "watch_history": [],
-    }
-
-
-def _read_state() -> dict[str, Any]:
-    if not STATE_PATH.exists():
-        return _default_state()
+def _json_list(value: str | None) -> list[str]:
+    if not value:
+        return []
     try:
-        data = json.loads(STATE_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return _default_state()
-    if not isinstance(data, dict):
-        return _default_state()
-    data.setdefault("preferences", _empty_preference().model_dump())
-    data.setdefault("watch_history", [])
-    return data
+        data = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    return [str(item) for item in data] if isinstance(data, list) else []
 
 
-def _write_state(state: dict[str, Any]) -> None:
-    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    STATE_PATH.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
-def init_db() -> None:
-    if not STATE_PATH.exists():
-        _write_state(_default_state())
+def _now_text() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def save_user_preference(pref: UserPreference) -> None:
-    state = _read_state()
-    state["preferences"] = pref.model_dump()
-    _write_state(state)
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO preferences (id, liked_genres, disliked_genres, free_text)
+            VALUES (1, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                liked_genres = excluded.liked_genres,
+                disliked_genres = excluded.disliked_genres,
+                free_text = excluded.free_text
+            """,
+            (
+                json.dumps(pref.liked_genres, ensure_ascii=False),
+                json.dumps(pref.disliked_genres, ensure_ascii=False),
+                pref.free_text or "",
+            ),
+        )
 
 
 def get_user_preference() -> UserPreference:
-    state = _read_state()
-    pref_data = state.get("preferences") or {}
-    if not isinstance(pref_data, dict):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT liked_genres, disliked_genres, free_text FROM preferences WHERE id = 1"
+        ).fetchone()
+    if row is None:
         return _empty_preference()
     return UserPreference(
-        liked_genres=list(pref_data.get("liked_genres") or []),
-        disliked_genres=list(pref_data.get("disliked_genres") or []),
-        free_text=pref_data.get("free_text") or "",
+        liked_genres=_json_list(row["liked_genres"]),
+        disliked_genres=_json_list(row["disliked_genres"]),
+        free_text=row["free_text"] or "",
     )
 
 
 def add_watch_history(movie_id: int, title: str) -> None:
-    state = _read_state()
-    history = state.get("watch_history")
-    if not isinstance(history, list):
-        history = []
-
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    history = [
-        item
-        for item in history
-        if not isinstance(item, dict) or item.get("movie_id") != movie_id
-    ]
-    history.insert(
-        0,
-        {
-            "movie_id": movie_id,
-            "title": title,
-            "visited_at": now_str,
-        },
-    )
-    state["watch_history"] = history[:50]
-    _write_state(state)
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO watch_history (movie_id, title, visited_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(movie_id) DO UPDATE SET
+                title = excluded.title,
+                visited_at = excluded.visited_at
+            """,
+            (movie_id, title, _now_text()),
+        )
 
 
 def get_watch_history_titles() -> list[str]:
-    state = _read_state()
-    history = state.get("watch_history")
-    if not isinstance(history, list):
-        return []
-    return [
-        item.get("title", "")
-        for item in history[:10]
-        if isinstance(item, dict) and item.get("title")
-    ]
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT title FROM watch_history ORDER BY visited_at DESC LIMIT 10"
+        ).fetchall()
+    return [str(row["title"]) for row in rows if row["title"]]
+
+
+def get_watch_history() -> list[WatchHistoryItem]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT movie_id, title, visited_at
+            FROM watch_history
+            ORDER BY visited_at DESC
+            LIMIT 50
+            """
+        ).fetchall()
+    return [WatchHistoryItem(**dict(row)) for row in rows]
+
+
+def toggle_collection(movie_id: int, title: str, poster_url: str | None = None) -> bool:
+    """切换收藏状态。返回 True 表示现在已收藏，False 表示已取消收藏。"""
+
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT movie_id FROM collections WHERE movie_id = ?",
+            (movie_id,),
+        ).fetchone()
+        if existing is not None:
+            conn.execute("DELETE FROM collections WHERE movie_id = ?", (movie_id,))
+            return False
+        conn.execute(
+            """
+            INSERT INTO collections (movie_id, title, poster_url, collected_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (movie_id, title, poster_url, _now_text()),
+        )
+        return True
+
+
+def get_collections() -> list[CollectionItem]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT movie_id, title, poster_url, collected_at
+            FROM collections
+            ORDER BY collected_at DESC
+            """
+        ).fetchall()
+    return [CollectionItem(**dict(row)) for row in rows]
+
+
+def is_movie_collected(movie_id: int) -> bool:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT movie_id FROM collections WHERE movie_id = ?",
+            (movie_id,),
+        ).fetchone()
+    return row is not None

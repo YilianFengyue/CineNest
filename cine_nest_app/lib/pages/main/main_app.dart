@@ -1,16 +1,26 @@
+import 'package:cine_nest/pages/creative/chat/chat_page.dart';
+import 'package:cine_nest/pages/creative/news/news_page.dart';
 import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
 import 'package:cine_nest/pages/feed/preference/preference_view.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-class MainApp extends StatefulWidget {
-  const MainApp({super.key});
-
-  @override
-  State<MainApp> createState() => _MainAppState();
+/// 主导航控制器（共建基建）。
+///
+/// 把"当前 Tab"提升为响应式状态，这样对话页的侧边抽屉也能切回其它 Tab。
+class MainNavController extends GetxController {
+  static MainNavController get to => Get.find<MainNavController>();
+  final RxInt index = 0.obs;
+  void go(int i) => index.value = i;
 }
 
-class _MainAppState extends State<MainApp> {
-  int _index = 0;
+/// 应用主壳：底部导航框架（Day1 共建）。
+///
+/// 对话 Tab（F9）是全屏体验：它自带 AppBar + 侧边历史抽屉 + 输入框，
+/// 像详情页一样不显示底部 4-tab 导航；其余 Tab 挂底部导航。
+class MainApp extends StatelessWidget {
+  const MainApp({super.key});
 
   static const _tabs = [
     _TabDef('Home', Icons.movie_outlined, Icons.movie, 'Member B - feed'),
@@ -31,31 +41,61 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: [
-          const DiscoveryPage(),
-          _Placeholder(title: _tabs[1].label, hint: _tabs[1].hint),
-          _Placeholder(title: _tabs[2].label, hint: _tabs[2].hint),
-          _index == 3
-              ? const PreferencePage()
-              : _Placeholder(title: _tabs[3].label, hint: _tabs[3].hint),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(
-              icon: Icon(t.icon),
-              selectedIcon: Icon(t.activeIcon),
-              label: t.label,
-            ),
-        ],
-      ),
-    );
+    final nav = Get.isRegistered<MainNavController>()
+        ? MainNavController.to
+        : Get.put(MainNavController(), permanent: true);
+
+    return Obx(() {
+      final index = nav.index.value;
+      if (index == 1) return const ChatPage();
+
+      final tab = _tabs[index];
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('CineNest · ${tab.label}'),
+          actions: index == 2
+              ? [
+                  IconButton(
+                    tooltip: '我的收藏',
+                    icon: const Icon(Icons.favorite_border),
+                    onPressed: () => Get.toNamed(Routes.creativeFavorites),
+                  ),
+                  IconButton(
+                    tooltip: '生成队列',
+                    icon: const Icon(Icons.dynamic_feed),
+                    onPressed: () => Get.toNamed(Routes.creativeNewsTasks),
+                  ),
+                ]
+              : null,
+        ),
+        body: _bodyFor(index, tab),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: nav.go,
+          destinations: [
+            for (final t in _tabs)
+              NavigationDestination(
+                icon: Icon(t.icon),
+                selectedIcon: Icon(t.activeIcon),
+                label: t.label,
+              ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _bodyFor(int index, _TabDef tab) {
+    switch (index) {
+      case 0:
+        return const DiscoveryPage();
+      case 2:
+        return const NewsPage();
+      case 3:
+        return const PreferencePage();
+      default:
+        return _Placeholder(title: tab.label, hint: tab.hint);
+    }
   }
 }
 

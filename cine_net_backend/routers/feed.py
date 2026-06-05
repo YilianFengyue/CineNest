@@ -1,17 +1,38 @@
+"""推荐、探索、偏好、历史与收藏 API。"""
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, Query
 
 from config import settings
 from db.database import (
     add_watch_history,
+    get_collections,
     get_user_preference,
+    get_watch_history,
     get_watch_history_titles,
+    is_movie_collected,
     save_user_preference,
+    toggle_collection,
 )
-from models.schemas import Feedback, Movie, Post, UserPreference
+from models.schemas import (
+    CollectionItem,
+    CollectionToggleRequest,
+    Feedback,
+    Movie,
+    Post,
+    UserPreference,
+    WatchHistoryItem,
+    WatchHistoryRequest,
+)
 from services.agent.service import movie_agent_service
+from services.microdesign import compose_recommendation_posts
+from services.microdesign.models import MicroDesignPost
+from services.recommendation import get_recommendation_service
+from services.recommendation.models import RecommendationFeed
+from services.resources import get_resource_aggregator
 from services.tmdb import tmdb_service
 
-router = APIRouter(prefix="/api", tags=["feed (member B)"])
+router = APIRouter(prefix="/api", tags=["feed"])
 
 
 FALLBACK_MOVIES = [
@@ -150,13 +171,6 @@ FALLBACK_MOVIES = [
 ]
 
 
-def _fallback_movie(movie_id: int) -> Movie:
-    for movie in FALLBACK_MOVIES:
-        if movie.id == movie_id:
-            return movie
-    return FALLBACK_MOVIES[0].model_copy(update={"id": movie_id})
-
-
 TMDB_GENRE_IDS = {
     "动作": 28,
     "冒险": 12,
@@ -179,6 +193,13 @@ TMDB_GENRE_IDS = {
     "战争": 10752,
     "西部": 37,
 }
+
+
+def _fallback_movie(movie_id: int) -> Movie:
+    for movie in FALLBACK_MOVIES:
+        if movie.id == movie_id:
+            return movie
+    return FALLBACK_MOVIES[0].model_copy(update={"id": movie_id})
 
 
 def _has_preferences(pref: UserPreference) -> bool:
@@ -231,24 +252,13 @@ async def _preference_posts(pref: UserPreference) -> list[Post]:
     ]
 
 
-@router.get("/movie/{movie_id}", response_model=Movie)
-async def get_movie(movie_id: int):
-    if not settings.tmdb_api_key:
-        return _fallback_movie(movie_id)
-    try:
-        movie_data = await tmdb_service.detail(movie_id)
-        add_watch_history(movie_id=movie_data.id, title=movie_data.title)
-        return movie_data
-    except Exception as exc:
-        print(f"[TMDB fallback] movie detail failed: {exc}", flush=True)
-        return _fallback_movie(movie_id)
-
-
 @router.get("/feed", response_model=list[Post])
 async def get_feed(
     refresh: bool = False,
     sort_by: str = Query("popularity", description="popularity or rating"),
 ):
+    """成员 B 首页专属推荐主入口。"""
+
     local_pref = get_user_preference()
     history_titles = get_watch_history_titles()
 
@@ -257,7 +267,7 @@ async def get_feed(
             posts = await _preference_posts(local_pref)
             if posts:
                 return posts
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"[TMDB preference fallback] discover failed: {exc}", flush=True)
 
     prompt = "[User preference]\n"
@@ -274,9 +284,57 @@ async def get_feed(
     try:
         posts = await movie_agent_service.get_personalized_feed(prompt)
         return posts or _fallback_posts()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         print(f"[Agent fallback] feed failed: {exc}", flush=True)
         return _fallback_posts()
+
+
+@router.get("/feed/microdesign", response_model=list[MicroDesignPost])
+async def get_microdesign_feed(
+    keyword: str = Query("星际穿越", min_length=1, max_length=100),
+    limit: int = Query(10, ge=1, le=20),
+) -> list[MicroDesignPost]:
+    """成员 C MicroDesign 关键词帖子，迁到子路径以免覆盖 B 的 /api/feed。"""
+
+    response = await get_resource_aggregator().search(keyword)
+    return compose_recommendation_posts(response, limit=limit)
+
+
+@router.get("/feed/recommend", response_model=RecommendationFeed)
+async def recommend_feed(
+    query: str = Query("", max_length=100),
+    media_kind: str = Query("movie", pattern="^(movie|tv)$"),
+    limit: int = Query(5, ge=1, le=10),
+    refresh: bool = False,
+) -> RecommendationFeed:
+    """成员 C 确定性推荐：先查豆瓣/TMDB，再确认播放资源。"""
+
+    return await get_recommendation_service().recommend(
+        query=query,
+        media_kind=media_kind,
+        limit=limit,
+        refresh=refresh,
+    )
+
+
+@router.get("/movie/{movie_id}", response_model=Movie)
+async def get_movie(movie_id: int):
+    if not settings.tmdb_api_key:
+        movie = _fallback_movie(movie_id)
+        movie.is_collected = is_movie_collected(movie_id)
+        add_watch_history(movie_id=movie.id, title=movie.title)
+        return movie
+    try:
+        movie_data = await tmdb_service.detail(movie_id)
+        movie_data.is_collected = is_movie_collected(movie_id)
+        add_watch_history(movie_id=movie_data.id, title=movie_data.title)
+        return movie_data
+    except Exception as exc:  # noqa: BLE001
+        print(f"[TMDB fallback] movie detail failed: {exc}", flush=True)
+        movie = _fallback_movie(movie_id)
+        movie.is_collected = is_movie_collected(movie_id)
+        add_watch_history(movie_id=movie.id, title=movie.title)
+        return movie
 
 
 @router.get("/discovery", response_model=list[Movie])
@@ -286,7 +344,7 @@ async def get_discovery(page: int = 1):
     try:
         movies = await tmdb_service.popular(page=page)
         return movies or FALLBACK_MOVIES
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         print(f"[TMDB fallback] discovery failed: {exc}", flush=True)
         return FALLBACK_MOVIES
 
@@ -310,4 +368,42 @@ async def get_preferences():
 
 @router.post("/feedback")
 async def post_feedback(fb: Feedback):
-    return {"ok": True}
+    return {"ok": True, "movie_id": fb.movie_id, "liked": fb.liked}
+
+
+@router.get("/history", response_model=list[WatchHistoryItem])
+async def get_history():
+    try:
+        return get_watch_history()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Get watch history failed: {exc}") from exc
+
+
+@router.post("/history/record")
+async def record_history(req: WatchHistoryRequest):
+    try:
+        add_watch_history(movie_id=req.movie_id, title=req.title)
+        return {"ok": True}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Record history failed: {exc}") from exc
+
+
+@router.post("/collections/toggle")
+async def toggle_movie_collection(req: CollectionToggleRequest):
+    try:
+        is_collected = toggle_collection(
+            movie_id=req.movie_id,
+            title=req.title,
+            poster_url=req.poster_url,
+        )
+        return {"ok": True, "is_collected": is_collected}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Toggle collection failed: {exc}") from exc
+
+
+@router.get("/collections", response_model=list[CollectionItem])
+async def get_user_collections():
+    try:
+        return get_collections()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Get collections failed: {exc}") from exc

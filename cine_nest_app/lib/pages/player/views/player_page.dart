@@ -231,10 +231,12 @@ class _PlayerPageState extends State<PlayerPage> {
     );
 
     if (_fullscreen) {
-      return WillPopScope(
-        onWillPop: () async {
-          await _exitFullscreen();
-          return false;
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (!didPop) {
+            await _exitFullscreen();
+          }
         },
         child: Scaffold(
           backgroundColor: Colors.black,
