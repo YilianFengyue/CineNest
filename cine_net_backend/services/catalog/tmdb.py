@@ -10,6 +10,24 @@ from config import settings
 from .models import CatalogMovie, CatalogProviderConfig, CatalogSourceRef
 
 
+def _auth_headers_and_params(
+    *,
+    read_access_token: str,
+    api_key: str,
+) -> tuple[dict[str, str], dict[str, str]]:
+    headers = {"Accept": "application/json"}
+    query: dict[str, str] = {}
+    token = read_access_token.strip()
+    key = api_key.strip()
+    # 合并 .env 时常把 TMDB Read Access Token 误放进 TMDB_API_KEY；
+    # JWT/read token 必须走 Authorization，32 位 v3 key 才能作为 api_key 参数。
+    if token or key.startswith("eyJ"):
+        headers["Authorization"] = f"Bearer {token or key}"
+    else:
+        query["api_key"] = key
+    return headers, query
+
+
 class TMDBCatalogProvider:
     """封装 TMDB 搜索、热门和详情 API。"""
 
@@ -24,13 +42,11 @@ class TMDBCatalogProvider:
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         if not self.configured:
             raise RuntimeError("TMDB 尚未配置：请填写 TMDB_READ_ACCESS_TOKEN 或 TMDB_API_KEY")
-        headers = {"Accept": "application/json"}
-        query = {"language": "zh-CN", **(params or {})}
-        token = settings.tmdb_read_access_token.strip()
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        else:
-            query["api_key"] = settings.tmdb_api_key.strip()
+        headers, auth_query = _auth_headers_and_params(
+            read_access_token=settings.tmdb_read_access_token,
+            api_key=settings.tmdb_api_key,
+        )
+        query = {"language": "zh-CN", **auth_query, **(params or {})}
         async with httpx.AsyncClient(
             timeout=self.timeout_seconds,
             follow_redirects=True,

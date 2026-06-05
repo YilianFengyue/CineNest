@@ -6,7 +6,7 @@ from services.catalog.douban import DoubanCatalogProvider
 from services.catalog.models import CatalogMovie, CatalogProviderConfig, CatalogSourceRef, CatalogTrace
 from services.catalog.registry import CatalogRegistry
 from services.catalog.service import CatalogService
-from services.catalog.tmdb import TMDBCatalogProvider
+from services.catalog.tmdb import TMDBCatalogProvider, _auth_headers_and_params
 
 
 class CatalogRegistryTests(TestCase):
@@ -73,6 +73,15 @@ class _StubTMDB(TMDBCatalogProvider):
 
 
 class TMDBProviderTests(IsolatedAsyncioTestCase):
+    def test_auth_accepts_api_key_or_read_access_token_in_api_key_field(self) -> None:
+        headers, params = _auth_headers_and_params(read_access_token="", api_key="a" * 32)
+        self.assertEqual("a" * 32, params["api_key"])
+        self.assertNotIn("Authorization", headers)
+
+        headers, params = _auth_headers_and_params(read_access_token="", api_key="eyJ.jwt.token")
+        self.assertEqual("Bearer eyJ.jwt.token", headers["Authorization"])
+        self.assertNotIn("api_key", params)
+
     async def test_detail_maps_official_tmdb_fields(self) -> None:
         provider = _StubTMDB(
             CatalogProviderConfig(id="tmdb", name="TMDB", kind="tmdb"),

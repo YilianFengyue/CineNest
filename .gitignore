@@ -64,6 +64,10 @@ env/
 !.vscode/settings.json
 !.vscode/extensions.json
 
+# ── Claude Code ──
+.claude/
+skills-lock.json
+
 # ── 操作系统 ──
 .DS_Store
 Thumbs.db
