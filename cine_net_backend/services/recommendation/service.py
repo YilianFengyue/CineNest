@@ -8,7 +8,7 @@ from config import settings
 from services.catalog import get_catalog_service
 from services.catalog.cache import TTLCache
 from services.catalog.models import CatalogMovie
-from services.microdesign import compose_catalog_post, compose_catalog_poster
+from services.microdesign import compose_catalog_only_poster, compose_catalog_post, compose_catalog_poster
 from services.resources import get_resource_aggregator
 from services.resources.aggregator import normalize_title
 from services.resources.models import AggregatedMediaItem, ResourceSearchResponse
@@ -102,12 +102,21 @@ class RecommendationService:
         """根据 Catalog 条目补齐播放线路并生成动态海报。"""
 
         movie = await self.catalog.detail(provider_id, source_id, media_kind=media_kind)
-        resources = await self.resources.search(movie.title)
+        try:
+            resources = await asyncio.wait_for(self.resources.search(movie.title), timeout=2.5)
+        except Exception:
+            return compose_catalog_only_poster(movie)
         resource = find_best_resource(movie, resources)
         if resource is None or not resource.sources:
-            raise LookupError(f"未找到《{movie.title}》的可播放资源")
+            return compose_catalog_only_poster(movie)
         primary = resource.sources[0]
-        detail = await self.resources.detail(primary.provider_id, primary.remote_id)
+        try:
+            detail = await asyncio.wait_for(
+                self.resources.detail(primary.provider_id, primary.remote_id),
+                timeout=2.5,
+            )
+        except Exception:
+            return compose_catalog_only_poster(movie)
         return compose_catalog_poster(movie, detail)
 
 

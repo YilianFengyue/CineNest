@@ -16,7 +16,7 @@ class CatalogRegistryTests(TestCase):
             patch("services.catalog.tmdb.settings.tmdb_api_key", ""),
         ):
             registry = CatalogRegistry()
-            self.assertEqual(["douban", "tmdb"], [provider.config.id for provider in registry.list_all()])
+            self.assertEqual(["tmdb", "douban"], [provider.config.id for provider in registry.list_all()])
             self.assertEqual(["douban"], [provider.config.id for provider in registry.list_available()])
 
 

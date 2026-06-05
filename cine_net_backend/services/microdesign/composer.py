@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from services.catalog.models import CatalogMovie
-from services.resources.models import AggregatedMediaItem, MediaResourceDetail, ResourceSearchResponse
+from services.resources.models import AggregatedMediaItem, MediaResourceDetail, ResourceCandidate, ResourceSearchResponse
 
 from .models import ContentBlock, MicroDesignAction, MicroDesignPost, PosterSpec
 
@@ -360,6 +360,15 @@ def compose_catalog_poster(
     tags = [*movie.genres[:4]]
     if detail.category and detail.category not in tags:
         tags.append(detail.category)
+    gallery = [
+        {"url": url, "caption": caption}
+        for url, caption in (
+            (movie.backdrop_url, "背景图"),
+            (movie.poster_url, "海报"),
+            (detail.cover_url, "资源站封面"),
+        )
+        if url
+    ]
     blocks: list[ContentBlock] = [
         ContentBlock(
             type="banner",
@@ -382,6 +391,42 @@ def compose_catalog_poster(
             ContentBlock(type="text", data={"text": reason}),
             ContentBlock(type="heading", data={"text": "影片简介"}),
             ContentBlock(type="text", data={"text": movie.overview or detail.summary or "暂无简介"}),
+        ]
+    )
+    if gallery:
+        blocks.extend(
+            [
+                ContentBlock(type="heading", data={"text": "剧照"}),
+                compose_media_gallery(gallery, title="相关图片"),
+            ]
+        )
+    post_for_quote = MicroDesignPost(
+        id=f"{detail.provider_id}:{detail.remote_id}",
+        catalog_id=movie.catalog_id,
+        title=movie.title,
+        subtitle=subtitle,
+        cover_url=movie.poster_url or detail.cover_url,
+        backdrop_url=movie.backdrop_url,
+        rating=movie.rating,
+        rating_count=movie.rating_count,
+        overview=movie.overview,
+        genres=movie.genres,
+        recommend_reason=reason,
+        has_video_source=True,
+        source_count=sum(len(line.episodes) for line in detail.play_lines),
+        primary_resource=detail,
+    )
+    blocks.append(compose_review_quote_card(post_for_quote))
+    blocks.extend(
+        [
+            ContentBlock(type="heading", data={"text": "影人解说"}),
+            compose_video_explain_card(
+                title=f"【深度解说】{movie.title} 的看点与幕后",
+                cover=movie.backdrop_url or movie.poster_url or detail.cover_url,
+                up="CineNest",
+                duration="待接入",
+                play_count="资料整理中",
+            ),
             ContentBlock(type="heading", data={"text": "可用线路"}),
         ]
     )
@@ -410,6 +455,15 @@ def compose_catalog_poster(
                 action=action,
             )
         )
+    blocks.append(
+        compose_source_trace_card(
+            query=movie.title,
+            catalog_ok=1,
+            catalog_failed=0,
+            resource_count=len(actions),
+            resource_hint=f"资源库 {len(actions)} 条线路",
+        )
+    )
     return PosterSpec(
         id=f"{detail.provider_id}:{detail.remote_id}",
         catalog_id=movie.catalog_id,
@@ -421,4 +475,114 @@ def compose_catalog_poster(
         resource=detail,
         blocks=blocks,
         actions=actions,
+    )
+
+
+def compose_catalog_only_poster(
+    movie: CatalogMovie,
+    *,
+    recommend_reason: str = "",
+) -> PosterSpec:
+    """只依赖 Catalog 资料生成互动海报；播放线路缺失时仍可展示。"""
+
+    style = _style_for(" ".join(movie.genres))
+    reason = recommend_reason or "根据 TMDB/资料库信息生成的影视海报，播放线路可稍后继续匹配。"
+    subtitle = " · ".join(value for value in (movie.original_title, movie.year) if value)
+    tags = [*movie.genres[:5]]
+    blocks: list[ContentBlock] = [
+        ContentBlock(
+            type="banner",
+            data={
+                "image": movie.backdrop_url or movie.poster_url,
+                "poster": movie.poster_url or movie.backdrop_url,
+                "title": movie.title,
+                "subtitle": subtitle,
+                "style": style,
+            },
+        ),
+    ]
+    if movie.rating is not None:
+        blocks.append(ContentBlock(type="rating", data={"score": movie.rating, "label": movie.provider_name}))
+    if tags:
+        blocks.append(ContentBlock(type="tagRow", data={"tags": tags}))
+    blocks.extend(
+        [
+            ContentBlock(type="heading", data={"text": "推荐理由"}),
+            ContentBlock(type="text", data={"text": reason}),
+            ContentBlock(type="heading", data={"text": "影片简介"}),
+            ContentBlock(type="text", data={"text": movie.overview or "暂无简介"}),
+        ]
+    )
+    gallery = [
+        {"url": url, "caption": caption}
+        for url, caption in (
+            (movie.backdrop_url, "背景图"),
+            (movie.poster_url, "海报"),
+        )
+        if url
+    ]
+    if gallery:
+        blocks.extend(
+            [
+                ContentBlock(type="heading", data={"text": "剧照"}),
+                compose_media_gallery(gallery, title="TMDB 图片"),
+            ]
+        )
+    placeholder_primary = ResourceCandidate(
+        provider_id="catalog",
+        provider_name=movie.provider_name,
+        remote_id=movie.source_id,
+        title=movie.title,
+        category="/".join(movie.genres[:2]),
+        cover_url=movie.poster_url,
+        remarks="",
+        year=movie.year,
+    )
+    post_for_quote = MicroDesignPost(
+        id=movie.catalog_id,
+        catalog_id=movie.catalog_id,
+        title=movie.title,
+        subtitle=subtitle,
+        cover_url=movie.poster_url,
+        backdrop_url=movie.backdrop_url,
+        rating=movie.rating,
+        rating_count=movie.rating_count,
+        overview=movie.overview,
+        genres=movie.genres,
+        recommend_reason=reason,
+        has_video_source=False,
+        source_count=0,
+        primary_resource=placeholder_primary,
+    )
+    blocks.append(compose_review_quote_card(post_for_quote))
+    blocks.extend(
+        [
+            ContentBlock(type="heading", data={"text": "影人解说"}),
+            compose_video_explain_card(
+                title=f"【资料解说】{movie.title} 的看点与幕后",
+                cover=movie.backdrop_url or movie.poster_url,
+                up="CineNest",
+                duration="待接入",
+                play_count="资料整理中",
+            ),
+            compose_source_trace_card(
+                query=movie.title,
+                catalog_ok=1,
+                catalog_failed=0,
+                resource_count=0,
+                resource_hint="播放资源待匹配",
+            ),
+        ]
+    )
+    return PosterSpec(
+        id=movie.catalog_id,
+        catalog_id=movie.catalog_id,
+        style=style,
+        title=movie.title,
+        subtitle=subtitle,
+        recommend_reason=reason,
+        catalog=movie,
+        resource=None,
+        blocks=blocks,
+        actions=[],
     )

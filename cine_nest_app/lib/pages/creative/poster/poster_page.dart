@@ -19,12 +19,37 @@ import 'package:share_plus/share_plus.dart';
 ///
 /// 头图（模糊背景 + 竖版海报 + 标题/评分）→ blocks 拼贴（剧照/影评/解说/线路…）
 /// → 底部播放栏。支持「导出长图分享」。数据 mock 与真后端通用（见 [PosterController]）。
-class PosterPage extends StatelessWidget {
+class PosterPage extends StatefulWidget {
   const PosterPage({super.key});
 
   @override
+  State<PosterPage> createState() => _PosterPageState();
+}
+
+class _PosterPageState extends State<PosterPage> {
+  late final String _tag;
+  late final PosterController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _tag = DateTime.now().microsecondsSinceEpoch.toString();
+    final raw = Get.arguments;
+    final args = raw is Map ? raw.cast<String, dynamic>() : <String, dynamic>{};
+    _controller = Get.put(PosterController(args), tag: _tag);
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<PosterController>(tag: _tag)) {
+      Get.delete<PosterController>(tag: _tag);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = Get.put(PosterController());
+    final c = _controller;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Scaffold(

@@ -77,7 +77,7 @@ class PosterSpec(BaseModel):
     subtitle: str = ""
     recommend_reason: str = ""
     catalog: CatalogMovie | None = None
-    resource: MediaResourceDetail
+    resource: MediaResourceDetail | None = None
     blocks: list[ContentBlock] = Field(default_factory=list)
     actions: list[MicroDesignAction] = Field(default_factory=list)
 

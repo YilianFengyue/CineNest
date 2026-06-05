@@ -102,8 +102,10 @@ class RecommendationTests(IsolatedAsyncioTestCase):
 
         self.assertEqual("douban:1889243", poster.catalog_id)
         self.assertEqual(["banner", "rating", "tagRow"], [block.type for block in poster.blocks[:3]])
-        self.assertEqual("videoBar", poster.blocks[-1].type)
-        self.assertEqual("resolveAndPlay", poster.blocks[-1].action.type)
+        video_blocks = [block for block in poster.blocks if block.type == "videoBar"]
+        self.assertTrue(video_blocks)
+        self.assertEqual("resolveAndPlay", video_blocks[0].action.type)
+        self.assertEqual("sourceTraceCard", poster.blocks[-1].type)
 
     async def test_recommendation_feed_uses_short_cache(self) -> None:
         await self.service.recommend(query="科幻", limit=3)

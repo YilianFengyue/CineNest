@@ -2,6 +2,7 @@
 
 from .composer import (
     compose_catalog_post,
+    compose_catalog_only_poster,
     compose_catalog_poster,
     compose_media_gallery,
     compose_movie_carousel,
@@ -15,6 +16,7 @@ from .composer import (
 
 __all__ = [
     "compose_catalog_post",
+    "compose_catalog_only_poster",
     "compose_catalog_poster",
     "compose_media_gallery",
     "compose_movie_carousel",
