@@ -33,6 +33,7 @@
 | 方法 | 路径 | 入参 | 返回 |
 |------|------|------|------|
 | GET | `/api/microdesign/schema` | — | 支持的 `blocks/actions/styles` |
+| GET | `/api/feed/microdesign` | `keyword?, limit?` | `MicroDesignPost[]`（C 关键词帖子，避免占用 B 的 `/api/feed`） |
 | GET | `/api/feed/recommend` | `query?, media_kind?, limit?, refresh?` | `RecommendationFeed` |
 | GET | `/api/poster/catalog/{provider_id}/{source_id}` | `media_kind?` | `PosterSpec` |
 | GET | `/api/poster/{provider_id}/{remote_id}` | — | `PosterSpec` |
@@ -124,9 +125,15 @@
 | 方法 | 路径 | 入参 | 返回 |
 |------|------|------|------|
 | GET | `/api/feed` | `refresh: bool` | `Post[]` |
+| GET | `/api/discovery` | `page?` | `Movie[]` |
 | GET | `/api/movie/{movie_id}` | — | `Movie` |
 | POST | `/api/preferences` | `UserPreference` | `{ok}` |
+| GET | `/api/preferences` | — | `UserPreference` |
 | POST | `/api/feedback` | `{movie_id, liked}` | `{ok}` |
+| GET | `/api/history` | — | `WatchHistoryItem[]` |
+| POST | `/api/history/record` | `{movie_id, title}` | `{ok}` |
+| GET | `/api/collections` | — | `CollectionItem[]` |
+| POST | `/api/collections/toggle` | `{movie_id, title, poster_url?}` | `{ok, is_collected}` |
 
 ### 成员 A（sources）
 | 方法 | 路径 | 入参 | 返回 |

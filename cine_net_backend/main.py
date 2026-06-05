@@ -7,20 +7,23 @@
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import agent, catalog, chat, feed, health, microdesign, news, play, poster, resources, sources, uploads
 from db import init_db
+from routers import agent, catalog, chat, feed, health, microdesign, news, play, poster, resources, sources, uploads
 from services.resources import get_resource_aggregator
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """启动时加载 Provider 注册表；LLM 保持懒加载，未填 Key 也能检索资源。"""
+    """启动时初始化存储与资源 Provider；LLM 保持懒加载。"""
 
+    print("========= [SQLite] 正在检查并初始化本地数据库... =========", flush=True)
     init_db()
+    print("========= [SQLite] 数据库初始化/检查成功！ =========", flush=True)
     get_resource_aggregator()
     yield
 
@@ -34,6 +37,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"\n>>> [收到请求] {request.method} {request.url.path}", flush=True)
+    response = await call_next(request)
+    print(f"<<< [请求结束] 状态码: {response.status_code}\n", flush=True)
+    return response
+
+
+@app.get("/api/ping_debug")
+async def ping_debug():
+    print("\n!!!!!!!!!! PONG SUCCESS !!!!!!!!!!\n", flush=True)
+    return {"message": "pong", "status": "I AM THE RIGHT FILE"}
+
+
+@app.get("/api/proxy/image", tags=["proxy (共建)"])
+async def proxy_image(url: str):
+    """图片代理：后端代为下载 TMDB 图片并转发给 App。"""
+
+    if not url:
+        return Response(status_code=400)
+    try:
+        async with httpx.AsyncClient(verify=False, trust_env=True) as client:
+            resp = await client.get(url, timeout=10.0)
+            resp.raise_for_status()
+            return Response(content=resp.content, media_type=resp.headers.get("content-type"))
+    except Exception as exc:  # noqa: BLE001
+        print(f"图片中转失败: {url}, 错误: {exc}", flush=True)
+        return Response(status_code=502)
+
 
 app.include_router(health.router)
 app.include_router(resources.router)

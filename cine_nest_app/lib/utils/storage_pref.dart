@@ -28,7 +28,7 @@ abstract final class Pref {
       _setting.put(SettingBoxKey.pcPort, value);
 
   static bool get enableHttp2 =>
-      _setting.get(SettingBoxKey.enableHttp2, defaultValue: true);
+      _setting.get(SettingBoxKey.enableHttp2, defaultValue: false);
 
   static int get retryCount =>
       _setting.get(SettingBoxKey.retryCount, defaultValue: 3);

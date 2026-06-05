@@ -1,5 +1,7 @@
 import 'package:cine_nest/pages/creative/chat/chat_page.dart';
 import 'package:cine_nest/pages/creative/news/news_page.dart';
+import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
+import 'package:cine_nest/pages/feed/preference/preference_view.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -15,17 +17,26 @@ class MainNavController extends GetxController {
 
 /// 应用主壳：底部导航框架（Day1 共建）。
 ///
-/// 设计要点：**对话 Tab（F9）是全屏体验**——它自带 AppBar + 侧边历史抽屉 + 输入框，
-/// 像详情页一样不显示底部 4-tab 导航；其余 Tab（首页/资讯/设置）才挂底部导航。
-/// 在对话页要切去别的 Tab，走抽屉里的目的地入口（仿 Gemini 的汉堡抽屉）。
+/// 对话 Tab（F9）是全屏体验：它自带 AppBar + 侧边历史抽屉 + 输入框，
+/// 像详情页一样不显示底部 4-tab 导航；其余 Tab 挂底部导航。
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   static const _tabs = [
-    _TabDef('首页', Icons.movie_outlined, Icons.movie, '成员 B · F1 AI 推荐帖子流'),
-    _TabDef('对话', Icons.chat_bubble_outline, Icons.chat_bubble, '成员 C · F9 AI 对话'),
-    _TabDef('资讯', Icons.article_outlined, Icons.article, '成员 C · F12 影视资讯'),
-    _TabDef('设置', Icons.settings_outlined, Icons.settings, '成员 A/B · F7 连接 / F6 偏好'),
+    _TabDef('Home', Icons.movie_outlined, Icons.movie, 'Member B - feed'),
+    _TabDef(
+      'Chat',
+      Icons.chat_bubble_outline,
+      Icons.chat_bubble,
+      'Member C - chat',
+    ),
+    _TabDef('News', Icons.article_outlined, Icons.article, 'Member C - news'),
+    _TabDef(
+      'Settings',
+      Icons.settings_outlined,
+      Icons.settings,
+      'Member A/B - settings',
+    ),
   ];
 
   @override
@@ -36,14 +47,12 @@ class MainApp extends StatelessWidget {
 
     return Obx(() {
       final index = nav.index.value;
-      // 对话 Tab 全屏，自带导航 chrome，不套外层 Scaffold / 底部导航。
       if (index == 1) return const ChatPage();
 
       final tab = _tabs[index];
       return Scaffold(
         appBar: AppBar(
           title: Text('CineNest · ${tab.label}'),
-          // 资讯 Tab：右上角放「我的收藏 / 生成队列」入口。
           actions: index == 2
               ? [
                   IconButton(
@@ -76,11 +85,14 @@ class MainApp extends StatelessWidget {
     });
   }
 
-  /// 资讯(F12) Tab 已接真实页面，其余 Tab 暂留占位待各 Owner 填充。
   Widget _bodyFor(int index, _TabDef tab) {
     switch (index) {
+      case 0:
+        return const DiscoveryPage();
       case 2:
         return const NewsPage();
+      case 3:
+        return const PreferencePage();
       default:
         return _Placeholder(title: tab.label, hint: tab.hint);
     }
@@ -92,11 +104,13 @@ class _TabDef {
   final IconData icon;
   final IconData activeIcon;
   final String hint;
+
   const _TabDef(this.label, this.icon, this.activeIcon, this.hint);
 }
 
 class _Placeholder extends StatelessWidget {
   const _Placeholder({required this.title, required this.hint});
+
   final String title;
   final String hint;
 
@@ -109,7 +123,10 @@ class _Placeholder extends StatelessWidget {
         children: [
           Icon(Icons.construction, size: 48, color: cs.primary),
           const SizedBox(height: 12),
-          Text('$title（占位）', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            '$title placeholder',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 6),
           Text(hint, style: TextStyle(color: cs.onSurfaceVariant)),
         ],

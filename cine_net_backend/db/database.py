@@ -1,9 +1,12 @@
 """CineNest 后端 SQLite 存储。"""
 from __future__ import annotations
 
+import datetime
+import json
 import sqlite3
 
 from config import settings
+from models.schemas import CollectionItem, UserPreference, WatchHistoryItem
 
 
 def get_conn() -> sqlite3.Connection:
@@ -123,8 +126,146 @@ def init_db() -> None:
             """
             CREATE TABLE IF NOT EXISTS watch_history (
                 movie_id INTEGER PRIMARY KEY,
-                title TEXT,
-                visited_at TEXT
+                title TEXT NOT NULL,
+                visited_at TEXT NOT NULL
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS collections (
+                movie_id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                poster_url TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+
+
+def _empty_preference() -> UserPreference:
+    return UserPreference(liked_genres=[], disliked_genres=[], free_text="")
+
+
+def _json_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        data = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    return [str(item) for item in data] if isinstance(data, list) else []
+
+
+def _now_text() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def save_user_preference(pref: UserPreference) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO preferences (id, liked_genres, disliked_genres, free_text)
+            VALUES (1, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                liked_genres = excluded.liked_genres,
+                disliked_genres = excluded.disliked_genres,
+                free_text = excluded.free_text
+            """,
+            (
+                json.dumps(pref.liked_genres, ensure_ascii=False),
+                json.dumps(pref.disliked_genres, ensure_ascii=False),
+                pref.free_text or "",
+            ),
+        )
+
+
+def get_user_preference() -> UserPreference:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT liked_genres, disliked_genres, free_text FROM preferences WHERE id = 1"
+        ).fetchone()
+    if row is None:
+        return _empty_preference()
+    return UserPreference(
+        liked_genres=_json_list(row["liked_genres"]),
+        disliked_genres=_json_list(row["disliked_genres"]),
+        free_text=row["free_text"] or "",
+    )
+
+
+def add_watch_history(movie_id: int, title: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO watch_history (movie_id, title, visited_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(movie_id) DO UPDATE SET
+                title = excluded.title,
+                visited_at = excluded.visited_at
+            """,
+            (movie_id, title, _now_text()),
+        )
+
+
+def get_watch_history_titles() -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT title FROM watch_history ORDER BY visited_at DESC LIMIT 10"
+        ).fetchall()
+    return [str(row["title"]) for row in rows if row["title"]]
+
+
+def get_watch_history() -> list[WatchHistoryItem]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT movie_id, title, visited_at
+            FROM watch_history
+            ORDER BY visited_at DESC
+            LIMIT 50
+            """
+        ).fetchall()
+    return [WatchHistoryItem(**dict(row)) for row in rows]
+
+
+def toggle_collection(movie_id: int, title: str, poster_url: str | None = None) -> bool:
+    """切换收藏状态。返回 True 表示现在已收藏，False 表示已取消收藏。"""
+
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT movie_id FROM collections WHERE movie_id = ?",
+            (movie_id,),
+        ).fetchone()
+        if existing is not None:
+            conn.execute("DELETE FROM collections WHERE movie_id = ?", (movie_id,))
+            return False
+        conn.execute(
+            """
+            INSERT INTO collections (movie_id, title, poster_url, collected_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (movie_id, title, poster_url, _now_text()),
+        )
+        return True
+
+
+def get_collections() -> list[CollectionItem]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT movie_id, title, poster_url, collected_at
+            FROM collections
+            ORDER BY collected_at DESC
+            """
+        ).fetchall()
+    return [CollectionItem(**dict(row)) for row in rows]
+
+
+def is_movie_collected(movie_id: int) -> bool:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT movie_id FROM collections WHERE movie_id = ?",
+            (movie_id,),
+        ).fetchone()
+    return row is not None

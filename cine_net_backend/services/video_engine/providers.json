@@ -1,0 +1,32 @@
+[
+  {
+    "id": "wujin",
+    "name": "Wujin",
+    "endpoint": "https://api.wujinapi.me/api.php/provide/vod",
+    "enabled": true
+  },
+  {
+    "id": "heimuer",
+    "name": "Heimuer",
+    "endpoint": "https://json.heimuer.xyz/api.php/provide/vod",
+    "enabled": true
+  },
+  {
+    "id": "zuid",
+    "name": "Zuid",
+    "endpoint": "https://api.zuidapi.com/api.php/provide/vod",
+    "enabled": true
+  },
+  {
+    "id": "jszy",
+    "name": "Jisu",
+    "endpoint": "https://jszyapi.com/api.php/provide/vod",
+    "enabled": true
+  },
+  {
+    "id": "bfzy",
+    "name": "Baofeng",
+    "endpoint": "https://bfzyapi.com/api.php/provide/vod",
+    "enabled": true
+  }
+]
