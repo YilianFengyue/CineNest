@@ -25,6 +25,46 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.1"
+  audio_service:
+    dependency: "direct main"
+    description:
+      name: audio_service
+      sha256: cb122c7c2639d2a992421ef96b67948ad88c5221da3365ccef1031393a76e044
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.18"
+  audio_service_platform_interface:
+    dependency: transitive
+    description:
+      name: audio_service_platform_interface
+      sha256: "6283782851f6c8b501b60904a32fc7199dc631172da0629d7301e66f672ab777"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.3"
+  audio_service_web:
+    dependency: transitive
+    description:
+      name: audio_service_web
+      sha256: b8ea9243201ee53383157fbccf13d5d2a866b5dda922ec19d866d1d5d70424df
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.4"
+  audio_session:
+    dependency: "direct main"
+    description:
+      name: audio_session
+      sha256: "7217b229db57cc4dc577a8abb56b7429a5a212b978517a5be578704bfe5e568b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.3"
+  audio_video_progress_bar:
+    dependency: "direct main"
+    description:
+      name: audio_video_progress_bar
+      sha256: "552b1f73c56c4c88407999e0a8507176f60c56de3e6d63bc20a0eab48467d4c9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.3"
   boolean_selector:
     dependency: transitive
     description:
@@ -273,6 +313,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  floating:
+    dependency: "direct main"
+    description:
+      name: floating
+      sha256: "62924c96915823ce955da32b26766e11583ce437990a601032191d6d4b0b0764"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.1"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -416,6 +464,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_volume_controller:
+    dependency: "direct main"
+    description:
+      name: flutter_volume_controller
+      sha256: "78297fd48ce6330d39a11a4c1ae219a3256249f99dec34cfbe9323d2cbb5ebb9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -581,6 +637,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.1"
+  js:
+    dependency: transitive
+    description:
+      name: js
+      sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.2"
   json_annotation:
     dependency: transitive
     description:
@@ -877,22 +941,78 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.3"
+  saver_gallery:
+    dependency: "direct main"
+    description:
+      name: saver_gallery
+      sha256: c24cfec2d94a0db9a2ae02d6a21847ba49a369c9b6c3a83f3da17d14720c0888
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.2"
   screen_brightness_android:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: screen_brightness_android
       sha256: "0e4b0a07d5f730b91a8780d8436f3a92be8a8cc2066032ed88b93c8fa153fadf"
       url: "https://pub.dev"
     source: hosted
     version: "2.1.5"
+  screen_brightness_ios:
+    dependency: "direct main"
+    description:
+      name: screen_brightness_ios
+      sha256: "0792d8f98852558f831b4b75241c46047b884598b3f4d982b37dc2dd43e2b2e1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.3"
   screen_brightness_platform_interface:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: screen_brightness_platform_interface
       sha256: "59d50850d6735d677780fc7359c8e997d0ff6df91c8465161c9e617a7b0a11d8"
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
+  screen_retriever:
+    dependency: transitive
+    description:
+      name: screen_retriever
+      sha256: "570dbc8e4f70bac451e0efc9c9bb19fa2d6799a11e6ef04f946d7886d2e23d0c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  screen_retriever_linux:
+    dependency: transitive
+    description:
+      name: screen_retriever_linux
+      sha256: f7f8120c92ef0784e58491ab664d01efda79a922b025ff286e29aa123ea3dd18
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  screen_retriever_macos:
+    dependency: transitive
+    description:
+      name: screen_retriever_macos
+      sha256: "71f956e65c97315dd661d71f828708bd97b6d358e776f1a30d5aa7d22d78a149"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  screen_retriever_platform_interface:
+    dependency: transitive
+    description:
+      name: screen_retriever_platform_interface
+      sha256: ee197f4581ff0d5608587819af40490748e1e39e648d7680ecf95c05197240c0
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  screen_retriever_windows:
+    dependency: transitive
+    description:
+      name: screen_retriever_windows
+      sha256: "449ee257f03ca98a57288ee526a301a430a344a161f9202b4fcc38576716fe13"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   screenshot:
     dependency: "direct main"
     description:
@@ -1210,6 +1330,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.15.0"
+  window_manager:
+    dependency: "direct main"
+    description:
+      name: window_manager
+      sha256: "7eb6d6c4164ec08e1bf978d6e733f3cebe792e2a23fb07cbca25c2872bfdbdcd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.1"
   xdg_directories:
     dependency: transitive
     description:

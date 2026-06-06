@@ -59,6 +59,12 @@ class SettingsPage extends StatelessWidget {
           title: const Text('播放与资源'),
           tiles: [
             SettingsTile.navigation(
+              leading: const Icon(Icons.play_circle_outline_rounded),
+              title: const Text('播放器测试 (Kazumi 风)'),
+              description: const Text('贴 m3u8 / mp4 / 选本地视频，验证播放器'),
+              onPressed: (_) => Get.toNamed(Routes.kazumiPlayerTest),
+            ),
+            SettingsTile.navigation(
               leading: const Icon(Icons.display_settings_rounded),
               title: const Text('播放设置'),
               description: const Text('设置播放器相关参数'),

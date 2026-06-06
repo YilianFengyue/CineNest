@@ -9,6 +9,7 @@ import 'package:cine_nest/pages/feed/preference/preference_view.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:cine_nest/pages/player/views/source_picker_page.dart';
 import 'package:cine_nest/pages/player/views/webview_player_page.dart';
+import 'package:cine_nest/pages/player_kazumi/test_page/local_player_test_page.dart';
 import 'package:get/get.dart';
 
 part 'app_routes.dart';
@@ -27,6 +28,10 @@ abstract final class AppPages {
     // Member A
     GetPage(name: Routes.sourcePicker, page: () => const SourcePickerPage()),
     GetPage(name: Routes.webviewPlayer, page: () => const WebViewPlayerPage()),
+    GetPage(
+      name: Routes.kazumiPlayerTest,
+      page: () => const LocalPlayerTestPage(),
+    ),
 
     // Member C
     GetPage(name: Routes.creativePoster, page: () => const PosterPage()),
