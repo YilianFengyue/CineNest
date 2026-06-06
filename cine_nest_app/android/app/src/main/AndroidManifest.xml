@@ -1,5 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 后台播放 / 锁屏控件（audio_service） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- 截图保存到相册（saver_gallery，仅 Android 12 及以下需要） -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
 
     <application
         android:label="cine_nest"
@@ -14,7 +22,9 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true">
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
@@ -27,7 +37,32 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- audio_service：让锁屏 / 通知中的 media button 把 App 拉回前台 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON"/>
+            </intent-filter>
         </activity>
+
+        <!-- audio_service：后台播放 Service -->
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService"/>
+            </intent-filter>
+        </service>
+
+        <!-- audio_service：耳机/蓝牙耳机的 media button -->
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON"/>
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

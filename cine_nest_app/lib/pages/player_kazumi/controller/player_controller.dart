@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -11,31 +12,46 @@ import 'package:screen_brightness_platform_interface/screen_brightness_platform_
 import '../../../services/logger.dart';
 
 /// 播放器核心控制器（GetX 包装 media_kit Player + VideoController）。
-///
-/// 交互目标（对齐 CodeReference/Kazumi 的体验）：
-/// - 双击：桌面切全屏，移动端播/暂停
-/// - 长按：临时 2x 倍速，松开恢复
-/// - 横滑：seek 预览（指尖移动只更新预览位置，离手才真正 seek）
-/// - 左侧竖滑：亮度
-/// - 右侧竖滑：音量（80ms 节流同步系统音量）
-/// - 鼠标滚轮：音量
-/// - 4 秒无操作控件自动隐藏
 class KazumiPlayerController extends GetxController {
   KazumiPlayerController({
-    this.bufferSizeBytes = 32 * 1024 * 1024,
+    this.bufferSizeBytes = 64 * 1024 * 1024,
+    this.openTimeout = const Duration(seconds: 14),
+    this.firstFrameTimeout = const Duration(seconds: 12),
     this.autoHideDelay = const Duration(seconds: 4),
     this.hudHideDelay = const Duration(milliseconds: 700),
     this.volumeSyncThrottle = const Duration(milliseconds: 80),
     this.gestureSeekScaleMs = 180000,
-  });
+  }) {
+    // 构造时立即建 Player + VideoController，避免 onInit 时机问题。
+    player = Player(
+      configuration: PlayerConfiguration(
+        bufferSize: bufferSizeBytes,
+        osc: false,
+      ),
+    );
+    videoController = VideoController(
+      player,
+      configuration: VideoControllerConfiguration(
+        vo: Platform.isAndroid ? 'gpu' : null,
+        enableHardwareAcceleration: true,
+        hwdec: (Platform.isAndroid || Platform.isIOS) ? 'auto-safe' : null,
+        androidAttachSurfaceAfterVideoParameters: false,
+      ),
+    );
+    _wireStreams();
+    // 平台层调优放到下一帧，避免阻塞构造
+    Future.microtask(_applyNativeTweaks);
+  }
 
   // ─── 配置 ────────────────────────────────────────────
   final int bufferSizeBytes;
+  final Duration openTimeout;
+  final Duration firstFrameTimeout;
   final Duration autoHideDelay;
   final Duration hudHideDelay;
   final Duration volumeSyncThrottle;
 
-  /// 全屏一屏横滑 ≈ 多少毫秒的进度（默认 3 分钟）
+  /// 全屏一屏横滑 ≈ 多少毫秒（默认 3 分钟）
   final int gestureSeekScaleMs;
 
   // ─── 媒体核心 ─────────────────────────────────────────
@@ -51,14 +67,8 @@ class KazumiPlayerController extends GetxController {
   final duration = Duration.zero.obs;
   final buffer = Duration.zero.obs;
   final speed = 1.0.obs;
-
-  /// 0..100
   final volume = 100.0.obs;
-
-  /// 0..1
   final brightness = 0.5.obs;
-
-  /// 1=auto, 2=cover (BoxFit.cover), 3=fill (BoxFit.fill)
   final aspectRatioType = 1.obs;
 
   // ─── UI 状态 ──────────────────────────────────────────
@@ -70,8 +80,6 @@ class KazumiPlayerController extends GetxController {
   final showSpeedHud = false.obs;
   final showSeekHud = false.obs;
   final seekTargetMs = 0.obs;
-
-  /// -1=向左，0=无，1=向右
   final seekDirection = 0.obs;
 
   final lastError = ''.obs;
@@ -83,7 +91,15 @@ class KazumiPlayerController extends GetxController {
   Timer? _volumeGestureSyncTimer;
   double? _pendingGestureVolume;
   double _savedSpeedBeforeLongPress = 1.0;
-  bool _initialized = false;
+  bool _opening = false;
+  final List<String> _openingErrors = [];
+
+  static const String _browserUserAgent =
+      'Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36';
+  static const MethodChannel _networkChannel = MethodChannel(
+    'cine_nest/network',
+  );
 
   static bool get isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
@@ -92,43 +108,101 @@ class KazumiPlayerController extends GetxController {
   //  生命周期
   // ═══════════════════════════════════════════════════════
 
-  @override
-  void onInit() {
-    super.onInit();
-    _ensureInitialized();
-  }
-
-  void _ensureInitialized() {
-    if (_initialized) return;
-    player = Player(
-      configuration: PlayerConfiguration(
-        bufferSize: bufferSizeBytes,
-        osc: false,
-      ),
-    );
-    videoController = VideoController(player);
-    _wireStreams();
-    _initialized = true;
-  }
-
   void _wireStreams() {
     _subs.addAll([
       player.stream.playing.listen((v) => playing.value = v),
       player.stream.buffering.listen((v) => buffering.value = v),
       player.stream.completed.listen((v) => completed.value = v),
       player.stream.position.listen((v) => position.value = v),
-      player.stream.duration.listen((v) => duration.value = v),
+      player.stream.duration.listen((v) {
+        duration.value = v;
+        logger.i('player duration: $v');
+      }),
       player.stream.buffer.listen((v) => buffer.value = v),
       player.stream.rate.listen((v) => speed.value = v),
       player.stream.volume.listen((v) {
-        // 桌面端音量直接来自 player；移动端音量走系统接口，不被 player.stream.volume 主导
         if (isDesktop) volume.value = v;
       }),
       player.stream.error.listen((e) {
-        lastError.value = e.toString();
-        logger.e('KazumiPlayer error: $e');
+        final msg = e.toString();
+        if (_opening) {
+          _openingErrors.add(msg);
+          logger.w('PLAYER OPEN TRANSIENT ERROR: $msg');
+          return;
+        }
+        lastError.value = msg;
+        loading.value = false;
+        logger.e('PLAYER ERROR: $msg');
+      }),
+      player.stream.log.listen((l) {
+        // 只在 debug 模式记录 mpv log
+        if (kDebugMode) logger.d('mpv: $l');
       }),
     ]);
+  }
+
+  Future<void> _applyNativeTweaks() async {
+    try {
+      final pp = player.platform;
+      if (pp is! NativePlayer) return;
+
+      // HLS 先低码率起播，等用户能看之后再追求画质；移动端直链源稳定性优先。
+      await pp.setProperty('hls-bitrate', 'min');
+      await pp.setProperty('cache', 'yes');
+      await pp.setProperty('cache-secs', '12');
+      await pp.setProperty('demuxer-readahead-secs', '12');
+      await pp.setProperty('network-timeout', '8');
+      await pp.setProperty('vd-lavc-threads', '4');
+      await pp.setProperty(
+        'stream-lavf-o-append',
+        'reconnect=1,reconnect_at_eof=1,reconnect_streamed=1,reconnect_delay_max=3,rw_timeout=8000000',
+      );
+      await pp.setProperty('user-agent', _browserUserAgent);
+      await _applyAndroidHttpProxy(pp);
+      await pp.setProperty('demuxer-max-bytes', '64MiB');
+      await pp.setProperty('demuxer-max-back-bytes', '12MiB');
+
+      // ─── 平台差异 ────────────────────────────────────────────
+      if (Platform.isAndroid) {
+        await pp.setProperty('volume-max', '100');
+      }
+      logger.i('mpv native tweaks applied');
+    } catch (e) {
+      logger.w('native tweaks failed: $e');
+    }
+  }
+
+  Future<void> _applyAndroidHttpProxy(NativePlayer pp) async {
+    if (!Platform.isAndroid) return;
+    final proxyUrl = await _readActiveAndroidHttpProxy();
+    if (proxyUrl == null) {
+      await pp.setProperty('http-proxy', '');
+      logger.i('mpv http-proxy cleared: no active Android proxy');
+      return;
+    }
+    await pp.setProperty('http-proxy', proxyUrl);
+    logger.i('mpv http-proxy applied: $proxyUrl');
+  }
+
+  Future<String?> _readActiveAndroidHttpProxy() async {
+    try {
+      final raw = await _networkChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'getActiveHttpProxy',
+      );
+      if (raw == null) return null;
+      final host = raw['host']?.toString().trim();
+      final portValue = raw['port'];
+      final port = portValue is int
+          ? portValue
+          : int.tryParse(portValue?.toString() ?? '');
+      if (host == null || host.isEmpty || port == null || port <= 0) {
+        return null;
+      }
+      return 'http://$host:$port';
+    } catch (e) {
+      logger.w('read Android active proxy failed: $e');
+      return null;
+    }
   }
 
   @override
@@ -149,6 +223,9 @@ class KazumiPlayerController extends GetxController {
       } catch (_) {}
     }
     try {
+      await player.stop();
+    } catch (_) {}
+    try {
       await player.dispose();
     } catch (_) {}
     super.onClose();
@@ -164,23 +241,113 @@ class KazumiPlayerController extends GetxController {
     Duration startAt = Duration.zero,
     bool autoPlay = true,
   }) async {
-    _ensureInitialized();
     loading.value = true;
     lastError.value = '';
+    _opening = true;
+    _openingErrors.clear();
+    final httpHeaders = _buildPlaybackHeaders(url, headers);
+    logger.i('player.open url=$url headers=$httpHeaders');
+
     try {
-      await player.open(
-        Media(url, start: startAt, httpHeaders: headers),
-        play: autoPlay,
+      await _openWithRetry(
+        url: url,
+        headers: httpHeaders,
+        startAt: startAt,
+        autoPlay: autoPlay,
       );
+      logger.i('player.open rendered first frame');
       await _syncSystemVolumeInitial();
       await _syncSystemBrightnessInitial();
+      lastError.value = '';
       showControlsTemporarily();
     } catch (e) {
-      lastError.value = e.toString();
-      logger.e('KazumiPlayer open failed: $e');
+      final message = _friendlyOpenFailure(e);
+      lastError.value = message;
+      logger.e('open failed: $message');
     } finally {
+      _opening = false;
+      _openingErrors.clear();
       loading.value = false;
     }
+  }
+
+  Future<void> _openWithRetry({
+    required String url,
+    required Map<String, String> headers,
+    required Duration startAt,
+    required bool autoPlay,
+  }) async {
+    Object? lastFailure;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      _openingErrors.clear();
+      try {
+        if (attempt > 0) {
+          await player.stop();
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+        }
+        await _applyNativeTweaks();
+        await player
+            .open(
+              Media(url, start: startAt, httpHeaders: headers),
+              play: autoPlay,
+            )
+            .timeout(openTimeout);
+        if (!autoPlay) return;
+        await videoController.waitUntilFirstFrameRendered.timeout(
+          firstFrameTimeout,
+        );
+        return;
+      } catch (e) {
+        lastFailure = e;
+        logger.w('open attempt ${attempt + 1} failed: $e');
+      }
+    }
+
+    final transient = _openingErrors.isEmpty ? '' : _openingErrors.last;
+    throw transient.isEmpty
+        ? (lastFailure ?? 'unknown playback error')
+        : transient;
+  }
+
+  Map<String, String> _buildPlaybackHeaders(
+    String url,
+    Map<String, String>? headers,
+  ) {
+    final merged = <String, String>{
+      'User-Agent': _browserUserAgent,
+      'Accept': '*/*',
+      'Connection': 'keep-alive',
+    };
+    final uri = Uri.tryParse(url);
+    if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
+      final origin =
+          '${uri.scheme}://${uri.host}'
+          '${uri.hasPort ? ':${uri.port}' : ''}';
+      merged['Referer'] = '$origin/';
+      merged['Origin'] = origin;
+    }
+    if (headers != null) {
+      merged.addAll(headers);
+    }
+    return merged;
+  }
+
+  String _friendlyOpenFailure(Object error) {
+    final raw = error.toString();
+    if (error is TimeoutException || raw.contains('TimeoutException')) {
+      return '起播超时：已重试 3 次仍没有首帧，建议重试或用浏览器播放';
+    }
+    if (raw.contains('Failed to resolve hostname') ||
+        raw.contains('No address associated')) {
+      return 'DNS 解析失败：当前网络找不到这个源域名，建议换源或切换网络';
+    }
+    if (raw.contains('403') || raw.contains('401')) {
+      return '源鉴权失败：可能需要 Referer/Cookie，建议用浏览器播放或换源';
+    }
+    if (raw.contains('Failed to open')) {
+      return '源打开失败：已重试 3 次，可能被防盗链/证书/TLS/运营商拦截';
+    }
+    return raw.length > 180 ? '${raw.substring(0, 180)}...' : raw;
   }
 
   Future<void> _syncSystemVolumeInitial() async {
@@ -194,14 +361,10 @@ class KazumiPlayerController extends GetxController {
       final v = await FlutterVolumeController.getVolume();
       if (v != null) volume.value = (v * 100).clamp(0, 100);
       await FlutterVolumeController.updateShowSystemUI(false);
-      FlutterVolumeController.addListener(
-        (value) {
-          // 手势进行中不被覆盖
-          if (_pendingGestureVolume != null) return;
-          volume.value = (value * 100).clamp(0, 100);
-        },
-        emitOnStart: false,
-      );
+      FlutterVolumeController.addListener((value) {
+        if (_pendingGestureVolume != null) return;
+        volume.value = (value * 100).clamp(0, 100);
+      }, emitOnStart: false);
     } catch (_) {}
   }
 
@@ -243,7 +406,10 @@ class KazumiPlayerController extends GetxController {
   Future<void> seekTo(Duration to) async {
     final maxMs = duration.value.inMilliseconds;
     final clamped = Duration(
-      milliseconds: to.inMilliseconds.clamp(0, maxMs <= 0 ? to.inMilliseconds : maxMs),
+      milliseconds: to.inMilliseconds.clamp(
+        0,
+        maxMs <= 0 ? to.inMilliseconds : maxMs,
+      ),
     );
     position.value = clamped;
     try {
@@ -253,6 +419,7 @@ class KazumiPlayerController extends GetxController {
 
   Future<void> skipBy(Duration delta) async {
     await seekTo(position.value + delta);
+    showControlsTemporarily();
   }
 
   Future<void> setSpeed(double s) async {
@@ -262,7 +429,6 @@ class KazumiPlayerController extends GetxController {
     } catch (_) {}
   }
 
-  // ─── 长按倍速 ────────────────────────────────────────
   void beginLongPressSpeed({double target = 2.0}) {
     if (lockPanel.value) return;
     _savedSpeedBeforeLongPress = speed.value;
@@ -277,7 +443,7 @@ class KazumiPlayerController extends GetxController {
   }
 
   // ═══════════════════════════════════════════════════════
-  //  音量
+  //  音量 / 亮度（同前）
   // ═══════════════════════════════════════════════════════
 
   Future<void> setVolume(double v) async {
@@ -310,9 +476,7 @@ class KazumiPlayerController extends GetxController {
     _volumeGestureSyncTimer = null;
     final pending = _pendingGestureVolume;
     _pendingGestureVolume = null;
-    if (pending != null) {
-      await _syncSystemVolume(pending);
-    }
+    if (pending != null) await _syncSystemVolume(pending);
     _scheduleHudHide();
   }
 
@@ -326,17 +490,14 @@ class KazumiPlayerController extends GetxController {
     } catch (_) {}
   }
 
-  // ═══════════════════════════════════════════════════════
-  //  亮度
-  // ═══════════════════════════════════════════════════════
-
   Future<void> setBrightness(double b) async {
     final clamped = b.clamp(0.0, 1.0);
     brightness.value = clamped;
     if (isDesktop) return;
     try {
-      await ScreenBrightnessPlatform.instance
-          .setApplicationScreenBrightness(clamped);
+      await ScreenBrightnessPlatform.instance.setApplicationScreenBrightness(
+        clamped,
+      );
     } catch (_) {}
   }
 
@@ -361,12 +522,16 @@ class KazumiPlayerController extends GetxController {
     _cancelHideTimer();
   }
 
-  /// [deltaMsScaled] 已经经过 gestureSeekScaleMs / screenWidth 缩放后的毫秒增量
-  void updateSeekPreview({required int deltaMsScaled, required int directionSign}) {
+  void updateSeekPreview({
+    required int deltaMsScaled,
+    required int directionSign,
+  }) {
     if (directionSign != 0) seekDirection.value = directionSign;
     final maxMs = duration.value.inMilliseconds;
-    final target = (seekTargetMs.value + deltaMsScaled)
-        .clamp(0, maxMs <= 0 ? seekTargetMs.value : maxMs);
+    final target = (seekTargetMs.value + deltaMsScaled).clamp(
+      0,
+      maxMs <= 0 ? seekTargetMs.value : maxMs,
+    );
     seekTargetMs.value = target;
   }
 

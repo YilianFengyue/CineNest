@@ -82,7 +82,7 @@ dependencies:
   audio_service: ^0.18.15              # 后台播放/锁屏控件
   audio_session: ^0.2.2
   saver_gallery: ^4.1.0                # 截图保存到相册
-  floating: ^4.0.1                     # Android 画中画
+  floating: ^6.0.0                     # Android 画中画（V2 embedding）
   window_manager: ^0.5.1               # 桌面端窗口/全屏
 
   # WebView 降级方案（成员 A）

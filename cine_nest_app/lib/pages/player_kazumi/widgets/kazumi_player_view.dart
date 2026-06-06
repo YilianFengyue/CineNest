@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,15 +11,10 @@ import 'player_gesture_layer.dart';
 import 'player_hud_overlays.dart';
 import 'player_top_bar.dart';
 
-/// 整个 Kazumi 风格播放器的视图根节点。
+/// Kazumi 风播放器视图。
 ///
-/// 结构（Stack 自底向上）：
-///   1. Video 渲染面（按 aspectRatioType 适配）
-///   2. 缓冲/加载指示器
-///   3. 手势层（tap/double-tap/long-press + 横滑 seek/竖滑 vol/亮度）
-///   4. 顶部控制栏（标题 + 锁 + 设置）
-///   5. 底部控制栏（播放/进度/时间/全屏/截图/PIP）
-///   6. HUD 层（vol/亮度/倍速/seek 预览）
+/// **这个 widget 始终把自己铺满 parent**——上下分屏 / 全屏铺满 由外面的
+/// host 用 `AspectRatio(16:9, child: ...)` 或 `Expanded(child: ...)` 决定。
 class KazumiPlayerView extends StatefulWidget {
   const KazumiPlayerView({
     super.key,
@@ -29,17 +23,17 @@ class KazumiPlayerView extends StatefulWidget {
     this.onBack,
     this.onScreenshot,
     this.onEnterPip,
+    this.onRetry,
+    this.onOpenInWebView,
   });
 
   final KazumiPlayerController controller;
   final String? title;
   final VoidCallback? onBack;
-
-  /// 截图按钮回调；默认走 controller.screenshot() + saver_gallery 保存
   final Future<void> Function()? onScreenshot;
-
-  /// PIP 按钮回调；默认走 floating 包
   final Future<void> Function()? onEnterPip;
+  final Future<void> Function()? onRetry;
+  final VoidCallback? onOpenInWebView;
 
   @override
   State<KazumiPlayerView> createState() => _KazumiPlayerViewState();
@@ -49,48 +43,46 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
     with WidgetsBindingObserver {
   KazumiPlayerController get c => widget.controller;
 
+  Worker? _fullscreenWorker;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 只挂一次。避免每次 build 都注册新 listener。
+    _fullscreenWorker = ever<bool>(c.isFullscreen, _applySystemUiForFullscreen);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _applySystemUiForFullscreen(c.isFullscreen.value);
+    });
   }
 
   @override
   void dispose() {
+    _fullscreenWorker?.dispose();
+    _fullscreenWorker = null;
     WidgetsBinding.instance.removeObserver(this);
-    _restoreSystemUiIfNeeded();
+    _restoreSystemUi();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 切后台时停止播放（后台播放由 audio_service 接管，Step 1 先用最简单策略）
-    if (state == AppLifecycleState.paused && c.playing.value) {
-      // 后续若开启后台播放开关，这里跳过暂停；当前默认暂停
-      // c.pause();
-    }
-  }
-
   void _applySystemUiForFullscreen(bool full) {
-    if (Platform.isAndroid || Platform.isIOS) {
-      if (full) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-      } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-      }
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    if (full) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
   }
 
-  void _restoreSystemUiIfNeeded() {
-    if (Platform.isAndroid || Platform.isIOS) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    }
+  void _restoreSystemUi() {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   BoxFit _fitForAspectType(int type) {
@@ -107,21 +99,20 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
 
   @override
   Widget build(BuildContext context) {
-    // 监听全屏切换，套用系统 UI
-    ever<bool>(c.isFullscreen, _applySystemUiForFullscreen);
-
-    return Material(
+    return ColoredBox(
       color: Colors.black,
       child: Stack(
         fit: StackFit.expand,
         children: [
           // 1. 视频
-          Obx(() => Video(
-                controller: c.videoController,
-                controls: NoVideoControls,
-                fit: _fitForAspectType(c.aspectRatioType.value),
-                fill: Colors.black,
-              )),
+          Obx(
+            () => Video(
+              controller: c.videoController,
+              controls: NoVideoControls,
+              fit: _fitForAspectType(c.aspectRatioType.value),
+              fill: Colors.black,
+            ),
+          ),
 
           // 2. 缓冲/加载指示器
           Obx(() {
@@ -144,35 +135,44 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
             );
           }),
 
-          // 3. 手势层（包含 tap/double-tap/long-press/drag）
-          Positioned.fill(
-            child: PlayerGestureLayer(controller: c),
-          ),
+          // 3. 手势层
+          Positioned.fill(child: PlayerGestureLayer(controller: c)),
 
           // 4. 顶部控制栏
-          Obx(() {
-            final visible = c.showControls.value && !c.lockPanel.value;
-            return AnimatedSlide(
-              duration: const Duration(milliseconds: 250),
-              offset: visible ? Offset.zero : const Offset(0, -1),
-              child: AnimatedOpacity(
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Obx(() {
+              final visible = c.showControls.value && !c.lockPanel.value;
+              final compact = !c.isFullscreen.value;
+              return AnimatedSlide(
                 duration: const Duration(milliseconds: 250),
-                opacity: visible ? 1 : 0,
-                child: PlayerTopBar(
-                  title: widget.title,
-                  onBack: widget.onBack,
-                  controller: c,
+                offset: visible ? Offset.zero : const Offset(0, -1),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: visible ? 1 : 0,
+                  child: PlayerTopBar(
+                    title: widget.title,
+                    onBack: widget.onBack,
+                    onEnterPip: widget.onEnterPip,
+                    controller: c,
+                    compact: compact,
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
 
           // 5. 底部控制栏
-          Obx(() {
-            final visible = c.showControls.value && !c.lockPanel.value;
-            return Align(
-              alignment: Alignment.bottomCenter,
-              child: AnimatedSlide(
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Obx(() {
+              final visible = c.showControls.value && !c.lockPanel.value;
+              final compact = !c.isFullscreen.value;
+              return AnimatedSlide(
                 duration: const Duration(milliseconds: 250),
                 offset: visible ? Offset.zero : const Offset(0, 1),
                 child: AnimatedOpacity(
@@ -180,18 +180,19 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
                   opacity: visible ? 1 : 0,
                   child: PlayerBottomBar(
                     controller: c,
+                    compact: compact,
                     onScreenshot: widget.onScreenshot,
                     onEnterPip: widget.onEnterPip,
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
 
           // 6. HUD 层
           Positioned.fill(child: PlayerHudOverlays(controller: c)),
 
-          // 7. 锁定时只显示一个解锁按钮
+          // 7. 锁定时左侧只显示解锁按钮，避免上下重复锁控件。
           Obx(() {
             if (!c.lockPanel.value) return const SizedBox.shrink();
             return Align(
@@ -201,6 +202,61 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
                 child: IconButton.filledTonal(
                   icon: const Icon(Icons.lock_outline),
                   onPressed: c.toggleLock,
+                ),
+              ),
+            );
+          }),
+
+          // 8. 错误兜底
+          Obx(() {
+            if (c.lastError.value.isEmpty) return const SizedBox.shrink();
+            return Positioned(
+              left: 16,
+              right: 16,
+              bottom: 80,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '播放失败：${c.lastError.value}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (widget.onRetry != null) ...[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () {
+                          c.showControlsTemporarily();
+                          widget.onRetry!();
+                        },
+                        child: const Text('重试'),
+                      ),
+                    ],
+                    if (widget.onOpenInWebView != null)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: widget.onOpenInWebView,
+                        child: const Text('浏览器'),
+                      ),
+                  ],
                 ),
               ),
             );
