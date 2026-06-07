@@ -53,6 +53,10 @@
 | POST | `/api/uploads` | `multipart file` | `AssetRecord` |
 | GET | `/api/assets/{asset_id}` | — | 上传资产文件 |
 
+### Flutter 本地 Media Aggregator
+
+`cine_nest_app/lib/modules/media_aggregator/` 是手机端本地聚合器，不新增后端必需接口。它使用内置 MoonTV 风 `api_site` 配置直接搜索 MacCMS 源；后端 `/api/resources/*` 和 `/api/catalog/*` 只作为增强、调试或资料补齐兜底，不能阻塞基础搜索和播放。
+
 ### Flutter 必须识别的附件类型
 
 | type | payload |
@@ -156,6 +160,9 @@
 | `/movie-detail/:movieId` | 电影详情 | B |
 | `/player` | 播放器 | A |
 | `/webview-player` | WebView 降级播放 | A |
+| `/aggregator-temple` | 本地聚合器测试页 | A |
+| `/aggregator-detail-temple` | 本地聚合器详情/集数测试页 | A |
+| `/source-manager-temple` | 本地源管理测试页 | A |
 | `/preference` | 偏好设置 | B |
 | `/history` | 观影历史 | B |
 | `/settings` | 设置（连接+偏好入口） | A/B |

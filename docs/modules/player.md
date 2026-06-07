@@ -7,6 +7,7 @@
 - [x] F4 B 站降级：支持 B 站搜索结果展示；当结果是 BV 号时，后端会先尝试解析 B 站直链，失败时前端回退到 WebView。
 - [x] F7 PC-手机连接：设置页可输入 PC IP 和端口，保存后测试 `/api/health`，并显示连接中、已连接或失败状态。
 - [x] 成员 A 验收入口：设置页保留搜索电影、选择视频源、解析并播放的测试区域；固定 demo 视频只作为播放器测试按钮，不再混入真实搜索结果。
+- [x] 本地聚合器 Temple：`media_aggregator` 可直接产出 m3u8/mp4 播放会话，并交给 Kazumi 风播放器打开；旧后端视频源链路保留不删。
 
 ## 2. 涉及文件
 
@@ -16,6 +17,8 @@
 | `cine_nest_app/lib/pages/player/views/webview_player_page.dart` | WebView 降级页面 |
 | `cine_nest_app/lib/pages/player/views/source_debug_panel.dart` | 成员 A 真机验收入口 |
 | `cine_nest_app/lib/pages/player/services/source_api_service.dart` | 前端视频源 API 封装和本地降级 |
+| `cine_nest_app/lib/modules/media_aggregator/pages/aggregator_player_host_page.dart` | 本地聚合器播放会话接入 Kazumi 风播放器 |
+| `cine_nest_app/lib/modules/media_aggregator/services/aggregator_detail_engine.dart` | 聚合器详情与播放会话构建 |
 | `cine_nest_app/lib/pages/main/main_app.dart` | 设置页 PC 连接配置 UI |
 | `cine_nest_app/lib/router/app_pages.dart` | 注册 `/player` 和 `/webview-player` |
 | `cine_nest_app/android/app/src/main/AndroidManifest.xml` | 真机网络权限和开发期 HTTP 明文访问 |
@@ -39,6 +42,13 @@ GET /api/bilibili/search?keyword=肖申克的救赎 解说
 - `demo:<keyword>`：固定 demo 播放源，只用于播放器稳定性验收。
 - `bili:<keyword>`：B 站搜索页 WebView 降级源。
 - `bili:<bvid>`：B 站视频页，后端优先尝试解析直链，失败后前端降级 WebView。
+
+本地聚合器播放入口不使用旧 `source_id`，而是使用：
+
+- `source`：MoonTV/MacCMS 源 key，例如 `ffzy`。
+- `remoteId`：资源站 `vod_id`。
+- `episodes[]`：从 `vod_play_url` 或详情接口解析出的 m3u8/mp4 列表。
+- `playUrl`：传给 `KazumiPlayerController.open()` 的最终播放地址。
 
 ## 4. 真机验收步骤
 

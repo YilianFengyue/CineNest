@@ -7,6 +7,7 @@ import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 import '../../../services/logger.dart';
@@ -93,6 +94,7 @@ class KazumiPlayerController extends GetxController {
   double _savedSpeedBeforeLongPress = 1.0;
   bool _opening = false;
   final List<String> _openingErrors = [];
+  String? _demuxerCacheDir;
 
   static const String _browserUserAgent =
       'Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 '
@@ -135,7 +137,6 @@ class KazumiPlayerController extends GetxController {
         logger.e('PLAYER ERROR: $msg');
       }),
       player.stream.log.listen((l) {
-        // 只在 debug 模式记录 mpv log
         if (kDebugMode) logger.d('mpv: $l');
       }),
     ]);
@@ -146,6 +147,15 @@ class KazumiPlayerController extends GetxController {
       final pp = player.platform;
       if (pp is! NativePlayer) return;
 
+      // [修复] media_kit 默认强制 cache-on-disk=yes 但不设 demuxer-cache-dir，
+      // mpv 退回的默认临时目录在安卓 app 沙盒里不可写 → "Failed to create file cache"
+      // → 拉流卡死拿不到首帧（PC 的默认目录可写所以没事）。显式指到 app 临时目录，
+      // 对齐原版 Kazumi 的 demuxer-cache-dir 处理。
+      final cacheDir = await _resolveDemuxerCacheDir();
+      if (cacheDir != null) {
+        await pp.setProperty('demuxer-cache-dir', cacheDir);
+      }
+
       // HLS 先低码率起播，等用户能看之后再追求画质；移动端直链源稳定性优先。
       await pp.setProperty('hls-bitrate', 'min');
       await pp.setProperty('cache', 'yes');
@@ -153,10 +163,6 @@ class KazumiPlayerController extends GetxController {
       await pp.setProperty('demuxer-readahead-secs', '12');
       await pp.setProperty('network-timeout', '8');
       await pp.setProperty('vd-lavc-threads', '4');
-      await pp.setProperty(
-        'stream-lavf-o-append',
-        'reconnect=1,reconnect_at_eof=1,reconnect_streamed=1,reconnect_delay_max=3,rw_timeout=8000000',
-      );
       await pp.setProperty('user-agent', _browserUserAgent);
       await _applyAndroidHttpProxy(pp);
       await pp.setProperty('demuxer-max-bytes', '64MiB');
@@ -172,6 +178,10 @@ class KazumiPlayerController extends GetxController {
     }
   }
 
+  /// 跟随手机系统 HTTP 代理。
+  ///
+  /// 某些网络（如带代理的电脑热点）只能经代理出网，没有直连路由，所以这里必须跟随
+  /// 系统代理；没配代理时显式清空走直连。
   Future<void> _applyAndroidHttpProxy(NativePlayer pp) async {
     if (!Platform.isAndroid) return;
     final proxyUrl = await _readActiveAndroidHttpProxy();
@@ -203,6 +213,18 @@ class KazumiPlayerController extends GetxController {
       logger.w('read Android active proxy failed: $e');
       return null;
     }
+  }
+
+  /// 解析并缓存 mpv 磁盘缓存目录（app 临时目录）。
+  Future<String?> _resolveDemuxerCacheDir() async {
+    if (_demuxerCacheDir != null) return _demuxerCacheDir;
+    try {
+      final dir = await getTemporaryDirectory();
+      _demuxerCacheDir = dir.path;
+    } catch (e) {
+      logger.w('resolve demuxer cache dir failed: $e');
+    }
+    return _demuxerCacheDir;
   }
 
   @override

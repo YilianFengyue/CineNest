@@ -65,6 +65,12 @@ class SettingsPage extends StatelessWidget {
               onPressed: (_) => Get.toNamed(Routes.kazumiPlayerTest),
             ),
             SettingsTile.navigation(
+              leading: const Icon(Icons.hub_outlined),
+              title: const Text('聚合器 Temple'),
+              description: const Text('MoonTV 风本地聚合搜索、详情、试播'),
+              onPressed: (_) => Get.toNamed(Routes.aggregatorTemple),
+            ),
+            SettingsTile.navigation(
               leading: const Icon(Icons.display_settings_rounded),
               title: const Text('播放设置'),
               description: const Text('设置播放器相关参数'),
@@ -117,10 +123,8 @@ class SettingsPage extends StatelessWidget {
               leading: const Icon(Icons.pages_rounded),
               title: const Text('界面设置'),
               description: const Text('设置应用界面样式'),
-              onPressed: (_) => _openPlaceholder(
-                title: '界面设置',
-                icon: Icons.pages_rounded,
-              ),
+              onPressed: (_) =>
+                  _openPlaceholder(title: '界面设置', icon: Icons.pages_rounded),
             ),
           ],
         ),

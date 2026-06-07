@@ -17,6 +17,11 @@ abstract final class Routes {
   /// Kazumi 风播放器测试页（设置 → 播放器测试）。
   static const String kazumiPlayerTest = '/kazumi-player-test';
 
+  /// MoonTV 风本地聚合器测试页（设置 → 聚合器 Temple）。
+  static const String aggregatorTemple = '/aggregator-temple';
+  static const String aggregatorDetailTemple = '/aggregator-detail-temple';
+  static const String sourceManagerTemple = '/source-manager-temple';
+
   // Member C
   /// F8 互动海报详情页。arguments: `{catalog_provider_id, catalog_source_id, media_kind}`（真）或空（mock）。
   static const String creativePoster = '/creative-poster';
