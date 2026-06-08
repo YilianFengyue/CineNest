@@ -31,7 +31,19 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                   padding: const EdgeInsets.fromLTRB(16, 60, 16, 8),
                   child: Column(
                     children: [
-                      // 第一行：专属推荐（大横幅）
+                      // 第一行：心情/场景找片（新增大横幅）
+                      GestureDetector(
+                        onTap: () => Get.toNamed(Routes.scenario),
+                        child: _buildLargeBanner(
+                          context,
+                          title: "心情/场景找片",
+                          subtitle: "说出你的心情，AI 为你策展",
+                          icon: Icons.psychology,
+                          colors: [const Color(0xFF6A11CB), const Color(0xFF2575FC)],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // 第二行：专属推荐（原大横幅改为中等）
                       GestureDetector(
                         onTap: () {
                           if (Get.isRegistered<FeedController>()) {
@@ -39,16 +51,15 @@ class DiscoveryPage extends GetView<DiscoveryController> {
                           }
                           Get.toNamed('/feed');
                         },
-                        child: _buildLargeBanner(
+                        child: _buildMediumBanner(
                           context,
-                          title: "专属智能推荐",
-                          subtitle: "基于 AI 解析你的灵魂画像",
+                          title: "基于偏好的智能推荐",
                           icon: Icons.auto_awesome,
-                          colors: [colorScheme.primary, colorScheme.tertiary],
+                          color: colorScheme.primary,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // 第二行：并列的两个小按钮
+                      // 第三行：并列的两个小按钮
                       Row(
                         children: [
                           Expanded(
@@ -240,6 +251,41 @@ class DiscoveryPage extends GetView<DiscoveryController> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMediumBanner(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      height: 70,
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withAlpha(40), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: color.withAlpha(230),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.arrow_forward_ios_rounded, color: color.withAlpha(100), size: 16),
+          ],
+        ),
       ),
     );
   }
