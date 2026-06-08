@@ -129,8 +129,20 @@ class _AggregatorTemplePageState extends State<AggregatorTemplePage> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (results.isEmpty) {
+                final searched = _ctrl.keyword.value.trim().isNotEmpty;
+                final failed = _ctrl.traces.where((trace) => !trace.ok).length;
+                final message = searched
+                    ? '本次没有可用直链结果，$failed 个源异常，可点 Trace 查看'
+                    : '输入片名开始聚合搜索';
                 return Center(
-                  child: Text('输入片名开始聚合搜索', style: theme.textTheme.bodyMedium),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
                 );
               }
               return ListView.separated(

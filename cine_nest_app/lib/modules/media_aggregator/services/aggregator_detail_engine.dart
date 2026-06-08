@@ -27,7 +27,7 @@ class AggregatorDetailEngine {
   Future<AggregatorMediaDetail> loadDetail(
     AggregatorSearchResult result, {
     bool useCache = true,
-    bool enrichTmdb = true,
+    bool enrichTmdb = false,
   }) async {
     if (useCache) {
       final cached = _cacheRepository.readFresh(result.identity);
@@ -37,16 +37,23 @@ class AggregatorDetailEngine {
     }
 
     final source = await _registry.requireSource(result.source);
-    var detail = await _downstream.getDetailFromApi(source, result.remoteId);
+    var detail = AggregatorMediaDetail.fromSearch(result);
+    try {
+      detail = await _downstream.getDetailFromApi(source, result.remoteId);
+    } catch (_) {
+      if (result.episodes.isEmpty) rethrow;
+    }
     if (detail.episodes.isEmpty && result.episodes.isNotEmpty) {
       detail = detail.copyWith(episodes: result.episodes);
     }
     if (enrichTmdb) {
-      final tmdb = await _enrichmentService.enrich(
-        title: detail.title,
-        year: detail.year,
-        mediaKind: detail.episodes.length > 2 ? 'tv' : 'movie',
-      );
+      final tmdb = await _enrichmentService
+          .enrich(
+            title: detail.title,
+            year: detail.year,
+            mediaKind: detail.episodes.length > 2 ? 'tv' : 'movie',
+          )
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
       if (tmdb != null) {
         detail = detail.copyWith(tmdb: tmdb);
       }

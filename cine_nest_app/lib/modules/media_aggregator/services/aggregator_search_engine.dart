@@ -18,7 +18,7 @@ class AggregatorSearchEngine {
     SourceRanker? ranker,
     TmdbEnrichmentService? enrichmentService,
     this.maxConcurrency = 6,
-    this.enableTmdbEnrichment = true,
+    this.enableTmdbEnrichment = false,
   }) : _registry = registry ?? MoonTvSourceRegistry(),
        _downstream = downstream ?? MoonTvDownstream(),
        _healthRepository = healthRepository ?? SourceHealthRepository(),
@@ -161,7 +161,9 @@ class AggregatorSearchEngine {
           .map((item) => item.copyWith(health: health))
           .toList();
       if (enableTmdbEnrichment && items.isNotEmpty) {
-        items = await _enrichTopItems(items);
+        items = await _enrichTopItems(
+          items,
+        ).timeout(const Duration(seconds: 3), onTimeout: () => items);
       }
       return _SourceSearchResult(
         taskId: taskId,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
@@ -141,19 +142,31 @@ class MoonTvDownstream {
 
   Future<Map<String, dynamic>> _getJson(String url) async {
     final response = await _dio
-        .get<Object?>(
+        .get<String>(
           url,
           options: Options(
             headers: _headers,
-            responseType: ResponseType.json,
+            responseType: ResponseType.plain,
             sendTimeout: timeout,
             receiveTimeout: timeout,
           ),
         )
         .timeout(timeout);
-    final data = response.data;
+    final raw = (response.data ?? '').trim();
+    if (raw.isEmpty) {
+      throw StateError('资源站返回空内容');
+    }
+    Object? data;
+    try {
+      data = jsonDecode(raw);
+    } catch (_) {
+      final preview = raw.replaceAll(RegExp(r'\s+'), ' ');
+      throw StateError(
+        preview.startsWith('<') ? '资源站返回 HTML 页面' : '资源站返回内容不是 JSON',
+      );
+    }
     if (data is Map) return Map<String, dynamic>.from(data);
-    throw StateError('资源站返回值不是 JSON object');
+    throw StateError('资源站返回 JSON 不是对象');
   }
 
   List<Map<String, dynamic>> _listFromResponse(Map<String, dynamic> data) {

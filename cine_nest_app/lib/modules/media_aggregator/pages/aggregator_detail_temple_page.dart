@@ -54,7 +54,15 @@ class _AggregatorDetailTemplePageState
   String _friendly(Object error) {
     final raw = error.toString();
     if (raw.contains('未找到可播放直链')) return '未找到可播放直链，建议换源';
-    return raw.length > 120 ? '${raw.substring(0, 120)}...' : raw;
+    if (raw.contains('不是 JSON') ||
+        raw.contains('HTML') ||
+        raw.contains('详情为空')) {
+      return '当前源详情异常，建议返回换一个源';
+    }
+    if (raw.contains('TimeoutException') || raw.contains('timeout')) {
+      return '详情请求超时，建议返回换源或稍后重试';
+    }
+    return '详情加载失败，建议返回换一个源';
   }
 
   @override

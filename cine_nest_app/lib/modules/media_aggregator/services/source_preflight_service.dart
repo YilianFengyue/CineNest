@@ -42,7 +42,7 @@ class SourcePreflightService {
               sendTimeout: timeout,
               receiveTimeout: timeout,
               validateStatus: (status) =>
-                  status != null && status >= 200 && status < 500,
+                  status == 200 || status == 206 || status == 302,
             ),
           )
           .timeout(timeout);
