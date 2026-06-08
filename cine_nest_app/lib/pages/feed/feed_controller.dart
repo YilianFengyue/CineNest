@@ -7,6 +7,7 @@ class FeedController extends GetxController {
   var postList = <Post>[].obs;
   // 加载状态
   var isLoading = true.obs;
+
   // 分页页码
   int _page = 1;
 
@@ -21,7 +22,9 @@ class FeedController extends GetxController {
     try {
       isLoading(true);
       _page = 1;
-      var data = await FeedApi.getAiRecommendations(page: _page);
+      var data = await FeedApi.getAiRecommendations(
+        page: _page,
+      );
       postList.assignAll(data);
     } catch (e) {
       Get.snackbar("错误", "获取推荐失败: $e");
@@ -33,7 +36,9 @@ class FeedController extends GetxController {
   // 下拉刷新/上拉加载更多
   Future<void> loadMore() async {
     _page++;
-    var data = await FeedApi.getAiRecommendations(page: _page);
+    var data = await FeedApi.getAiRecommendations(
+      page: _page,
+    );
     postList.addAll(data);
   }
 }

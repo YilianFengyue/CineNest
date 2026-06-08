@@ -2,16 +2,31 @@ import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/models/movie.dart';
 import 'package:cine_nest/models/post.dart';
+import 'package:cine_nest/models/scenario_response.dart';
 
 class FeedApi {
   const FeedApi._();
 
-  static Future<List<Post>> getAiRecommendations({int page = 1}) async {
+  static Future<ScenarioResponse> getScenarioRecommendations({
+    required String scenario,
+  }) async {
+    final response = await Request().get(
+      '/api/feed/scenario',
+      queryParameters: {'scenario': scenario},
+    );
+    return ScenarioResponse.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  static Future<List<Post>> getAiRecommendations({
+    int page = 1,
+    String? scenario,
+  }) async {
     final feedResponse = await Request().get(
       ApiConstants.feed,
       queryParameters: {
         'page': page,
         'refresh': true,
+        'scenario': scenario,
         'ts': DateTime.now().millisecondsSinceEpoch,
       },
     );

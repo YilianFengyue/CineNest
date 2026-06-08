@@ -31,6 +31,12 @@ class Post(BaseModel):
     has_video_source: bool = False
     has_bilibili: bool = False
     poster_url: Optional[str] = None  # C 的 Micro Design 海报，空则前端回退 movie.poster_url
+    debug_info: Optional[str] = None
+
+
+class ScenarioResponse(BaseModel):
+    posts: list[Post]
+    debug_info: Optional[str] = None
 
 
 class VideoEpisode(BaseModel):

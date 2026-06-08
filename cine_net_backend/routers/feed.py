@@ -20,6 +20,7 @@ from models.schemas import (
     Feedback,
     Movie,
     Post,
+    ScenarioResponse,
     UserPreference,
     WatchHistoryItem,
     WatchHistoryRequest,
@@ -263,8 +264,18 @@ async def _preference_posts(pref: UserPreference) -> list[Post]:
 async def get_feed(
     refresh: bool = False,
     sort_by: str = Query("popularity", description="popularity or rating"),
+    scenario: str | None = Query(None, description="场景化推荐，如'下饭电影'"),
 ):
     """成员 B 首页专属推荐主入口。"""
+
+    # 如果有特定场景，直接走 Agent 语义路径
+    if scenario:
+        try:
+            posts = await movie_agent_service.get_personalized_feed("", scenario=scenario)
+            return posts or _fallback_posts()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[Agent scenario fallback] feed failed: {exc}", flush=True)
+            return _fallback_posts()
 
     local_pref = get_user_preference()
     history_titles = get_watch_history_titles()
@@ -294,6 +305,25 @@ async def get_feed(
     except Exception as exc:  # noqa: BLE001
         print(f"[Agent fallback] feed failed: {exc}", flush=True)
         return _fallback_posts()
+
+
+@router.get("/feed/scenario", response_model=ScenarioResponse)
+async def get_scenario_feed(
+    scenario: str = Query(..., min_length=1, max_length=100),
+):
+    """独立场景化推荐页专属接口。"""
+
+    local_pref = get_user_preference()
+    prompt = ""
+    if local_pref.liked_genres:
+        prompt += f"喜欢的类型: {', '.join(local_pref.liked_genres)}. "
+    if local_pref.free_text:
+        prompt += f"偏好描述: {local_pref.free_text}"
+
+    try:
+        return await movie_agent_service.get_scenario_recommendation(prompt, scenario)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Scenario recommendation failed: {exc}") from exc
 
 
 @router.get("/feed/microdesign", response_model=list[MicroDesignPost])

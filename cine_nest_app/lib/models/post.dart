@@ -9,6 +9,7 @@ class Post {
   final bool hasVideoSource; // 是否有在线播放源
   final bool hasBilibili; // 是否有 B站解说
   final String? posterUrl; // C 生成的 Micro Design 海报（F8），为空则用 movie.posterUrl
+  final String? debugInfo; // 后端调试信息
 
   const Post({
     required this.movie,
@@ -16,6 +17,7 @@ class Post {
     this.hasVideoSource = false,
     this.hasBilibili = false,
     this.posterUrl,
+    this.debugInfo,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) => Post(
@@ -24,6 +26,7 @@ class Post {
     hasVideoSource: json['has_video_source'] as bool? ?? false,
     hasBilibili: json['has_bilibili'] as bool? ?? false,
     posterUrl: json['poster_url'] as String?,
+    debugInfo: json['debug_info'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -32,5 +35,6 @@ class Post {
     'has_video_source': hasVideoSource,
     'has_bilibili': hasBilibili,
     'poster_url': posterUrl,
+    'debug_info': debugInfo,
   };
 }

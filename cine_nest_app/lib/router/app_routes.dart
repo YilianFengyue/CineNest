@@ -9,6 +9,7 @@ abstract final class Routes {
   static const String preference = '/preference';
   static const String history = '/history';
   static const String collection = '/collection';
+  static const String scenario = '/scenario';
 
   // Member A
   static const String sourcePicker = '/source-picker';
