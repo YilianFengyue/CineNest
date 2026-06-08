@@ -164,7 +164,10 @@ class KazumiPlayerController extends GetxController {
       await pp.setProperty('network-timeout', '8');
       await pp.setProperty('vd-lavc-threads', '4');
       await pp.setProperty('user-agent', _browserUserAgent);
-      await _applyAndroidHttpProxy(pp);
+      // 先禁用 mpv 原生代理注入，恢复普通 Wi-Fi 下 HLS 直连播放稳定性。
+      // Android/WebView 能用系统代理不代表 mpv/FFmpeg 的 HLS 子请求也兼容；
+      // 代理热点播放问题后续单独做本地 HLS relay 或更可靠的代理层。
+      await pp.setProperty('http-proxy', '');
       await pp.setProperty('demuxer-max-bytes', '64MiB');
       await pp.setProperty('demuxer-max-back-bytes', '12MiB');
 

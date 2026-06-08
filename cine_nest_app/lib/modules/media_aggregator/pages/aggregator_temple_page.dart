@@ -121,7 +121,7 @@ class _AggregatorTemplePageState extends State<AggregatorTemplePage> {
               ],
             ),
           ),
-          Obx(() => _StatusBar(ctrl: _ctrl)),
+          _StatusBar(ctrl: _ctrl),
           Expanded(
             child: Obx(() {
               final results = _ctrl.results;
@@ -160,40 +160,45 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final total = ctrl.totalSources.value;
-    final completed = ctrl.completedSources.value;
-    final searching = ctrl.searching.value;
-    final text = total == 0
-        ? (searching ? '准备搜索' : '空闲')
-        : '${searching ? '搜索中' : '已完成'} $completed/$total · ${ctrl.results.length} 条';
-    return Column(
-      children: [
-        LinearProgressIndicator(
-          value: total == 0 ? null : ctrl.progress.clamp(0, 1),
-          minHeight: 2,
-        ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-          child: Row(
-            children: [
-              Icon(
-                searching ? Icons.sync : Icons.done,
-                size: 16,
-                color: searching ? cs.primary : Colors.green,
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(text)),
-              if (ctrl.fromCache.value)
-                Text('缓存先行', style: TextStyle(color: cs.primary)),
-              if (searching)
-                TextButton(onPressed: ctrl.stopSearch, child: const Text('停止')),
-            ],
+    return Obx(() {
+      final cs = Theme.of(context).colorScheme;
+      final total = ctrl.totalSources.value;
+      final completed = ctrl.completedSources.value;
+      final searching = ctrl.searching.value;
+      final text = total == 0
+          ? (searching ? '准备搜索' : '空闲')
+          : '${searching ? '搜索中' : '已完成'} $completed/$total · ${ctrl.results.length} 条';
+      return Column(
+        children: [
+          LinearProgressIndicator(
+            value: total == 0 ? null : ctrl.progress.clamp(0, 1),
+            minHeight: 2,
           ),
-        ),
-      ],
-    );
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+            child: Row(
+              children: [
+                Icon(
+                  searching ? Icons.sync : Icons.done,
+                  size: 16,
+                  color: searching ? cs.primary : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(text)),
+                if (ctrl.fromCache.value)
+                  Text('缓存先行', style: TextStyle(color: cs.primary)),
+                if (searching)
+                  TextButton(
+                    onPressed: ctrl.stopSearch,
+                    child: const Text('停止'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
   }
 }
