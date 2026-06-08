@@ -1,4 +1,5 @@
 import 'package:card_settings_ui/card_settings_ui.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_home_page.dart';
 import 'package:cine_nest/pages/settings/appearance_settings_page.dart';
 import 'package:cine_nest/pages/settings/connection_settings_page.dart';
 import 'package:cine_nest/pages/settings/placeholder_settings_page.dart';
@@ -133,6 +134,13 @@ class SettingsPage extends StatelessWidget {
         SettingsSection(
           title: const Text('其他'),
           tiles: [
+            SettingsTile.navigation(
+              leading: const Icon(Icons.science_rounded),
+              title: const Text('Kazumi 首页预览'),
+              description: const Text('测试 Kazumi 风格首页 + 详情页'),
+              onPressed: (_) =>
+                  Get.to(() => const KazumiHomePage()),
+            ),
             SettingsTile.navigation(
               leading: const Icon(Icons.info_outline_rounded),
               title: const Text('关于'),
