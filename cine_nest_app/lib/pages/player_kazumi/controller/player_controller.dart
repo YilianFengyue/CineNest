@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -15,7 +14,7 @@ import '../../../services/logger.dart';
 /// 播放器核心控制器（GetX 包装 media_kit Player + VideoController）。
 class KazumiPlayerController extends GetxController {
   KazumiPlayerController({
-    this.bufferSizeBytes = 64 * 1024 * 1024,
+    this.bufferSizeBytes = 512 * 1024 * 1024,
     this.openTimeout = const Duration(seconds: 14),
     this.firstFrameTimeout = const Duration(seconds: 12),
     this.autoHideDelay = const Duration(seconds: 4),
@@ -99,9 +98,6 @@ class KazumiPlayerController extends GetxController {
   static const String _browserUserAgent =
       'Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36';
-  static const MethodChannel _networkChannel = MethodChannel(
-    'cine_nest/network',
-  );
 
   static bool get isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
@@ -156,20 +152,9 @@ class KazumiPlayerController extends GetxController {
         await pp.setProperty('demuxer-cache-dir', cacheDir);
       }
 
-      // HLS 先低码率起播，等用户能看之后再追求画质；移动端直链源稳定性优先。
-      await pp.setProperty('hls-bitrate', 'min');
-      await pp.setProperty('cache', 'yes');
-      await pp.setProperty('cache-secs', '12');
-      await pp.setProperty('demuxer-readahead-secs', '12');
-      await pp.setProperty('network-timeout', '8');
-      await pp.setProperty('vd-lavc-threads', '4');
+      // 对齐 Kazumi：HLS 交给 mpv 默认策略，避免代理环境下被过短 timeout、
+      // 强制低码率或手动 cache 参数干扰。
       await pp.setProperty('user-agent', _browserUserAgent);
-      // 先禁用 mpv 原生代理注入，恢复普通 Wi-Fi 下 HLS 直连播放稳定性。
-      // Android/WebView 能用系统代理不代表 mpv/FFmpeg 的 HLS 子请求也兼容；
-      // 代理热点播放问题后续单独做本地 HLS relay 或更可靠的代理层。
-      await pp.setProperty('http-proxy', '');
-      await pp.setProperty('demuxer-max-bytes', '64MiB');
-      await pp.setProperty('demuxer-max-back-bytes', '12MiB');
 
       // ─── 平台差异 ────────────────────────────────────────────
       if (Platform.isAndroid) {
@@ -178,43 +163,6 @@ class KazumiPlayerController extends GetxController {
       logger.i('mpv native tweaks applied');
     } catch (e) {
       logger.w('native tweaks failed: $e');
-    }
-  }
-
-  /// 跟随手机系统 HTTP 代理。
-  ///
-  /// 某些网络（如带代理的电脑热点）只能经代理出网，没有直连路由，所以这里必须跟随
-  /// 系统代理；没配代理时显式清空走直连。
-  Future<void> _applyAndroidHttpProxy(NativePlayer pp) async {
-    if (!Platform.isAndroid) return;
-    final proxyUrl = await _readActiveAndroidHttpProxy();
-    if (proxyUrl == null) {
-      await pp.setProperty('http-proxy', '');
-      logger.i('mpv http-proxy cleared: no active Android proxy');
-      return;
-    }
-    await pp.setProperty('http-proxy', proxyUrl);
-    logger.i('mpv http-proxy applied: $proxyUrl');
-  }
-
-  Future<String?> _readActiveAndroidHttpProxy() async {
-    try {
-      final raw = await _networkChannel.invokeMethod<Map<dynamic, dynamic>>(
-        'getActiveHttpProxy',
-      );
-      if (raw == null) return null;
-      final host = raw['host']?.toString().trim();
-      final portValue = raw['port'];
-      final port = portValue is int
-          ? portValue
-          : int.tryParse(portValue?.toString() ?? '');
-      if (host == null || host.isEmpty || port == null || port <= 0) {
-        return null;
-      }
-      return 'http://$host:$port';
-    } catch (e) {
-      logger.w('read Android active proxy failed: $e');
-      return null;
     }
   }
 
@@ -302,55 +250,23 @@ class KazumiPlayerController extends GetxController {
     required Duration startAt,
     required bool autoPlay,
   }) async {
-    Object? lastFailure;
-    for (var attempt = 0; attempt < 3; attempt++) {
-      _openingErrors.clear();
-      try {
-        if (attempt > 0) {
-          await player.stop();
-          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
-        }
-        await _applyNativeTweaks();
-        await player
-            .open(
-              Media(url, start: startAt, httpHeaders: headers),
-              play: autoPlay,
-            )
-            .timeout(openTimeout);
-        if (!autoPlay) return;
-        await videoController.waitUntilFirstFrameRendered.timeout(
-          firstFrameTimeout,
-        );
-        return;
-      } catch (e) {
-        lastFailure = e;
-        logger.w('open attempt ${attempt + 1} failed: $e');
-      }
+    try {
+      await _applyNativeTweaks();
+      await player.open(
+        Media(url, start: startAt, httpHeaders: headers),
+        play: autoPlay,
+      );
+    } catch (e) {
+      logger.w('open failed: $e');
+      rethrow;
     }
-
-    final transient = _openingErrors.isEmpty ? '' : _openingErrors.last;
-    throw transient.isEmpty
-        ? (lastFailure ?? 'unknown playback error')
-        : transient;
   }
 
   Map<String, String> _buildPlaybackHeaders(
     String url,
     Map<String, String>? headers,
   ) {
-    final merged = <String, String>{
-      'User-Agent': _browserUserAgent,
-      'Accept': '*/*',
-      'Connection': 'keep-alive',
-    };
-    final uri = Uri.tryParse(url);
-    if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
-      final origin =
-          '${uri.scheme}://${uri.host}'
-          '${uri.hasPort ? ':${uri.port}' : ''}';
-      merged['Referer'] = '$origin/';
-      merged['Origin'] = origin;
-    }
+    final merged = <String, String>{'User-Agent': _browserUserAgent};
     if (headers != null) {
       merged.addAll(headers);
     }
