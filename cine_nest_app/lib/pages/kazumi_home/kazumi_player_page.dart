@@ -13,6 +13,7 @@ import 'package:cine_nest/router/app_pages.dart';
 import 'package:cine_nest/repositories/local_favorite_repository.dart';
 import 'package:cine_nest/repositories/local_history_repository.dart';
 import 'package:cine_nest/services/tmdb_direct_enrichment_service.dart';
+import 'package:cine_nest/pages/kazumi_home/widgets/bili_video_section.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/debate_recommendation_card.dart';
 
 class KazumiPlayerPage extends StatefulWidget {
@@ -323,6 +324,7 @@ class _InfoTab extends StatefulWidget {
 
 class _InfoTabState extends State<_InfoTab> {
   final _favRepo = LocalFavoriteRepository();
+  final _biliKey = GlobalKey<BiliVideoSectionState>();
   late bool _isFav;
 
   AggregatorMediaDetail get detail => widget.detail;
@@ -380,9 +382,17 @@ class _InfoTabState extends State<_InfoTab> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      children: [
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n is ScrollEndNotification &&
+            n.metrics.pixels >= n.metrics.maxScrollExtent - 200) {
+          _biliKey.currentState?.loadMore();
+        }
+        return false;
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        children: [
         // ── 标题 + 追剧 ──
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,8 +499,15 @@ class _InfoTabState extends State<_InfoTab> {
               },
             ),
           ),
+        // ── B 站相关视频 ──
+        BiliVideoSection(
+          key: _biliKey,
+          movieTitle: detail.title,
+          year: detail.year,
+        ),
         ],
       ],
+      ),
     );
   }
 

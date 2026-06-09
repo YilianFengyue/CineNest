@@ -109,6 +109,7 @@ class KazumiPlayerController extends GetxController {
   Timer? _hideTimer;
   Timer? _hudHideTimer;
   Timer? _volumeGestureSyncTimer;
+  Timer? _errorHideTimer;
   double? _pendingGestureVolume;
   double _savedSpeedBeforeLongPress = 1.0;
   bool _opening = false;
@@ -148,7 +149,7 @@ class KazumiPlayerController extends GetxController {
           logger.w('PLAYER OPEN TRANSIENT ERROR: $msg');
           return;
         }
-        lastError.value = msg;
+        _showTransientError(msg);
         loading.value = false;
         logger.e('PLAYER ERROR: $msg');
       }),
@@ -233,6 +234,7 @@ class KazumiPlayerController extends GetxController {
   Future<void> onClose() async {
     _cancelHideTimer();
     _cancelHudHideTimer();
+    _cancelErrorHideTimer();
     _volumeGestureSyncTimer?.cancel();
     for (final s in _subs) {
       try {
@@ -266,7 +268,7 @@ class KazumiPlayerController extends GetxController {
     bool autoPlay = true,
   }) async {
     loading.value = true;
-    lastError.value = '';
+    _clearError();
     _opening = true;
     _openingErrors.clear();
     final httpHeaders = _buildPlaybackHeaders(url, headers);
@@ -282,11 +284,11 @@ class KazumiPlayerController extends GetxController {
       logger.i('player.open rendered first frame');
       await _syncSystemVolumeInitial();
       await _syncSystemBrightnessInitial();
-      lastError.value = '';
+      _clearError();
       showControlsTemporarily();
     } catch (e) {
       final message = _friendlyOpenFailure(e);
-      lastError.value = message;
+      _showTransientError(message);
       logger.e('open failed: $message');
     } finally {
       _opening = false;
@@ -601,6 +603,26 @@ class KazumiPlayerController extends GetxController {
   void _cancelHudHideTimer() {
     _hudHideTimer?.cancel();
     _hudHideTimer = null;
+  }
+
+  void _showTransientError(String message) {
+    _cancelErrorHideTimer();
+    lastError.value = message;
+    _errorHideTimer = Timer(const Duration(seconds: 3), () {
+      if (lastError.value == message) {
+        lastError.value = '';
+      }
+    });
+  }
+
+  void _clearError() {
+    _cancelErrorHideTimer();
+    lastError.value = '';
+  }
+
+  void _cancelErrorHideTimer() {
+    _errorHideTimer?.cancel();
+    _errorHideTimer = null;
   }
 
   // ═══════════════════════════════════════════════════════
