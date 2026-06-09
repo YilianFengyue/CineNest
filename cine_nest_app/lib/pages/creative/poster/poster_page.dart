@@ -89,7 +89,7 @@ class _PosterPageState extends State<PosterPage> {
   }
 
   void _handleAction(BuildContext context, MicroAction action) {
-    handleCreativeAction(context, action);
+    handleCreativeAction(context, action, fallbackTitle: _controller.title);
   }
 }
 

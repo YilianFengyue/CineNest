@@ -20,8 +20,8 @@ class AttachmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final meta = message.metadata ?? const {};
     final kind = meta[ChatMeta.kind] as String?;
-    final payload = (meta[ChatMeta.payload] as Map?)?.cast<String, dynamic>() ??
-        const {};
+    final payload =
+        (meta[ChatMeta.payload] as Map?)?.cast<String, dynamic>() ?? const {};
 
     if (kind == ChatMeta.kindPoster) {
       return _PosterPreview(payload: payload, onAction: onAction);
@@ -40,8 +40,8 @@ class AttachmentCard extends StatelessWidget {
     }
     if (kind == ChatMeta.kindNews) {
       // 资讯流：每条 item 的 blocks 各自拼贴。
-      final items = (payload['items'] as List?)?.whereType<Map>().toList() ??
-          const [];
+      final items =
+          (payload['items'] as List?)?.whereType<Map>().toList() ?? const [];
       if (items.isEmpty) return const SizedBox.shrink();
       return Align(
         alignment: Alignment.centerLeft,
@@ -67,8 +67,8 @@ class AttachmentCard extends StatelessWidget {
       );
     }
     // 默认按推荐 feed 渲染。
-    final posts = (payload['posts'] as List?)?.whereType<Map>().toList() ??
-        const [];
+    final posts =
+        (payload['posts'] as List?)?.whereType<Map>().toList() ?? const [];
     if (posts.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
@@ -128,10 +128,12 @@ class _PostCard extends StatelessWidget {
     final rating = (post['rating'] as num?)?.toDouble();
     final reason = post['recommend_reason'] as String? ?? '';
     final sourceCount = (post['source_count'] as num?)?.toInt() ?? 0;
-    final genres = (post['genres'] as List?)?.map((e) => e.toString()).toList() ??
+    final genres =
+        (post['genres'] as List?)?.map((e) => e.toString()).toList() ??
         const <String>[];
     final actions = _actionsFrom(post['actions']);
-    final openPoster = _firstOfType(actions, 'openPoster') ??
+    final openPoster =
+        _firstOfType(actions, 'openPoster') ??
         _firstOfType(actions, 'openResourcePoster');
     final play = _firstOfType(actions, 'resolveAndPlay');
 
@@ -187,8 +189,11 @@ class _PostCard extends StatelessWidget {
                         Row(
                           children: [
                             if (rating != null && rating > 0) ...[
-                              Icon(Icons.star_rounded,
-                                  color: Colors.amber.shade600, size: 16),
+                              Icon(
+                                Icons.star_rounded,
+                                color: Colors.amber.shade600,
+                                size: 16,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 rating.toStringAsFixed(1),
@@ -235,8 +240,9 @@ class _PostCard extends StatelessWidget {
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: cs.secondaryContainer
-                                        .withValues(alpha: 0.6),
+                                    color: cs.secondaryContainer.withValues(
+                                      alpha: 0.6,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -264,7 +270,7 @@ class _PostCard extends StatelessWidget {
                       FilledButton.tonalIcon(
                         onPressed: onAction == null
                             ? null
-                            : () => onAction!(play),
+                            : () => onAction!(play.withTitleFallback(title)),
                         icon: const Icon(Icons.play_arrow_rounded, size: 18),
                         label: Text(play.label.isEmpty ? '立即播放' : play.label),
                         style: FilledButton.styleFrom(
@@ -308,10 +314,12 @@ class _PosterPreview extends StatelessWidget {
     // 仅取头部观感块（banner / rating / tagRow），完整线路在详情页展示。
     final all = ContentBlock.listFrom(payload['blocks']);
     final preview = all
-        .where((b) =>
-            b.type == ContentBlockType.banner ||
-            b.type == ContentBlockType.rating ||
-            b.type == ContentBlockType.tagRow)
+        .where(
+          (b) =>
+              b.type == ContentBlockType.banner ||
+              b.type == ContentBlockType.rating ||
+              b.type == ContentBlockType.tagRow,
+        )
         .toList();
     final open = _openPosterAction();
 

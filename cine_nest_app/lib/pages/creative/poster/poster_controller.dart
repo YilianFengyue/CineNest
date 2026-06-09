@@ -133,10 +133,17 @@ class PosterController extends GetxController {
             .map((e) => MicroAction.fromJson(e.cast<String, dynamic>()))
             .toList() ??
         const [];
-    primaryPlay = actions.cast<MicroAction?>().firstWhere(
-      (a) => a?.type == 'resolveAndPlay',
-      orElse: () => null,
-    );
+    primaryPlay = actions
+        .cast<MicroAction?>()
+        .firstWhere((a) => a?.type == 'resolveAndPlay', orElse: () => null)
+        ?.withTitleFallback(title);
+    primaryPlay ??= title.isEmpty
+        ? null
+        : MicroAction(
+            type: 'resolveAndPlay',
+            label: '立即播放',
+            data: {'title': title},
+          );
   }
 
   Future<void> reload() => _load();

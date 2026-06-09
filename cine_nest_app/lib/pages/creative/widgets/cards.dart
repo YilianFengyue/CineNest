@@ -184,8 +184,11 @@ class PlayableMovieCard extends StatelessWidget {
                   children: [
                     if (play != null)
                       FilledButton.tonalIcon(
-                        onPressed:
-                            onAction == null ? null : () => onAction!(play),
+                        onPressed: onAction == null
+                            ? null
+                            : () => onAction!(
+                                play.withTitleFallback(block.str('title')),
+                              ),
                         icon: const Icon(Icons.play_arrow_rounded, size: 18),
                         label: Text(play.label.isEmpty ? '立即播放' : play.label),
                         style: FilledButton.styleFrom(
@@ -223,8 +226,8 @@ class MovieCarouselCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final title = block.str('title');
-    final items = (block.data['items'] as List?)?.whereType<Map>().toList() ??
-        const [];
+    final items =
+        (block.data['items'] as List?)?.whereType<Map>().toList() ?? const [];
     if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +253,8 @@ class MovieCarouselCard extends StatelessWidget {
               final rating = (m['rating'] as num?)?.toDouble() ?? 0;
               final action = m['action'] is Map
                   ? MicroAction.fromJson(
-                      (m['action'] as Map).cast<String, dynamic>())
+                      (m['action'] as Map).cast<String, dynamic>(),
+                    )
                   : null;
               return SizedBox(
                 width: 108,
@@ -287,9 +291,11 @@ class MovieCarouselCard extends StatelessWidget {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.star_rounded,
-                                        size: 12,
-                                        color: Colors.amber.shade400),
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 12,
+                                      color: Colors.amber.shade400,
+                                    ),
                                     const SizedBox(width: 2),
                                     Text(
                                       rating.toStringAsFixed(1),
@@ -387,9 +393,10 @@ class ReviewQuoteCard extends StatelessWidget {
                       ],
                       Expanded(
                         child: Text(
-                          [author, source]
-                              .where((e) => e.isNotEmpty)
-                              .join(' · '),
+                          [
+                            author,
+                            source,
+                          ].where((e) => e.isNotEmpty).join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -423,8 +430,8 @@ class SourceTraceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final query = block.str('query');
-    final items = (block.data['items'] as List?)?.whereType<Map>().toList() ??
-        const [];
+    final items =
+        (block.data['items'] as List?)?.whereType<Map>().toList() ?? const [];
     if (items.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(12),
@@ -681,7 +688,7 @@ class VideoExplainCard extends StatelessWidget {
     final up = block.str('up');
     final duration = block.str('duration');
     final playCount = block.str('play_count');
-    final action = block.action;
+    final action = block.action?.withTitleFallback(block.str('title'));
     return Material(
       color: cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(14),
@@ -713,8 +720,11 @@ class VideoExplainCard extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                           padding: const EdgeInsets.all(5),
-                          child: const Icon(Icons.play_arrow_rounded,
-                              color: Colors.white, size: 22),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
                         ),
                       ),
                       if (duration.isNotEmpty)
@@ -763,8 +773,11 @@ class VideoExplainCard extends StatelessWidget {
                     Row(
                       children: [
                         if (up.isNotEmpty) ...[
-                          Icon(Icons.account_circle_outlined,
-                              size: 13, color: cs.outline),
+                          Icon(
+                            Icons.account_circle_outlined,
+                            size: 13,
+                            color: cs.outline,
+                          ),
                           const SizedBox(width: 3),
                           Flexible(
                             child: Text(
@@ -778,8 +791,11 @@ class VideoExplainCard extends StatelessWidget {
                         if (up.isNotEmpty && playCount.isNotEmpty)
                           const SizedBox(width: 10),
                         if (playCount.isNotEmpty) ...[
-                          Icon(Icons.play_circle_outline,
-                              size: 13, color: cs.outline),
+                          Icon(
+                            Icons.play_circle_outline,
+                            size: 13,
+                            color: cs.outline,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             playCount,

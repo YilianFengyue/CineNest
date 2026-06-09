@@ -12,11 +12,14 @@ def _resolve_and_play_action(
     remote_id: str,
     *,
     label: str = "立即播放",
+    title: str = "",
     line_name: str = "",
     episode_name: str = "",
     play_url: str = "",
 ) -> MicroDesignAction:
     data = {"provider_id": provider_id, "remote_id": remote_id}
+    if title:
+        data["title"] = title
     if line_name:
         data["line_name"] = line_name
     if episode_name:
@@ -100,7 +103,7 @@ def compose_recommendation_posts(
                 blocks=blocks,
                 actions=[
                     _open_resource_poster_action(primary.provider_id, primary.remote_id),
-                    _resolve_and_play_action(primary.provider_id, primary.remote_id),
+                    _resolve_and_play_action(primary.provider_id, primary.remote_id, title=item.title),
                 ],
             )
         )
@@ -125,7 +128,7 @@ def compose_catalog_post(
     if resource.category and resource.category not in tags:
         tags.append(resource.category)
     open_action = _open_catalog_poster_action(movie)
-    play_action = _resolve_and_play_action(primary.provider_id, primary.remote_id)
+    play_action = _resolve_and_play_action(primary.provider_id, primary.remote_id, title=movie.title)
     blocks = [
         ContentBlock(
             type="playableMovieCard",
@@ -281,7 +284,7 @@ def compose_video_explain_card(
     provider_id: str = "",
     remote_id: str = "",
 ) -> ContentBlock:
-    action = _resolve_and_play_action(provider_id, remote_id) if provider_id and remote_id else None
+    action = _resolve_and_play_action(provider_id, remote_id, title=title) if provider_id and remote_id else None
     return ContentBlock(
         type="videoExplainCard",
         data={
@@ -318,6 +321,7 @@ def compose_poster(detail: MediaResourceDetail) -> PosterSpec:
         action = _resolve_and_play_action(
             detail.provider_id,
             detail.remote_id,
+            title=detail.title,
             line_name=line.name,
             episode_name=first_episode.name,
             play_url=first_episode.play_url,
@@ -438,6 +442,7 @@ def compose_catalog_poster(
         action = _resolve_and_play_action(
             detail.provider_id,
             detail.remote_id,
+            title=movie.title,
             line_name=line.name,
             episode_name=first_episode.name,
             play_url=first_episode.play_url,

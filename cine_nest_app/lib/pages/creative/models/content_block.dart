@@ -46,7 +46,11 @@ class MicroAction {
   final String label;
   final Map<String, dynamic> data;
 
-  const MicroAction({required this.type, this.label = '', this.data = const {}});
+  const MicroAction({
+    required this.type,
+    this.label = '',
+    this.data = const {},
+  });
 
   factory MicroAction.fromJson(Map<String, dynamic> json) => MicroAction(
     type: json['type'] as String? ?? '',
@@ -60,6 +64,18 @@ class MicroAction {
       data[key] as String? ?? fallback;
 
   bool get isEmpty => type.isEmpty;
+
+  /// 给播放动作补片名兜底。旧后端/历史消息可能没有 `data.title`，
+  /// 但本地聚合器播放入口需要片名去搜源。
+  MicroAction withTitleFallback(String title) {
+    final value = title.trim();
+    if (value.isEmpty || str('title').isNotEmpty) return this;
+    return MicroAction(
+      type: type,
+      label: label,
+      data: {...data, 'title': value},
+    );
+  }
 }
 
 /// 单个内容区块：一个 [type] + 一袋自由 [data] + 可选 [action]。
@@ -153,11 +169,10 @@ class ContentBlock {
     if (tags != null) 'tags': tags,
   });
 
-  factory ContentBlock.rating(double score, {String? label}) =>
-      ContentBlock(ContentBlockType.rating, {
-        'score': score,
-        if (label != null) 'label': label,
-      });
+  factory ContentBlock.rating(double score, {String? label}) => ContentBlock(
+    ContentBlockType.rating,
+    {'score': score, if (label != null) 'label': label},
+  );
 
   // ── 取值便捷 ──
   String str(String key, [String fallback = '']) =>
