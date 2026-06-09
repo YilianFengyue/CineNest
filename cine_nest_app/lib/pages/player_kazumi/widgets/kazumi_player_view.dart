@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:progress_indicator_m3e/progress_indicator_m3e.dart';
 
 import '../controller/player_controller.dart';
+import 'danmaku_overlay.dart';
 import 'player_bottom_bar.dart';
 import 'player_gesture_layer.dart';
 import 'player_hud_overlays.dart';
@@ -138,7 +139,10 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
             );
           }),
 
-          // 3. 手势层
+          // 3. 弹幕层
+          Positioned.fill(child: DanmakuOverlay(controller: c)),
+
+          // 4. 手势层
           Positioned.fill(child: PlayerGestureLayer(controller: c)),
 
           // 4. 顶部控制栏（ClipRect 防小屏溢出）

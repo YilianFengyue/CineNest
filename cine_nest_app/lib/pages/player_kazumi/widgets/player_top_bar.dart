@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
+import '../../../utils/storage_pref.dart';
 import '../controller/player_controller.dart';
+import 'danmaku_settings_panel.dart';
 import 'player_settings_sheet.dart';
 
 /// 播放器顶部控制栏。
@@ -73,6 +76,44 @@ class PlayerTopBar extends StatelessWidget {
     final double iconSize = compact ? 19 : 21;
 
     final iconButtons = <Widget>[
+      // 弹幕开关
+      Obx(
+        () {
+          final on = controller.danmakuVisible.value;
+          final count = controller.danmakuCount.value;
+          final hasKey = Pref.dandanAppId.isNotEmpty;
+          return IconButton(
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints.tightFor(width: iconBox, height: iconBox),
+            icon: Icon(
+              on ? Icons.subtitles : Icons.subtitles_off_outlined,
+              color: Colors.white,
+              size: iconSize,
+            ),
+            tooltip: on
+                ? '弹幕 开${count > 0 ? ' ($count)' : ''}'
+                : '弹幕 关',
+            onPressed: () {
+              if (!hasKey) {
+                SmartDialog.showToast('请先在 设置→弹幕设置 中填写弹弹Play API Key');
+                return;
+              }
+              controller.toggleDanmaku();
+            },
+          );
+        },
+      ),
+      // 弹幕设置
+      IconButton(
+        padding: EdgeInsets.zero,
+        constraints: BoxConstraints.tightFor(width: iconBox, height: iconBox),
+        icon: Icon(Icons.tune, color: Colors.white, size: iconSize),
+        tooltip: '弹幕设置',
+        onPressed: () {
+          controller.showControlsTemporarily();
+          DanmakuSettingsPanel.show(context, controller);
+        },
+      ),
       // 快进 80 秒（跳片头）
       IconButton(
         padding: EdgeInsets.zero,

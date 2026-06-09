@@ -36,6 +36,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   late final TabController _tabCtrl;
   KazumiAudioHandler? _audioHandler;
   Worker? _errorWorker;
+  Worker? _danmakuWorker;
   String _lastShownError = '';
 
   final _historyRepo = LocalHistoryRepository();
@@ -65,12 +66,19 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     _ctrl = KazumiPlayerController(
       firstFrameTimeout: const Duration(seconds: 8),
     );
+    _ctrl.loadDanmakuPrefs();
     Get.put(_ctrl, tag: _tag, permanent: false);
 
     _errorWorker = ever<String>(_ctrl.lastError, (error) {
       if (error.isEmpty || error == _lastShownError) return;
       _lastShownError = error;
       SmartDialog.showToast(_friendlyError(error));
+    });
+
+    _danmakuWorker = ever<int>(_ctrl.danmakuCount, (count) {
+      if (count > 0) {
+        SmartDialog.showToast('已加载 $count 条弹幕');
+      }
     });
 
     _bootstrap();
@@ -92,6 +100,17 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
       headers: _session!.headers,
       startAt: _session!.resumePosition,
     );
+    _fetchDanmaku();
+  }
+
+  void _fetchDanmaku() {
+    if (!_ctrl.danmakuVisible.value) return;
+    final tmdbId = widget.detail.tmdb?.tmdbId;
+    _ctrl.fetchDanmaku(
+      title: widget.detail.title,
+      tmdbId: tmdbId,
+      episodeNumber: _currentIndex + 1,
+    );
   }
 
   Future<void> _playEpisode(int index) async {
@@ -109,6 +128,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
       _audioHandler?.setMediaInfo(title: session.title);
       _lastShownError = '';
       await _ctrl.open(url: session.playUrl, headers: session.headers);
+      _fetchDanmaku();
     } catch (e) {
       SmartDialog.showToast('播放失败，建议换源');
     }
@@ -179,6 +199,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     _saveHistory();
     _tabCtrl.dispose();
     _errorWorker?.dispose();
+    _danmakuWorker?.dispose();
     _audioHandler?.detach();
     Get.delete<KazumiPlayerController>(tag: _tag);
     super.dispose();

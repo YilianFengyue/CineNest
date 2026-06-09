@@ -9,8 +9,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
+import '../../../services/dandanplay_service.dart';
 import '../../../services/logger.dart';
 import '../../../services/shader_asset_service.dart';
+import '../../../utils/storage_pref.dart';
 
 /// 播放器核心控制器（GetX 包装 media_kit Player + VideoController）。
 class KazumiPlayerController extends GetxController {
@@ -74,6 +76,20 @@ class KazumiPlayerController extends GetxController {
 
   /// 超分辨率档位: 1=关, 2=效率, 3=质量
   final superResolution = 1.obs;
+
+  // ─── 弹幕状态 ─────────────────────────────────────────
+  final danmakuVisible = true.obs;
+  final danmakuOpacity = 1.0.obs;
+  final danmakuFontScale = 1.0.obs;
+  final danmakuArea = 0.8.obs;
+  final danmakuDuration = 8.0.obs;
+  final danmakuHideScroll = false.obs;
+  final danmakuHideTop = false.obs;
+  final danmakuHideBottom = false.obs;
+  final danmakuMassive = false.obs;
+  final danmakuLoading = false.obs;
+  final danmakuItems = <DanDanComment>[].obs;
+  final danmakuCount = 0.obs;
 
   // ─── UI 状态 ──────────────────────────────────────────
   final showControls = true.obs;
@@ -602,4 +618,49 @@ class KazumiPlayerController extends GetxController {
 
   void setFullscreen(bool v) => isFullscreen.value = v;
   void toggleFullscreen() => isFullscreen.value = !isFullscreen.value;
+
+  // ═══════════════════════════════════════════════════════
+  //  弹幕
+  // ═══════════════════════════════════════════════════════
+
+  void loadDanmakuPrefs() {
+    danmakuVisible.value = Pref.danmakuEnabled;
+    danmakuOpacity.value = Pref.danmakuOpacity;
+    danmakuFontScale.value = Pref.danmakuFontScale;
+    danmakuArea.value = Pref.danmakuArea;
+    danmakuDuration.value = Pref.danmakuDuration;
+    danmakuHideScroll.value = Pref.danmakuHideScroll;
+    danmakuHideTop.value = Pref.danmakuHideTop;
+    danmakuHideBottom.value = Pref.danmakuHideBottom;
+    danmakuMassive.value = Pref.danmakuMassive;
+  }
+
+  void toggleDanmaku() {
+    danmakuVisible.value = !danmakuVisible.value;
+    Pref.setDanmakuEnabled(danmakuVisible.value);
+  }
+
+  final _dandanService = DanDanPlayService();
+
+  Future<void> fetchDanmaku({
+    required String title,
+    int? tmdbId,
+    int? episodeNumber,
+  }) async {
+    if (!_dandanService.hasCredentials) return;
+    danmakuLoading.value = true;
+    try {
+      final items = await _dandanService.fetchDanmaku(
+        title: title,
+        tmdbId: tmdbId,
+        episodeNumber: episodeNumber,
+      );
+      danmakuItems.value = items;
+      danmakuCount.value = items.length;
+    } catch (e) {
+      logger.w('fetchDanmaku failed: $e');
+    } finally {
+      danmakuLoading.value = false;
+    }
+  }
 }

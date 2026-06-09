@@ -65,4 +65,61 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.chatModel, defaultValue: 'default');
   static Future<void> setChatModelId(String value) =>
       _setting.put(SettingBoxKey.chatModel, value);
+
+  // ───────────────────────── 弹幕（弹弹Play）─────────────────────────
+  static String get dandanAppId =>
+      _setting.get(SettingBoxKey.dandanAppId, defaultValue: '');
+  static Future<void> setDandanAppId(String v) =>
+      _setting.put(SettingBoxKey.dandanAppId, v);
+
+  static String get dandanAppSecret =>
+      _setting.get(SettingBoxKey.dandanAppSecret, defaultValue: '');
+  static Future<void> setDandanAppSecret(String v) =>
+      _setting.put(SettingBoxKey.dandanAppSecret, v);
+
+  static bool get danmakuEnabled =>
+      _setting.get(SettingBoxKey.danmakuEnabled, defaultValue: true);
+  static Future<void> setDanmakuEnabled(bool v) =>
+      _setting.put(SettingBoxKey.danmakuEnabled, v);
+
+  static double get danmakuOpacity =>
+      _setting.get(SettingBoxKey.danmakuOpacity, defaultValue: 1.0);
+  static Future<void> setDanmakuOpacity(double v) =>
+      _setting.put(SettingBoxKey.danmakuOpacity, v);
+
+  static double get danmakuFontScale =>
+      _setting.get(SettingBoxKey.danmakuFontScale, defaultValue: 1.0);
+  static Future<void> setDanmakuFontScale(double v) =>
+      _setting.put(SettingBoxKey.danmakuFontScale, v);
+
+  static double get danmakuArea =>
+      _setting.get(SettingBoxKey.danmakuArea, defaultValue: 0.8);
+  static Future<void> setDanmakuArea(double v) =>
+      _setting.put(SettingBoxKey.danmakuArea, v);
+
+  /// 滚动弹幕滑过屏幕的秒数（越大越慢）
+  static double get danmakuDuration =>
+      _setting.get(SettingBoxKey.danmakuDuration, defaultValue: 8.0);
+  static Future<void> setDanmakuDuration(double v) =>
+      _setting.put(SettingBoxKey.danmakuDuration, v);
+
+  static bool get danmakuHideScroll =>
+      _setting.get(SettingBoxKey.danmakuHideScroll, defaultValue: false);
+  static Future<void> setDanmakuHideScroll(bool v) =>
+      _setting.put(SettingBoxKey.danmakuHideScroll, v);
+
+  static bool get danmakuHideTop =>
+      _setting.get(SettingBoxKey.danmakuHideTop, defaultValue: false);
+  static Future<void> setDanmakuHideTop(bool v) =>
+      _setting.put(SettingBoxKey.danmakuHideTop, v);
+
+  static bool get danmakuHideBottom =>
+      _setting.get(SettingBoxKey.danmakuHideBottom, defaultValue: false);
+  static Future<void> setDanmakuHideBottom(bool v) =>
+      _setting.put(SettingBoxKey.danmakuHideBottom, v);
+
+  static bool get danmakuMassive =>
+      _setting.get(SettingBoxKey.danmakuMassive, defaultValue: false);
+  static Future<void> setDanmakuMassive(bool v) =>
+      _setting.put(SettingBoxKey.danmakuMassive, v);
 }
