@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cine_nest/pages/kazumi_home/mock_data.dart';
-import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_card_v.dart';
+import 'package:get/get.dart';
+import 'package:cine_nest/services/tmdb_direct_service.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_home_controller.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_detail_page.dart';
+import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_card_v.dart';
 
 const double _kCardSpace = 8;
 
@@ -15,12 +17,12 @@ class KazumiHomePage extends StatefulWidget {
 
 class _KazumiHomePageState extends State<KazumiHomePage> {
   final ScrollController _scrollController = ScrollController();
-  final List<MockBangumiItem> _list = [...mockBangumiList];
-  bool _isLoadingMore = false;
+  late final KazumiHomeController _ctrl;
 
   @override
   void initState() {
     super.initState();
+    _ctrl = Get.put(KazumiHomeController());
     _scrollController.addListener(_onScroll);
   }
 
@@ -34,41 +36,16 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoadingMore) {
-      _loadMore();
+        !_ctrl.isLoadingMore.value) {
+      _ctrl.loadMore();
     }
   }
 
-  Future<void> _loadMore() async {
-    setState(() => _isLoadingMore = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    final base = _list.length;
-    setState(() {
-      for (var i = 0; i < mockBangumiList.length; i++) {
-        final src = mockBangumiList[i];
-        _list.add(MockBangumiItem(
-          id: base + i + 1,
-          nameCn: src.nameCn,
-          name: src.name,
-          imageUrl: 'https://picsum.photos/seed/load${base + i}/300/460',
-          airDate: src.airDate,
-          ratingScore: src.ratingScore,
-          votes: src.votes,
-          rank: src.rank,
-          summary: src.summary,
-        ));
-      }
-      _isLoadingMore = false;
-    });
-  }
-
-  void _openDetail(MockBangumiItem item) {
+  void _openDetail(TmdbMediaItem item) {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, animation, secondaryAnimation) =>
-            KazumiDetailPage(bangumiItem: item),
-        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+        pageBuilder: (_, __, ___) => KazumiDetailPage(item: item),
+        transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
             position: Tween<Offset>(
               begin: const Offset(1, 0),
@@ -89,26 +66,46 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: AnimatedOpacity(
-              opacity: _isLoadingMore ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: _isLoadingMore
-                  ? const LinearProgressIndicator(minHeight: 4)
-                  : const SizedBox(height: 4),
+      body: Obx(() {
+        if (_ctrl.isLoading.value && _ctrl.trendingList.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (_ctrl.errorMsg.isNotEmpty && _ctrl.trendingList.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_ctrl.errorMsg.value),
+                const SizedBox(height: 12),
+                FilledButton.tonal(
+                  onPressed: _ctrl.loadTrending,
+                  child: const Text('重试'),
+                ),
+              ],
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-                _kCardSpace, 0, _kCardSpace, 0),
-            sliver: _contentGrid(),
-          ),
-        ],
-      ),
+          );
+        }
+        return CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            _buildSliverAppBar(),
+            SliverToBoxAdapter(
+              child: Obx(() => AnimatedOpacity(
+                    opacity: _ctrl.isLoadingMore.value ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: _ctrl.isLoadingMore.value
+                        ? const LinearProgressIndicator(minHeight: 4)
+                        : const SizedBox(height: 4),
+                  )),
+            ),
+            SliverPadding(
+              padding:
+                  const EdgeInsets.fromLTRB(_kCardSpace, 0, _kCardSpace, 0),
+              sliver: _contentGrid(),
+            ),
+          ],
+        );
+      }),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _scrollController.animateTo(
           0,
@@ -126,29 +123,29 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
     if (width > 600) crossCount = 5;
     if (width > 840) crossCount = 6;
 
-    return SliverPadding(
-      padding: const EdgeInsets.all(8),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          mainAxisSpacing: _kCardSpace - 2,
-          crossAxisSpacing: _kCardSpace,
-          crossAxisCount: crossCount,
-          mainAxisExtent:
-              MediaQuery.of(context).size.width / crossCount / 0.65 +
-                  MediaQuery.textScalerOf(context).scale(32.0),
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final item = _list[index];
-            return BangumiCardV(
-              bangumiItem: item,
-              onTap: () => _openDetail(item),
-            );
-          },
-          childCount: _list.length,
-        ),
-      ),
-    );
+    return Obx(() => SliverPadding(
+          padding: const EdgeInsets.all(8),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              mainAxisSpacing: _kCardSpace - 2,
+              crossAxisSpacing: _kCardSpace,
+              crossAxisCount: crossCount,
+              mainAxisExtent:
+                  MediaQuery.of(context).size.width / crossCount / 0.65 +
+                      MediaQuery.textScalerOf(context).scale(32.0),
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = _ctrl.trendingList[index];
+                return BangumiCardV(
+                  item: item,
+                  onTap: () => _openDetail(item),
+                );
+              },
+              childCount: _ctrl.trendingList.length,
+            ),
+          ),
+        ));
   }
 
   Widget _buildSliverAppBar() {
@@ -160,6 +157,7 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
       elevation: 0,
       titleSpacing: 0,
       centerTitle: false,
+      automaticallyImplyLeading: false,
       backgroundColor: theme.colorScheme.surface,
       actions: [
         IconButton(
@@ -191,24 +189,20 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
                     left: 16, top: 8, bottom: 8, right: 60),
                 child: SizedBox(
                   height: 44,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {},
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '热门番组',
-                          style: theme.textTheme.headlineMedium!.copyWith(
-                            fontWeight: fontWeight,
-                            fontSize: fontSize,
-                          ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '热门推荐',
+                        style: theme.textTheme.headlineMedium!.copyWith(
+                          fontWeight: fontWeight,
+                          fontSize: fontSize,
                         ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.keyboard_arrow_down,
-                            size: fontSize, color: theme.iconTheme.color),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.keyboard_arrow_down,
+                          size: fontSize, color: theme.iconTheme.color),
+                    ],
                   ),
                 ),
               ),

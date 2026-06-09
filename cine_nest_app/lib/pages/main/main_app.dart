@@ -1,6 +1,6 @@
 import 'package:cine_nest/pages/creative/chat/chat_page.dart';
 import 'package:cine_nest/pages/creative/news/news_page.dart';
-import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_home_page.dart';
 import 'package:cine_nest/pages/settings/settings_page.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +23,7 @@ class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   static const _tabs = [
-    _TabDef('Home', Icons.movie_outlined, Icons.movie, 'Member B - feed'),
+    _TabDef('Home', Icons.home_outlined, Icons.home, 'Kazumi 风格首页'),
     _TabDef(
       'Chat',
       Icons.chat_bubble_outline,
@@ -50,6 +50,26 @@ class MainApp extends StatelessWidget {
       if (index == 1) return const ChatPage();
 
       final tab = _tabs[index];
+
+      // Home tab 直接展示 KazumiHomePage（自带 SliverAppBar）
+      if (index == 0) {
+        return Scaffold(
+          body: const KazumiHomePage(),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: index,
+            onDestinationSelected: nav.go,
+            destinations: [
+              for (final t in _tabs)
+                NavigationDestination(
+                  icon: Icon(t.icon),
+                  selectedIcon: Icon(t.activeIcon),
+                  label: t.label,
+                ),
+            ],
+          ),
+        );
+      }
+
       return Scaffold(
         appBar: AppBar(
           title: Text('CineNest · ${tab.label}'),
@@ -88,7 +108,7 @@ class MainApp extends StatelessWidget {
   Widget _bodyFor(int index, _TabDef tab) {
     switch (index) {
       case 0:
-        return const DiscoveryPage();
+        return const KazumiHomePage();
       case 2:
         return const NewsPage();
       case 3:

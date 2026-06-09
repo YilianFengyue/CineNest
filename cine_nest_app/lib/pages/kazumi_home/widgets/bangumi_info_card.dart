@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-import 'package:cine_nest/pages/kazumi_home/mock_data.dart';
+import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/network_img_layer.dart';
 
 class BangumiInfoCardV extends StatelessWidget {
   const BangumiInfoCardV({
     super.key,
-    required this.bangumiItem,
+    required this.item,
     this.isLoading = false,
   });
 
-  final MockBangumiItem bangumiItem;
+  final TmdbMediaItem item;
   final bool isLoading;
 
   @override
@@ -22,7 +22,7 @@ class BangumiInfoCardV extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name,
+            item.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.headlineSmall,
@@ -32,7 +32,6 @@ class BangumiInfoCardV extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── 左侧封面 ──
                 Flexible(
                   child: AspectRatio(
                     aspectRatio: 0.65,
@@ -41,9 +40,9 @@ class BangumiInfoCardV extends StatelessWidget {
                         transitionOnUserGestures: true,
                         flightShuttleBuilder:
                             NetworkImgLayer.heroFlightShuttleBuilder,
-                        tag: 'kazumi_cover_${bangumiItem.id}',
+                        tag: 'kazumi_cover_${item.id}',
                         child: NetworkImgLayer(
-                          src: bangumiItem.imageUrl,
+                          src: item.poster(),
                           width: box.maxWidth,
                           height: box.maxHeight,
                           fadeInDuration: Duration.zero,
@@ -54,7 +53,6 @@ class BangumiInfoCardV extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // ── 右侧元数据 ──
                 Flexible(
                   child: Skeletonizer(
                     enabled: isLoading,
@@ -65,11 +63,11 @@ class BangumiInfoCardV extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('放送开始:'),
+                            const Text('上映日期:'),
                             Text(
-                              bangumiItem.airDate.isEmpty
-                                  ? '2000-11-11'
-                                  : bangumiItem.airDate,
+                              item.releaseDate.isEmpty
+                                  ? '未知'
+                                  : item.releaseDate,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -77,11 +75,11 @@ class BangumiInfoCardV extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text('${bangumiItem.votes} 人评分:'),
+                            Text('${item.voteCount} 人评分:'),
                             Row(
                               children: [
                                 Text(
-                                  '${bangumiItem.ratingScore}',
+                                  item.voteAverage.toStringAsFixed(1),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -90,7 +88,7 @@ class BangumiInfoCardV extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 ...List.generate(5, (i) {
-                                  final fill = bangumiItem.ratingScore / 2;
+                                  final fill = item.voteAverage / 2;
                                   return Icon(
                                     i < fill.floor()
                                         ? Icons.star_rounded
@@ -104,25 +102,24 @@ class BangumiInfoCardV extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            const Text('Bangumi Ranked:'),
+                            const Text('类型:'),
                             Text(
-                              '#${bangumiItem.rank}',
+                              item.mediaType == 'tv' ? '剧集' : '电影',
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: theme.colorScheme.primary,
                               ),
                             ),
                           ],
                         ),
-                        // ── 收藏按钮 ──
                         SizedBox(
                           width: 120,
                           height: 40,
                           child: FilledButton.tonalIcon(
                             onPressed: () {},
                             icon: const Icon(Icons.favorite_border, size: 18),
-                            label: const Text('未追'),
+                            label: const Text('收藏'),
                           ),
                         ),
                       ],

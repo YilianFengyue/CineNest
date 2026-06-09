@@ -1,13 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:cine_nest/pages/kazumi_home/mock_data.dart';
+import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_info_card.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/network_img_layer.dart';
+import 'package:cine_nest/pages/kazumi_home/widgets/source_sheet.dart';
 
 class KazumiDetailPage extends StatefulWidget {
-  const KazumiDetailPage({super.key, required this.bangumiItem});
+  const KazumiDetailPage({super.key, required this.item});
 
-  final MockBangumiItem bangumiItem;
+  final TmdbMediaItem item;
 
   @override
   State<KazumiDetailPage> createState() => _KazumiDetailPageState();
@@ -31,6 +32,23 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
     super.dispose();
   }
 
+  void _showSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      clipBehavior: Clip.antiAlias,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 3 / 4,
+      ),
+      builder: (_) => SourceSheet(
+        title: widget.item.title,
+        year: widget.item.year,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,11 +61,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
                 title: Container(
                   width: double.infinity,
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    widget.bangumiItem.nameCn.isNotEmpty
-                        ? widget.bangumiItem.nameCn
-                        : widget.bangumiItem.name,
-                  ),
+                  child: Text(widget.item.title),
                 ),
                 automaticallyImplyLeading: false,
                 scrolledUnderElevation: 0.0,
@@ -55,13 +69,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
                   onPressed: () => Navigator.maybePop(context),
                   icon: const Icon(Icons.arrow_back),
                 ),
-                actions: [
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.open_in_browser_rounded),
-                  ),
-                  const SizedBox(width: 8),
-                ],
+                actions: const [SizedBox(width: 8)],
                 stretch: true,
                 centerTitle: false,
                 expandedHeight: 308 + kTextTabBarHeight + kToolbarHeight,
@@ -76,7 +84,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
                         bottom: kTextTabBarHeight,
                         child: IgnorePointer(
                           child: _HeaderBackground(
-                            imageUrl: widget.bangumiItem.imageUrl,
+                            imageUrl: widget.item.poster(),
                           ),
                         ),
                       ),
@@ -87,9 +95,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(
                                 16, kToolbarHeight, 16, 0),
-                            child: BangumiInfoCardV(
-                              bangumiItem: widget.bangumiItem,
-                            ),
+                            child: BangumiInfoCardV(item: widget.item),
                           ),
                         ),
                       ),
@@ -111,7 +117,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _OverviewTab(bangumiItem: widget.bangumiItem),
+            _OverviewTab(item: widget.item),
             _PlaceholderTab(label: '吐槽'),
             _PlaceholderTab(label: '角色'),
             _PlaceholderTab(label: '评论'),
@@ -120,7 +126,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: _showSourceSheet,
         label: const Text('开始观看'),
         icon: const Icon(Icons.play_arrow_rounded),
       ),
@@ -128,10 +134,9 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
   }
 }
 
-// ── 概览 Tab ──
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.bangumiItem});
-  final MockBangumiItem bangumiItem;
+  const _OverviewTab({required this.item});
+  final TmdbMediaItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -149,23 +154,25 @@ class _OverviewTab extends StatelessWidget {
                   Text('简介', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    bangumiItem.summary.isNotEmpty
-                        ? bangumiItem.summary
-                        : '暂无简介',
+                    item.overview.isNotEmpty ? item.overview : '暂无简介',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
-                  Text('标签', style: Theme.of(context).textTheme.titleMedium),
+                  Text('信息', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ['奇幻', '冒险', '热血', '原创']
-                        .map((tag) => ActionChip(
-                              label: Text(tag),
-                              onPressed: () {},
-                            ))
-                        .toList(),
+                  Text(
+                    '原名: ${item.originalTitle.isNotEmpty ? item.originalTitle : item.title}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '类型: ${item.mediaType == 'tv' ? '剧集' : '电影'}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '上映: ${item.releaseDate.isNotEmpty ? item.releaseDate : '未知'}',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ]),
               ),
@@ -177,7 +184,6 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
-// ── 占位 Tab ──
 class _PlaceholderTab extends StatelessWidget {
   const _PlaceholderTab({required this.label});
   final String label;
@@ -209,7 +215,6 @@ class _PlaceholderTab extends StatelessWidget {
   }
 }
 
-// ── 详情页头部背景（高斯模糊封面）──
 class _HeaderBackground extends StatelessWidget {
   const _HeaderBackground({required this.imageUrl});
 

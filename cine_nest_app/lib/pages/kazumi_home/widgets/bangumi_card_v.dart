@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:cine_nest/pages/kazumi_home/mock_data.dart';
+import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/network_img_layer.dart';
 
 class BangumiCardV extends StatelessWidget {
   const BangumiCardV({
     super.key,
-    required this.bangumiItem,
+    required this.item,
     this.onTap,
   });
 
-  final MockBangumiItem bangumiItem;
+  final TmdbMediaItem item;
   final VoidCallback? onTap;
 
   @override
@@ -30,16 +30,16 @@ class BangumiCardV extends StatelessWidget {
                   transitionOnUserGestures: true,
                   flightShuttleBuilder:
                       NetworkImgLayer.heroFlightShuttleBuilder,
-                  tag: 'kazumi_cover_${bangumiItem.id}',
+                  tag: 'kazumi_cover_${item.id}',
                   child: NetworkImgLayer(
-                    src: bangumiItem.imageUrl,
+                    src: item.poster(),
                     width: box.maxWidth,
                     height: box.maxHeight,
                   ),
                 );
               }),
             ),
-            _BangumiContent(bangumiItem: bangumiItem),
+            _CardTitle(item: item),
           ],
         ),
       ),
@@ -47,10 +47,10 @@ class BangumiCardV extends StatelessWidget {
   }
 }
 
-class _BangumiContent extends StatelessWidget {
-  const _BangumiContent({required this.bangumiItem});
+class _CardTitle extends StatelessWidget {
+  const _CardTitle({required this.item});
 
-  final MockBangumiItem bangumiItem;
+  final TmdbMediaItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +59,7 @@ class _BangumiContent extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(5, 3, 5, 1),
         child: Text(
-          bangumiItem.nameCn,
+          item.title,
           textAlign: TextAlign.start,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
