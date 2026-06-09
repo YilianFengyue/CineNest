@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 import '../../../services/logger.dart';
+import '../../../services/shader_asset_service.dart';
 
 /// 播放器核心控制器（GetX 包装 media_kit Player + VideoController）。
 class KazumiPlayerController extends GetxController {
@@ -70,6 +71,9 @@ class KazumiPlayerController extends GetxController {
   final volume = 100.0.obs;
   final brightness = 0.5.obs;
   final aspectRatioType = 1.obs;
+
+  /// 超分辨率档位: 1=关, 2=效率, 3=质量
+  final superResolution = 1.obs;
 
   // ─── UI 状态 ──────────────────────────────────────────
   final showControls = true.obs;
@@ -163,6 +167,37 @@ class KazumiPlayerController extends GetxController {
       logger.i('mpv native tweaks applied');
     } catch (e) {
       logger.w('native tweaks failed: $e');
+    }
+  }
+
+  /// Anime4K 超分辨率：1=关, 2=效率(Lite), 3=质量(Full)
+  Future<void> setShader(int type) async {
+    try {
+      final pp = player.platform;
+      if (pp is! NativePlayer) return;
+      final svc = ShaderAssetService.instance;
+      await svc.ensureShadersCopied();
+      if (type == 2) {
+        await pp.command([
+          'change-list',
+          'glsl-shaders',
+          'set',
+          buildShadersPath(svc.shadersPath, kAnime4KShadersLite),
+        ]);
+      } else if (type == 3) {
+        await pp.command([
+          'change-list',
+          'glsl-shaders',
+          'set',
+          buildShadersPath(svc.shadersPath, kAnime4KShaders),
+        ]);
+      } else {
+        await pp.command(['change-list', 'glsl-shaders', 'clr', '']);
+      }
+      superResolution.value = type;
+      logger.i('Anime4K shader set to type=$type');
+    } catch (e) {
+      logger.w('setShader failed: $e');
     }
   }
 

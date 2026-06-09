@@ -12,11 +12,13 @@ class PlayerSettingsSheet extends StatelessWidget {
 
   static const _speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0];
   static const _aspectLabels = ['原始', '填充裁剪', '拉伸'];
+  static const _shaderLabels = ['关闭', '效率优先', '质量优先'];
+  static const _shaderTypes = [1, 2, 3];
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -43,6 +45,7 @@ class PlayerSettingsSheet extends StatelessWidget {
               tabs: [
                 Tab(text: '倍速'),
                 Tab(text: '比例'),
+                Tab(text: '超分'),
                 Tab(text: '音轨'),
                 Tab(text: '字幕'),
               ],
@@ -52,6 +55,7 @@ class PlayerSettingsSheet extends StatelessWidget {
                 children: [
                   _buildSpeed(context),
                   _buildAspect(context),
+                  _buildShader(context),
                   _buildAudioTracks(context),
                   _buildSubtitleTracks(context),
                 ],
@@ -64,46 +68,86 @@ class PlayerSettingsSheet extends StatelessWidget {
   }
 
   Widget _buildSpeed(BuildContext context) {
-    return Obx(() => ListView(
-          padding: const EdgeInsets.all(12),
-          children: _speedPresets.map((s) {
-            final selected = (controller.speed.value - s).abs() < 0.01;
-            return ListTile(
-              dense: true,
-              title: Text(s == s.toInt() ? '${s.toInt()}x' : '${s}x'),
-              trailing: selected
-                  ? Icon(Icons.check,
-                      color: Theme.of(context).colorScheme.primary)
-                  : null,
-              onTap: () {
-                controller.setSpeed(s);
-                Navigator.maybePop(context);
-              },
-            );
-          }).toList(),
-        ));
+    return Obx(
+      () => ListView(
+        padding: const EdgeInsets.all(12),
+        children: _speedPresets.map((s) {
+          final selected = (controller.speed.value - s).abs() < 0.01;
+          return ListTile(
+            dense: true,
+            title: Text(s == s.toInt() ? '${s.toInt()}x' : '${s}x'),
+            trailing: selected
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () {
+              controller.setSpeed(s);
+              Navigator.maybePop(context);
+            },
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Widget _buildAspect(BuildContext context) {
-    return Obx(() => ListView(
-          padding: const EdgeInsets.all(12),
-          children: List.generate(3, (i) {
-            final type = i + 1;
-            final selected = controller.aspectRatioType.value == type;
-            return ListTile(
-              dense: true,
-              title: Text(_aspectLabels[i]),
-              trailing: selected
-                  ? Icon(Icons.check,
-                      color: Theme.of(context).colorScheme.primary)
-                  : null,
-              onTap: () {
-                controller.aspectRatioType.value = type;
-                Navigator.maybePop(context);
-              },
-            );
-          }),
-        ));
+    return Obx(
+      () => ListView(
+        padding: const EdgeInsets.all(12),
+        children: List.generate(3, (i) {
+          final type = i + 1;
+          final selected = controller.aspectRatioType.value == type;
+          return ListTile(
+            dense: true,
+            title: Text(_aspectLabels[i]),
+            trailing: selected
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () {
+              controller.aspectRatioType.value = type;
+              Navigator.maybePop(context);
+            },
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildShader(BuildContext context) {
+    return Obx(
+      () => ListView(
+        padding: const EdgeInsets.all(12),
+        children: List.generate(3, (i) {
+          final type = _shaderTypes[i];
+          final selected = controller.superResolution.value == type;
+          return ListTile(
+            dense: true,
+            title: Text(_shaderLabels[i]),
+            subtitle: i == 0
+                ? null
+                : Text(
+                    i == 1 ? '低功耗，适合中低端设备' : '高画质，需要较好的 GPU',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+            trailing: selected
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () {
+              controller.setShader(type);
+              Navigator.maybePop(context);
+            },
+          );
+        }),
+      ),
+    );
   }
 
   Widget _buildAudioTracks(BuildContext context) {
@@ -120,8 +164,7 @@ class PlayerSettingsSheet extends StatelessWidget {
           dense: true,
           title: Text(_audioTrackLabel(t)),
           trailing: selected
-              ? Icon(Icons.check,
-                  color: Theme.of(context).colorScheme.primary)
+              ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
               : null,
           onTap: () {
             controller.player.setAudioTrack(t);
@@ -146,8 +189,7 @@ class PlayerSettingsSheet extends StatelessWidget {
           dense: true,
           title: Text(_subtitleTrackLabel(t)),
           trailing: selected
-              ? Icon(Icons.check,
-                  color: Theme.of(context).colorScheme.primary)
+              ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
               : null,
           onTap: () {
             controller.player.setSubtitleTrack(t);

@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:cine_nest/modules/media_aggregator/models/media_models.dart';
 import 'package:cine_nest/services/debate_recommendation_service.dart';
+import 'package:cine_nest/utils/storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
@@ -30,6 +33,29 @@ class _DebateRecommendationCardState extends State<DebateRecommendationCard> {
   String? _error;
   Map<String, dynamic>? _payload;
 
+  String get _cacheKey =>
+      'debate_${widget.detail.title}_${widget.detail.year ?? ''}';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCache();
+  }
+
+  void _loadCache() {
+    final raw = GStorage.localCache.get(_cacheKey);
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final cached = jsonDecode(raw) as Map<String, dynamic>;
+        setState(() => _payload = cached);
+      } catch (_) {}
+    }
+  }
+
+  void _saveCache(Map<String, dynamic> payload) {
+    GStorage.localCache.put(_cacheKey, jsonEncode(payload));
+  }
+
   Future<void> _generate() async {
     setState(() {
       _loading = true;
@@ -41,6 +67,7 @@ class _DebateRecommendationCardState extends State<DebateRecommendationCard> {
         episodeName: widget.episodeName,
       );
       if (!mounted) return;
+      _saveCache(payload);
       setState(() => _payload = payload);
     } catch (e) {
       if (!mounted) return;
