@@ -1,7 +1,8 @@
+import 'package:cine_nest/services/dandanplay_service.dart';
 import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 
-/// 弹弹Play API 密钥配置页。
+/// 弹弹Play API 密钥配置 + 调试测试页。
 class DanDanPlaySettingsPage extends StatefulWidget {
   const DanDanPlaySettingsPage({super.key});
 
@@ -12,20 +13,25 @@ class DanDanPlaySettingsPage extends StatefulWidget {
 class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
   late final TextEditingController _appIdCtrl;
   late final TextEditingController _appSecretCtrl;
+  late final TextEditingController _testKeywordCtrl;
   bool _obscure = true;
   bool _saved = false;
+  bool _testing = false;
+  String _debugOutput = '';
 
   @override
   void initState() {
     super.initState();
     _appIdCtrl = TextEditingController(text: Pref.dandanAppId);
     _appSecretCtrl = TextEditingController(text: Pref.dandanAppSecret);
+    _testKeywordCtrl = TextEditingController(text: '你的名字');
   }
 
   @override
   void dispose() {
     _appIdCtrl.dispose();
     _appSecretCtrl.dispose();
+    _testKeywordCtrl.dispose();
     super.dispose();
   }
 
@@ -38,6 +44,24 @@ class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _saved = false);
     });
+  }
+
+  Future<void> _runDebugTest() async {
+    // 先保存当前输入的 key
+    await _save();
+    setState(() {
+      _testing = true;
+      _debugOutput = '正在测试...';
+    });
+    try {
+      final svc = DanDanPlayService();
+      final result = await svc.debugTest(_testKeywordCtrl.text.trim());
+      if (mounted) setState(() => _debugOutput = result);
+    } catch (e) {
+      if (mounted) setState(() => _debugOutput = '测试异常: $e');
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
   }
 
   @override
@@ -60,7 +84,8 @@ class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: cs.onPrimaryContainer, size: 20),
+                Icon(Icons.info_outline,
+                    color: cs.onPrimaryContainer, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -77,6 +102,25 @@ class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
           ),
 
           const SizedBox(height: 24),
+
+          // 状态指示
+          _StatusRow(
+            label: 'App ID',
+            ok: Pref.dandanAppId.isNotEmpty,
+            detail: Pref.dandanAppId.isEmpty
+                ? '未配置'
+                : Pref.dandanAppId,
+          ),
+          const SizedBox(height: 4),
+          _StatusRow(
+            label: 'App Secret',
+            ok: Pref.dandanAppSecret.isNotEmpty,
+            detail: Pref.dandanAppSecret.isEmpty
+                ? '未配置'
+                : '已配置 (${Pref.dandanAppSecret.length} 字符)',
+          ),
+
+          const SizedBox(height: 16),
 
           // AppId
           TextField(
@@ -115,7 +159,7 @@ class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
             onChanged: (_) => setState(() => _saved = false),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // 保存按钮
           FilledButton.icon(
@@ -124,7 +168,75 @@ class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
             label: Text(_saved ? '已保存' : '保存'),
           ),
 
-          const SizedBox(height: 32),
+          const Divider(height: 40),
+
+          // ── 调试测试区 ──
+          Text(
+            '调试测试',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '输入片名测试 API 连通性、搜索匹配和弹幕拉取',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _testKeywordCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '测试关键字，如 "你的名字"',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.tonalIcon(
+                onPressed: _testing ? null : _runDebugTest,
+                icon: _testing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.bug_report_outlined, size: 18),
+                label: const Text('测试'),
+              ),
+            ],
+          ),
+
+          if (_debugOutput.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(
+                _debugOutput,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: cs.onSurface,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+
+          const Divider(height: 40),
 
           // 申请说明
           Text(
@@ -146,6 +258,48 @@ class _DanDanPlaySettingsPageState extends State<DanDanPlaySettingsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StatusRow extends StatelessWidget {
+  const _StatusRow({
+    required this.label,
+    required this.ok,
+    required this.detail,
+  });
+
+  final String label;
+  final bool ok;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(
+          ok ? Icons.check_circle : Icons.cancel,
+          size: 16,
+          color: ok ? Colors.green : cs.error,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: cs.onSurface,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            detail,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

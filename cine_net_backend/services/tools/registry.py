@@ -10,6 +10,13 @@ from .catalog import (
     search_catalog_movies,
 )
 from .debate import debate_movie_recommendation
+from .bili import (
+    build_bili_companion,
+    get_bili_article_markdown,
+    search_bili_articles,
+    search_bili_movie_videos,
+    search_bili_up_users,
+)
 from .interactive import build_interactive_answer
 from .media import build_microdesign_posts, get_playable_resource_detail, search_playable_resources
 from .news import collect_movie_news, generate_movie_news
@@ -28,6 +35,11 @@ def get_agent_tools() -> list[BaseTool]:
         build_catalog_microdesign_poster,
         build_interactive_answer,
         debate_movie_recommendation,
+        search_bili_movie_videos,
+        search_bili_articles,
+        get_bili_article_markdown,
+        search_bili_up_users,
+        build_bili_companion,
         collect_movie_news,
         generate_movie_news,
     ]

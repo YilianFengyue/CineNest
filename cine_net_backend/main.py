@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from db import init_db
-from routers import agent, catalog, chat, feed, health, microdesign, news, play, poster, resources, sources, uploads
+from routers import agent, bili, catalog, chat, feed, health, microdesign, news, play, poster, resources, sources, uploads
 from services.resources import get_resource_aggregator
 
 
@@ -74,6 +74,7 @@ app.include_router(resources.router)
 app.include_router(catalog.router)
 app.include_router(microdesign.router)
 app.include_router(agent.router)
+app.include_router(bili.router)
 app.include_router(feed.router)
 app.include_router(sources.router)
 app.include_router(poster.router)
