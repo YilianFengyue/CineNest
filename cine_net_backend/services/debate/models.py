@@ -81,5 +81,7 @@ class DebateRecommendation(BaseModel):
 class DebateRecommendationEnvelope(BaseModel):
     user_id: str
     generated_by: Literal["llm", "fallback"] = "fallback"
+    model_used: str = ""
+    fallback_reason: str = ""
     profile_summary: str = ""
     result: DebateRecommendation

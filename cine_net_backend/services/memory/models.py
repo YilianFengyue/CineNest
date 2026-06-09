@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 MemoryType = Literal[
@@ -30,6 +30,34 @@ class HistorySyncItem(BaseModel):
     savedAt: int = 0
     tags: list[str] = Field(default_factory=list)
 
+    @field_validator("id", "title", "cover", "year", "source", "sourceName", "episodeName", mode="before")
+    @classmethod
+    def _string_or_none(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
+    @field_validator("episodeIndex", "positionMs", "durationMs", "savedAt", mode="before")
+    @classmethod
+    def _int_or_zero(cls, value):
+        if value is None or value == "":
+            return 0
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _tags_to_strings(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value] if value.strip() else []
+        if isinstance(value, list):
+            return [str(item) for item in value if item is not None and str(item).strip()]
+        return []
+
 
 class FavoriteSyncItem(BaseModel):
     id: str = ""
@@ -41,6 +69,34 @@ class FavoriteSyncItem(BaseModel):
     episodeCount: int = 0
     savedAt: int = 0
     tags: list[str] = Field(default_factory=list)
+
+    @field_validator("id", "title", "cover", "year", "source", "sourceName", mode="before")
+    @classmethod
+    def _string_or_none(cls, value):
+        if value is None:
+            return None
+        return str(value)
+
+    @field_validator("episodeCount", "savedAt", mode="before")
+    @classmethod
+    def _int_or_zero(cls, value):
+        if value is None or value == "":
+            return 0
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _tags_to_strings(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value] if value.strip() else []
+        if isinstance(value, list):
+            return [str(item) for item in value if item is not None and str(item).strip()]
+        return []
 
 
 class MemorySyncRequest(BaseModel):
@@ -135,4 +191,3 @@ class AgentProfile(BaseModel):
 class ProfileRebuildRequest(BaseModel):
     user_id: str = Field(default="default", min_length=1, max_length=80)
     use_llm: bool = False
-

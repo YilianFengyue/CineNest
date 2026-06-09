@@ -198,7 +198,7 @@ def _message_payload(
 def _inject_memory_context(message: str, user_id: str = "default") -> str:
     context = agent_context_summary(user_id)
     if not context:
-        return message
+        context = "当前长期画像暂无足够数据。若用户询问个性化推荐，请提示先在设置页同步本地观看历史和收藏。"
     return f"[用户长期画像]\n{context}\n\n[本轮消息]\n{message}"
 
 

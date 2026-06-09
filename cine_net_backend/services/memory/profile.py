@@ -235,10 +235,18 @@ def rebuild_profile(user_id: str = "default", *, use_llm: bool = False) -> Agent
         ProfileGraphNode(id=f"user:{user_id}", label="我", type="user", value=10)
     ]
     edges: list[ProfileGraphEdge] = []
+    edge_ids: set[str] = set()
+
+    def add_edge(edge: ProfileGraphEdge) -> None:
+        if edge.id in edge_ids:
+            return
+        edge_ids.add(edge.id)
+        edges.append(edge)
+
     for tag in taste_tags[:8]:
         node_id = f"genre:{tag.name}"
         nodes.append(ProfileGraphNode(id=node_id, label=tag.name, type="genre", value=tag.weight))
-        edges.append(
+        add_edge(
             ProfileGraphEdge(
                 id=stable_id(user_id, "edge", "likes", node_id),
                 source=f"user:{user_id}",
@@ -251,7 +259,7 @@ def rebuild_profile(user_id: str = "default", *, use_llm: bool = False) -> Agent
     for source in source_distribution[:4]:
         node_id = f"source:{source.name}"
         nodes.append(ProfileGraphNode(id=node_id, label=source.name, type="source", value=source.weight))
-        edges.append(
+        add_edge(
             ProfileGraphEdge(
                 id=stable_id(user_id, "edge", "uses", node_id),
                 source=f"user:{user_id}",
@@ -263,7 +271,7 @@ def rebuild_profile(user_id: str = "default", *, use_llm: bool = False) -> Agent
     for title in (favorite_titles + history_titles)[:8]:
         node_id = f"movie:{stable_id(title)[:10]}"
         nodes.append(ProfileGraphNode(id=node_id, label=title, type="movie", value=2))
-        edges.append(
+        add_edge(
             ProfileGraphEdge(
                 id=stable_id(user_id, "edge", "watched", title),
                 source=f"user:{user_id}",
@@ -345,4 +353,3 @@ def remember_chat_signal(user_id: str, message: str) -> None:
         weight=1.4,
         payload={"text": text, "taste_tags": tags, "format_tags": _format_tags(text)},
     )
-

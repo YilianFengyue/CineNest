@@ -3,16 +3,20 @@ import 'package:cine_nest/pages/creative/news/news_page.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_home_page.dart';
 import 'package:cine_nest/pages/settings/settings_page.dart';
 import 'package:cine_nest/router/app_pages.dart';
+import 'package:cine_nest/services/agent_memory_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// 主导航控制器（共建基建）。
-///
-/// 把"当前 Tab"提升为响应式状态，这样对话页的侧边抽屉也能切回其它 Tab。
 class MainNavController extends GetxController {
   static MainNavController get to => Get.find<MainNavController>();
   final RxInt index = 0.obs;
   void go(int i) => index.value = i;
+
+  @override
+  void onInit() {
+    super.onInit();
+    AgentMemoryService().autoSyncIfNeeded();
+  }
 }
 
 /// 应用主壳：底部导航框架（Day1 共建）。

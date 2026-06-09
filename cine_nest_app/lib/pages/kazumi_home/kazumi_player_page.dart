@@ -114,6 +114,24 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     }
   }
 
+  Future<void> _handleDebateSeek(int episodeIndex, int? startMs) async {
+    if (_playable.isEmpty) {
+      SmartDialog.showToast('暂无可播放片段');
+      return;
+    }
+    final targetIndex = episodeIndex.clamp(0, _playable.length - 1);
+    if (targetIndex != _currentIndex || _session == null) {
+      await _playEpisode(targetIndex);
+    }
+    if (startMs != null && startMs > 0) {
+      await _ctrl.seekTo(Duration(milliseconds: startMs));
+      SmartDialog.showToast('已跳转到片段');
+    } else {
+      _tabCtrl.animateTo(0);
+      SmartDialog.showToast('暂无精确时间轴，已切回播放');
+    }
+  }
+
   void _openInWebView() {
     if (_session == null) return;
     Get.toNamed(
@@ -236,6 +254,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
                               episodeName: _currentIndex < _playable.length
                                   ? _playable[_currentIndex].name
                                   : null,
+                              onSeek: _handleDebateSeek,
                             ),
                           ],
                         ),

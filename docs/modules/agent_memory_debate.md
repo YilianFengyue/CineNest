@@ -47,6 +47,13 @@ Flutter 将本地 `LocalHistoryRepository.exportJson()` 与 `LocalFavoriteReposi
 
 生成“AI 推荐委员会结论”。
 
+F17 当前固定使用后端 `.env` 的默认 LLM：
+
+- `LLM_BASE_URL=https://api.vveai.com/v1`
+- `LLM_MODEL=gemini-3.1-pro-preview`
+
+这里不跟 Chat 页模型选择联动，避免播放器评论区的演示链路被其它模型别名影响。
+
 ```json
 {
   "user_id": "default",
@@ -57,8 +64,7 @@ Flutter 将本地 `LocalHistoryRepository.exportJson()` 与 `LocalFavoriteReposi
   "episode_name": "正片",
   "playable": true,
   "rating": "8.9",
-  "tags": ["科幻", "剧情"],
-  "model": "default"
+  "tags": ["科幻", "剧情"]
 }
 ```
 
