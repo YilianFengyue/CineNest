@@ -13,6 +13,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from config import settings
 from services.assets import AgentInputAttachment, asset_data_url, get_asset
 from services.llm import get_chat_model, model_supports_images
+from services.memory import agent_context_summary
 from services.news import create_news_task, run_news_task
 from services.tools import get_agent_tools
 from services.tools.interactive import build_interactive_answer
@@ -25,6 +26,7 @@ _ATTACHMENT_TYPES = {
     "build_interactive_answer": "interactive_cards",
     "collect_movie_news": "news_feed",
     "generate_movie_news": "news_task",
+    "debate_movie_recommendation": "debate_recommendation",
 }
 
 _NEWS_GENERATE_RE = re.compile(r"^(?:生成影视资讯|生成影讯|AI影讯|ai影讯)[:：]\s*(.+)$")
@@ -193,6 +195,13 @@ def _message_payload(
     return content
 
 
+def _inject_memory_context(message: str, user_id: str = "default") -> str:
+    context = agent_context_summary(user_id)
+    if not context:
+        return message
+    return f"[用户长期画像]\n{context}\n\n[本轮消息]\n{message}"
+
+
 async def get_cine_agent(model_id: str = "default"):
     """懒加载 Agent；没有 Key 时资源 REST 接口仍然可用。"""
 
@@ -228,8 +237,9 @@ async def invoke_agent(
         )
     try:
         agent = await get_cine_agent(model)
+        message_with_context = _inject_memory_context(message)
         result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": _message_payload(message, attachments, model=model)}]},
+            {"messages": [{"role": "user", "content": _message_payload(message_with_context, attachments, model=model)}]},
             config=_config(thread_id),
         )
     except Exception as exc:
@@ -292,8 +302,9 @@ async def stream_agent(
         agent = await get_cine_agent(model)
         used_tools: list[str] = []
         attachment_count = 0
+        message_with_context = _inject_memory_context(message)
         async for update in agent.astream(
-            {"messages": [{"role": "user", "content": _message_payload(message, attachments, model=model)}]},
+            {"messages": [{"role": "user", "content": _message_payload(message_with_context, attachments, model=model)}]},
             config=_config(thread_id),
             stream_mode="updates",
         ):

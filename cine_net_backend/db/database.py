@@ -146,6 +146,70 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_sync_batches (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                device_id TEXT NOT NULL DEFAULT '',
+                history_count INTEGER NOT NULL DEFAULT 0,
+                favorite_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                payload_hash TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_memory_items (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                memory_type TEXT NOT NULL,
+                subject TEXT NOT NULL DEFAULT '',
+                relation TEXT NOT NULL DEFAULT '',
+                object TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT '',
+                confidence REAL NOT NULL DEFAULT 0.5,
+                weight REAL NOT NULL DEFAULT 1.0,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_memory_user_type ON agent_memory_items(user_id, memory_type)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_profile (
+                user_id TEXT PRIMARY KEY,
+                summary TEXT NOT NULL DEFAULT '',
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                version INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_memory_edges (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                source_node TEXT NOT NULL,
+                target_node TEXT NOT NULL,
+                relation TEXT NOT NULL,
+                weight REAL NOT NULL DEFAULT 1.0,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_memory_edges_user ON agent_memory_edges(user_id)"
+        )
 
 
 def _empty_preference() -> UserPreference:

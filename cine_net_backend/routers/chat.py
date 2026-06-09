@@ -12,6 +12,7 @@ from services.agent import stream_agent
 from services.agent.schemas import AgentStreamEvent
 from services.chat import add_message, delete_session, get_history, list_sessions, rename_session
 from services.chat.models import ChatHistoryResponse, ChatSession
+from services.memory import remember_chat_signal
 
 router = APIRouter(tags=["chat"])
 
@@ -91,6 +92,7 @@ async def chat_ws(ws: WebSocket):
                     model=model,
                     attachments=[item.model_dump() for item in attachments],
                 )
+                remember_chat_signal("default", message)
                 assistant_parts: list[str] = []
                 assistant_attachments: list[dict] = []
                 tool_calls: list[dict] = []

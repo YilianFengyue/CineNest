@@ -13,6 +13,7 @@ import 'package:cine_nest/router/app_pages.dart';
 import 'package:cine_nest/repositories/local_favorite_repository.dart';
 import 'package:cine_nest/repositories/local_history_repository.dart';
 import 'package:cine_nest/services/tmdb_direct_enrichment_service.dart';
+import 'package:cine_nest/pages/kazumi_home/widgets/debate_recommendation_card.dart';
 
 class KazumiPlayerPage extends StatefulWidget {
   const KazumiPlayerPage({
@@ -49,10 +50,12 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   void initState() {
     super.initState();
     _session = widget.session;
-    _detailEngine =
-        AggregatorDetailEngine(enrichmentService: TmdbDirectEnrichmentService());
-    _playable =
-        widget.detail.episodes.where((e) => e.isPlayableDirectUrl).toList();
+    _detailEngine = AggregatorDetailEngine(
+      enrichmentService: TmdbDirectEnrichmentService(),
+    );
+    _playable = widget.detail.episodes
+        .where((e) => e.isPlayableDirectUrl)
+        .toList();
     _tabCtrl = TabController(length: 2, vsync: this);
 
     if (_session != null) {
@@ -133,20 +136,24 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
 
   void _saveHistory() {
     if (_session == null) return;
-    final ep = _currentIndex < _playable.length ? _playable[_currentIndex] : null;
-    _historyRepo.save(HistoryRecord(
-      id: widget.detail.remoteId,
-      title: widget.detail.title,
-      cover: widget.detail.bestPoster,
-      year: widget.detail.year,
-      source: widget.detail.source,
-      sourceName: widget.detail.sourceName,
-      episodeName: ep?.name,
-      episodeIndex: _currentIndex,
-      positionMs: _ctrl.position.value.inMilliseconds,
-      durationMs: _ctrl.duration.value.inMilliseconds,
-      savedAt: DateTime.now().millisecondsSinceEpoch,
-    ));
+    final ep = _currentIndex < _playable.length
+        ? _playable[_currentIndex]
+        : null;
+    _historyRepo.save(
+      HistoryRecord(
+        id: widget.detail.remoteId,
+        title: widget.detail.title,
+        cover: widget.detail.bestPoster,
+        year: widget.detail.year,
+        source: widget.detail.source,
+        sourceName: widget.detail.sourceName,
+        episodeName: ep?.name,
+        episodeIndex: _currentIndex,
+        positionMs: _ctrl.position.value.inMilliseconds,
+        durationMs: _ctrl.duration.value.inMilliseconds,
+        savedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
   }
 
   @override
@@ -177,8 +184,9 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
           if (!didPop && fullscreen) _ctrl.setFullscreen(false);
         },
         child: Scaffold(
-          backgroundColor:
-              fullscreen ? Colors.black : Theme.of(context).colorScheme.surface,
+          backgroundColor: fullscreen
+              ? Colors.black
+              : Theme.of(context).colorScheme.surface,
           body: fullscreen
               ? _buildPlayer(fullscreen: true)
               : SafeArea(
@@ -193,9 +201,10 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
                             : const ColoredBox(
                                 color: Colors.black,
                                 child: Center(
-                                  child: Text('选择剧集开始播放',
-                                      style:
-                                          TextStyle(color: Colors.white54)),
+                                  child: Text(
+                                    '选择剧集开始播放',
+                                    style: TextStyle(color: Colors.white54),
+                                  ),
                                 ),
                               ),
                       ),
@@ -222,9 +231,11 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
                               currentIndex: _currentIndex,
                               onPlayEpisode: _playEpisode,
                             ),
-                            const Center(
-                              child: Text('评论功能开发中',
-                                  style: TextStyle(color: Colors.grey)),
+                            DebateRecommendationCard(
+                              detail: widget.detail,
+                              episodeName: _currentIndex < _playable.length
+                                  ? _playable[_currentIndex].name
+                                  : null,
                             ),
                           ],
                         ),
@@ -286,16 +297,18 @@ class _InfoTabState extends State<_InfoTab> {
   }
 
   Future<void> _toggleFav() async {
-    await _favRepo.toggle(FavoriteRecord(
-      id: detail.remoteId,
-      title: detail.title,
-      cover: detail.bestPoster,
-      year: detail.year,
-      source: detail.source,
-      sourceName: detail.sourceName,
-      episodeCount: playable.length,
-      savedAt: DateTime.now().millisecondsSinceEpoch,
-    ));
+    await _favRepo.toggle(
+      FavoriteRecord(
+        id: detail.remoteId,
+        title: detail.title,
+        cover: detail.bestPoster,
+        year: detail.year,
+        source: detail.source,
+        sourceName: detail.sourceName,
+        episodeCount: playable.length,
+        savedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
     setState(() => _isFav = !_isFav);
   }
 
@@ -306,7 +319,8 @@ class _InfoTabState extends State<_InfoTab> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       clipBehavior: Clip.antiAlias,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height -
+        maxHeight:
+            MediaQuery.of(context).size.height -
             MediaQuery.of(context).padding.top -
             (MediaQuery.of(context).size.width * 9 / 16),
       ),
@@ -339,8 +353,9 @@ class _InfoTabState extends State<_InfoTab> {
                 children: [
                   Text(
                     detail.title,
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -351,8 +366,9 @@ class _InfoTabState extends State<_InfoTab> {
                       if (detail.year != null) detail.year,
                       '${playable.length} 集',
                     ].join(' · '),
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -376,8 +392,9 @@ class _InfoTabState extends State<_InfoTab> {
             _desc,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style:
-                theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ],
 
@@ -389,15 +406,17 @@ class _InfoTabState extends State<_InfoTab> {
             children: [
               Text(
                 '合集',
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   '正在播放: ${playable[currentIndex].name}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -436,7 +455,9 @@ class _InfoTabState extends State<_InfoTab> {
   }
 
   String get _desc {
-    if (detail.tmdb?.overview?.isNotEmpty == true) return detail.tmdb!.overview!;
+    if (detail.tmdb?.overview?.isNotEmpty == true) {
+      return detail.tmdb!.overview!;
+    }
     if (detail.desc?.isNotEmpty == true) return detail.desc!;
     return '';
   }
@@ -467,14 +488,16 @@ class _EpisodeSheet extends StatelessWidget {
             children: [
               Text(
                 '选集',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(width: 8),
               Text(
                 '全${playable.length}话',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
               const Spacer(),
               IconButton(
@@ -550,9 +573,7 @@ class _EpisodeTile extends StatelessWidget {
                 Row(
                   children: [
                     if (isCurrent) ...[
-                      Icon(Icons.equalizer,
-                          size: 14,
-                          color: Colors.white),
+                      Icon(Icons.equalizer, size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                     ],
                     Text(

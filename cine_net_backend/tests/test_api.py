@@ -42,6 +42,74 @@ class ApiTests(TestCase):
         self.assertEqual(200, response.status_code)
         self.assertIn("default", {item["id"] for item in response.json()})
 
+    def test_agent_memory_sync_and_profile_endpoint(self) -> None:
+        user_id = "test-api-profile"
+        response = self.client.post(
+            "/api/agent/memory/sync",
+            json={
+                "user_id": user_id,
+                "device_id": "flutter-test",
+                "history": [
+                    {
+                        "id": "interstellar",
+                        "title": "星际穿越",
+                        "source": "demo",
+                        "sourceName": "演示源",
+                        "positionMs": 180000,
+                        "durationMs": 240000,
+                        "savedAt": 1710000000000,
+                        "tags": ["科幻", "剧情"],
+                    }
+                ],
+                "favorites": [
+                    {
+                        "id": "inception",
+                        "title": "盗梦空间",
+                        "source": "demo",
+                        "sourceName": "演示源",
+                        "savedAt": 1710000000000,
+                        "tags": ["悬疑"],
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(1, response.json()["history_received"])
+        profile = self.client.get("/api/agent/profile", params={"user_id": user_id})
+        self.assertEqual(200, profile.status_code)
+        payload = profile.json()
+        self.assertTrue(payload["taste_tags"])
+        self.assertTrue(payload["radar_metrics"])
+        self.assertTrue(payload["graph_nodes"])
+
+        with get_conn() as conn:
+            conn.execute("DELETE FROM agent_sync_batches WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM agent_memory_items WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM agent_profile WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM agent_memory_edges WHERE user_id = ?", (user_id,))
+
+    def test_agent_debate_endpoint_falls_back_without_llm(self) -> None:
+        with patch("services.debate.service.get_chat_model", side_effect=RuntimeError("no key")):
+            response = self.client.post(
+                "/api/agent/debate/recommend",
+                json={
+                    "movie": "星际穿越",
+                    "overview": "父亲穿越虫洞寻找新家园。",
+                    "source_name": "演示源",
+                    "tags": ["科幻", "剧情"],
+                },
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual("fallback", payload["generated_by"])
+        self.assertEqual("星际穿越", payload["result"]["movie"])
+        self.assertIn("taste_agent", payload["result"])
+        section_types = {item["type"] for item in payload["result"]["render_sections"]}
+        self.assertIn("hot_comments", section_types)
+        self.assertIn("highlight_buttons", section_types)
+
     def test_microdesign_schema_endpoint(self) -> None:
         response = self.client.get("/api/microdesign/schema")
 

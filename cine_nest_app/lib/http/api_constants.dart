@@ -50,6 +50,10 @@ abstract final class ApiConstants {
 
   // 对话基础设施
   static const String agentModels = '/api/agent/models';
+  static const String agentMemorySync = '/api/agent/memory/sync';
+  static const String agentProfile = '/api/agent/profile';
+  static const String agentProfileRebuild = '/api/agent/profile/rebuild';
+  static const String agentDebateRecommend = '/api/agent/debate/recommend';
   static const String chatSessions = '/api/chat/sessions';
   static String chatMessages(Object threadId) =>
       '/api/chat/sessions/$threadId/messages';

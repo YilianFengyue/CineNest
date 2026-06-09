@@ -4,7 +4,18 @@ from fastapi import APIRouter, HTTPException
 from services.chat import add_message
 from services.agent import invoke_agent
 from services.agent.schemas import AgentInvokeRequest, AgentInvokeResponse
+from services.debate import DebateRecommendationEnvelope, DebateRecommendationRequest, build_debate_recommendation
 from services.llm import list_chat_models
+from services.memory import (
+    AgentProfile,
+    MemorySyncRequest,
+    MemorySyncResponse,
+    ProfileRebuildRequest,
+    get_profile,
+    rebuild_profile,
+    remember_chat_signal,
+    sync_frontend_memory,
+)
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -28,6 +39,7 @@ async def invoke(request: AgentInvokeRequest) -> AgentInvokeResponse:
             model=request.model,
             attachments=[item.model_dump() for item in request.attachments],
         )
+        remember_chat_signal("default", request.message)
         result = await invoke_agent(
             request.message,
             request.thread_id,
@@ -47,3 +59,43 @@ async def invoke(request: AgentInvokeRequest) -> AgentInvokeResponse:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Agent 调用失败: {exc}") from exc
+
+
+@router.post("/memory/sync", response_model=MemorySyncResponse)
+async def sync_memory(request: MemorySyncRequest) -> MemorySyncResponse:
+    """同步 Flutter 本地观看历史/收藏到 PC 端长期记忆库。"""
+
+    try:
+        return sync_frontend_memory(request)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"同步长期记忆失败: {exc}") from exc
+
+
+@router.get("/profile", response_model=AgentProfile)
+async def profile(user_id: str = "default") -> AgentProfile:
+    """读取用户长期画像，供设置页图表/WebView 渲染。"""
+
+    try:
+        return get_profile(user_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"读取画像失败: {exc}") from exc
+
+
+@router.post("/profile/rebuild", response_model=AgentProfile)
+async def rebuild(request: ProfileRebuildRequest) -> AgentProfile:
+    """从长期记忆重新构建画像。"""
+
+    try:
+        return rebuild_profile(request.user_id, use_llm=request.use_llm)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"重建画像失败: {exc}") from exc
+
+
+@router.post("/debate/recommend", response_model=DebateRecommendationEnvelope)
+async def debate_recommend(request: DebateRecommendationRequest) -> DebateRecommendationEnvelope:
+    """一次 LLM 调用模拟多专家辩论式影视推荐。"""
+
+    try:
+        return await build_debate_recommendation(request)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"生成推荐委员会结论失败: {exc}") from exc

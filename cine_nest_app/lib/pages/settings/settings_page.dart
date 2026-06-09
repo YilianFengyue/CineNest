@@ -3,6 +3,7 @@ import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_history_page.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_favorites_page.dart';
 import 'package:cine_nest/pages/settings/appearance_settings_page.dart';
+import 'package:cine_nest/pages/settings/agent_profile_page.dart';
 import 'package:cine_nest/pages/settings/connection_settings_page.dart';
 import 'package:cine_nest/pages/settings/placeholder_settings_page.dart';
 import 'package:cine_nest/pages/settings/taste_settings_page.dart';
@@ -53,6 +54,12 @@ class SettingsPage extends StatelessWidget {
               title: const Text('口味偏好'),
               description: const Text('设置喜欢 / 不喜欢的类型，影响推荐'),
               onPressed: (_) => Get.to(() => const TasteSettingsPage()),
+            ),
+            SettingsTile.navigation(
+              leading: const Icon(Icons.psychology_alt_rounded),
+              title: const Text('Agent 长期画像'),
+              description: const Text('同步本地历史收藏，查看画像图表数据'),
+              onPressed: (_) => Get.to(() => const AgentProfilePage()),
             ),
           ],
         ),
@@ -140,10 +147,9 @@ class SettingsPage extends StatelessWidget {
               leading: const Icon(Icons.movie_outlined),
               title: const Text('旧版首页（Discovery）'),
               description: const Text('后端驱动的推荐首页'),
-              onPressed: (_) => Get.to(() => const Scaffold(
-                    appBar: null,
-                    body: DiscoveryPage(),
-                  )),
+              onPressed: (_) => Get.to(
+                () => const Scaffold(appBar: null, body: DiscoveryPage()),
+              ),
             ),
             SettingsTile.navigation(
               leading: const Icon(Icons.info_outline_rounded),
