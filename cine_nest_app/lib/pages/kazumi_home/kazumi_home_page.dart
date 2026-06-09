@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_home_controller.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_detail_page.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_search_page.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_history_page.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_card_v.dart';
 
 const double _kCardSpace = 8;
@@ -39,6 +41,46 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
         !_ctrl.isLoadingMore.value) {
       _ctrl.loadMore();
     }
+  }
+
+  void _showCategoryMenu(BuildContext ctx) {
+    showModalBottomSheet(
+      context: ctx,
+      showDragHandle: true,
+      backgroundColor: Theme.of(ctx).colorScheme.surface,
+      constraints: BoxConstraints(
+        maxHeight: 56.0 * 5 + 48,
+      ),
+      builder: (sheetCtx) {
+        return ListView.builder(
+          itemCount: homeCategories.length,
+          itemBuilder: (_, i) {
+            final cat = homeCategories[i];
+            final active = cat.type == _ctrl.currentCategory.value.type &&
+                cat.genreId == _ctrl.currentCategory.value.genreId;
+            return ListTile(
+              title: Text(
+                cat.label,
+                style: TextStyle(
+                  fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+                  color: active
+                      ? Theme.of(sheetCtx).colorScheme.primary
+                      : null,
+                ),
+              ),
+              trailing: active ? Icon(Icons.check, color: Theme.of(sheetCtx).colorScheme.primary) : null,
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _ctrl.switchCategory(cat);
+                _scrollController.animateTo(0,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOut);
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openDetail(TmdbMediaItem item) {
@@ -162,12 +204,16 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
       actions: [
         IconButton(
           tooltip: '搜索',
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const KazumiSearchPage()),
+          ),
           icon: const Icon(Icons.search),
         ),
         IconButton(
           tooltip: '历史记录',
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const KazumiHistoryPage()),
+          ),
           icon: const Icon(Icons.history),
         ),
       ],
@@ -189,21 +235,28 @@ class _KazumiHomePageState extends State<KazumiHomePage> {
                     left: 16, top: 8, bottom: 8, right: 60),
                 child: SizedBox(
                   height: 44,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '热门推荐',
-                        style: theme.textTheme.headlineMedium!.copyWith(
-                          fontWeight: fontWeight,
-                          fontSize: fontSize,
-                        ),
+                  child: Obx(() {
+                    final label = _ctrl.currentCategory.value.label;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _showCategoryMenu(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            style: theme.textTheme.headlineMedium!.copyWith(
+                              fontWeight: fontWeight,
+                              fontSize: fontSize,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.keyboard_arrow_down,
+                              size: fontSize, color: theme.iconTheme.color),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.keyboard_arrow_down,
-                          size: fontSize, color: theme.iconTheme.color),
-                    ],
-                  ),
+                    );
+                  }),
                 ),
               ),
             );

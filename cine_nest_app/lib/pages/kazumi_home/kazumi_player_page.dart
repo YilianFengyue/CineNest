@@ -10,6 +10,8 @@ import 'package:cine_nest/pages/player_kazumi/services/pip_service.dart';
 import 'package:cine_nest/pages/player_kazumi/services/screenshot_service.dart';
 import 'package:cine_nest/pages/player_kazumi/widgets/kazumi_player_view.dart';
 import 'package:cine_nest/router/app_pages.dart';
+import 'package:cine_nest/repositories/local_favorite_repository.dart';
+import 'package:cine_nest/repositories/local_history_repository.dart';
 import 'package:cine_nest/services/tmdb_direct_enrichment_service.dart';
 
 class KazumiPlayerPage extends StatefulWidget {
@@ -35,10 +37,10 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   Worker? _errorWorker;
   String _lastShownError = '';
 
+  final _historyRepo = LocalHistoryRepository();
   late AggregatorPlaySession? _session;
   late List<AggregatorEpisode> _playable;
   int _currentIndex = 0;
-  // expand goes to bottom sheet
 
   String get _tag =>
       'kz_player_${widget.detail.source}_${widget.detail.remoteId}';
@@ -91,6 +93,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
 
   Future<void> _playEpisode(int index) async {
     if (index < 0 || index >= _playable.length) return;
+    _saveHistory();
     try {
       final session = await _detailEngine.buildPlaySession(
         widget.detail,
@@ -128,8 +131,27 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     if (!ok) SmartDialog.showToast('当前平台不支持小窗模式');
   }
 
+  void _saveHistory() {
+    if (_session == null) return;
+    final ep = _currentIndex < _playable.length ? _playable[_currentIndex] : null;
+    _historyRepo.save(HistoryRecord(
+      id: widget.detail.remoteId,
+      title: widget.detail.title,
+      cover: widget.detail.bestPoster,
+      year: widget.detail.year,
+      source: widget.detail.source,
+      sourceName: widget.detail.sourceName,
+      episodeName: ep?.name,
+      episodeIndex: _currentIndex,
+      positionMs: _ctrl.position.value.inMilliseconds,
+      durationMs: _ctrl.duration.value.inMilliseconds,
+      savedAt: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
   @override
   void dispose() {
+    _saveHistory();
     _tabCtrl.dispose();
     _errorWorker?.dispose();
     _audioHandler?.detach();
@@ -231,7 +253,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
 }
 
 // ── 简介 Tab ──
-class _InfoTab extends StatelessWidget {
+class _InfoTab extends StatefulWidget {
   const _InfoTab({
     required this.detail,
     required this.playable,
@@ -243,6 +265,39 @@ class _InfoTab extends StatelessWidget {
   final List<AggregatorEpisode> playable;
   final int currentIndex;
   final ValueChanged<int> onPlayEpisode;
+
+  @override
+  State<_InfoTab> createState() => _InfoTabState();
+}
+
+class _InfoTabState extends State<_InfoTab> {
+  final _favRepo = LocalFavoriteRepository();
+  late bool _isFav;
+
+  AggregatorMediaDetail get detail => widget.detail;
+  List<AggregatorEpisode> get playable => widget.playable;
+  int get currentIndex => widget.currentIndex;
+  ValueChanged<int> get onPlayEpisode => widget.onPlayEpisode;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFav = _favRepo.isFavorite('${detail.source}:${detail.remoteId}');
+  }
+
+  Future<void> _toggleFav() async {
+    await _favRepo.toggle(FavoriteRecord(
+      id: detail.remoteId,
+      title: detail.title,
+      cover: detail.bestPoster,
+      year: detail.year,
+      source: detail.source,
+      sourceName: detail.sourceName,
+      episodeCount: playable.length,
+      savedAt: DateTime.now().millisecondsSinceEpoch,
+    ));
+    setState(() => _isFav = !_isFav);
+  }
 
   void _showEpisodeSheet(BuildContext context) {
     showModalBottomSheet(
@@ -304,9 +359,12 @@ class _InfoTab extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             FilledButton.tonalIcon(
-              onPressed: () {},
-              icon: const Icon(Icons.favorite_border, size: 18),
-              label: const Text('追剧'),
+              onPressed: _toggleFav,
+              icon: Icon(
+                _isFav ? Icons.favorite : Icons.favorite_border,
+                size: 18,
+              ),
+              label: Text(_isFav ? '已追剧' : '追剧'),
             ),
           ],
         ),

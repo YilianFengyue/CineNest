@@ -1,6 +1,7 @@
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:progress_indicator_m3e/progress_indicator_m3e.dart';
 
 import '../controller/player_controller.dart';
 
@@ -63,53 +64,95 @@ class PlayerBottomBar extends StatelessWidget {
   }
 
   Widget _buildCompact(BuildContext context) {
-    // inline 模式：视频是 AspectRatio 框，不在屏底，不能用 MediaQuery padding
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.only(left: 8, right: 8, bottom: 2),
+      height: 36,
+      padding: const EdgeInsets.only(left: 6, right: 4),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: [Color(0xB3000000), Color(0x00000000)],
+          colors: [Color(0xCC000000), Color(0x00000000)],
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          // 进度条：左右贴边，不再加 horizontal padding
-          _progressBar(context, thin: true),
-          SizedBox(
-            height: 26,
+          // ▶ 播放/暂停
+          Obx(() => IconButton(
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints.tightFor(width: 28, height: 28),
+                icon: Icon(
+                  controller.playing.value ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                onPressed: controller.playOrPause,
+              )),
+          const SizedBox(width: 4),
+          // 进度条（wavy，占 8 份）
+          Expanded(
+            flex: 8,
+            child: Obx(() {
+              final total = controller.duration.value.inMilliseconds;
+              final pos = controller.position.value.inMilliseconds;
+              final value = total > 0 ? (pos / total).clamp(0.0, 1.0) : 0.0;
+              return GestureDetector(
+                onHorizontalDragStart: (d) {
+                  controller.pause();
+                  controller.beginSeekPreview();
+                },
+                onHorizontalDragUpdate: (d) {
+                  final box = context.findRenderObject() as RenderBox?;
+                  if (box == null) return;
+                  final ratio =
+                      (d.localPosition.dx / box.size.width).clamp(0.0, 1.0);
+                  controller.seekTargetMs.value = (ratio * total).toInt();
+                  controller.showSeekHud.value = true;
+                },
+                onHorizontalDragEnd: (_) {
+                  controller.commitSeekPreview();
+                  controller.play();
+                },
+                child: SizedBox(
+                  height: 12,
+                  child: LinearProgressIndicatorM3E(
+                    value: value,
+                    size: LinearProgressM3ESize.s,
+                    shape: ProgressM3EShape.wavy,
+                    activeColor: primary,
+                    trackColor: Colors.white24,
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(width: 6),
+          // 时间 + 全屏（占 4 份）
+          Expanded(
+            flex: 4,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                Flexible(
+                  child: Obx(() {
+                    final pos =
+                        _formatDuration(controller.position.value);
+                    final dur =
+                        _formatDuration(controller.duration.value);
+                    return Text(
+                      '$pos/$dur',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                    );
+                  }),
+                ),
                 Obx(() => IconButton(
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints.tightFor(
-                          width: 26, height: 26),
-                      icon: Icon(
-                        controller.playing.value
-                            ? Icons.pause
-                            : Icons.play_arrow,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: controller.playOrPause,
-                    )),
-                const SizedBox(width: 4),
-                Obx(() {
-                  final pos = _formatDuration(controller.position.value);
-                  final dur = _formatDuration(controller.duration.value);
-                  return Text(
-                    '$pos / $dur',
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 11),
-                  );
-                }),
-                const Spacer(),
-                Obx(() => IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                          width: 26, height: 26),
+                          width: 28, height: 28),
                       icon: Icon(
                         controller.isFullscreen.value
                             ? Icons.fullscreen_exit

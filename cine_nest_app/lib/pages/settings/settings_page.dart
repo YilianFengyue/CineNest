@@ -1,5 +1,7 @@
 import 'package:card_settings_ui/card_settings_ui.dart';
 import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_history_page.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_favorites_page.dart';
 import 'package:cine_nest/pages/settings/appearance_settings_page.dart';
 import 'package:cine_nest/pages/settings/connection_settings_page.dart';
 import 'package:cine_nest/pages/settings/placeholder_settings_page.dart';
@@ -37,14 +39,14 @@ class SettingsPage extends StatelessWidget {
             SettingsTile.navigation(
               leading: const Icon(Icons.history_rounded),
               title: const Text('观影历史'),
-              description: const Text('查看看过 / 点开过的影片'),
-              onPressed: (_) => Get.toNamed(Routes.history),
+              description: const Text('本地观看记录'),
+              onPressed: (_) => Get.to(() => const KazumiHistoryPage()),
             ),
             SettingsTile.navigation(
               leading: const Icon(Icons.favorite_rounded),
               title: const Text('我的收藏'),
-              description: const Text('收藏的影片与海报'),
-              onPressed: (_) => Get.toNamed(Routes.collection),
+              description: const Text('本地收藏的影片'),
+              onPressed: (_) => Get.to(() => const KazumiFavoritesPage()),
             ),
             SettingsTile.navigation(
               leading: const Icon(Icons.tune_rounded),

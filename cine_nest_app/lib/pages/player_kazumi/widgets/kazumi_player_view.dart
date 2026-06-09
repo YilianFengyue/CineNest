@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:progress_indicator_m3e/progress_indicator_m3e.dart';
 
 import '../controller/player_controller.dart';
 import 'player_bottom_bar.dart';
@@ -114,20 +115,22 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
             ),
           ),
 
-          // 2. 缓冲/加载指示器
+          // 2. 缓冲/加载指示器（M3 Expressive wavy circle）
           Obx(() {
             final showBuffering = c.loading.value || c.buffering.value;
             return AnimatedOpacity(
               duration: const Duration(milliseconds: 200),
               opacity: showBuffering ? 1 : 0,
-              child: const IgnorePointer(
+              child: IgnorePointer(
                 child: Center(
                   child: SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: Colors.white,
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicatorM3E(
+                      size: CircularProgressM3ESize.m,
+                      shape: ProgressM3EShape.wavy,
+                      activeColor: Colors.white,
+                      trackColor: Colors.white24,
                     ),
                   ),
                 ),
@@ -138,55 +141,59 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
           // 3. 手势层
           Positioned.fill(child: PlayerGestureLayer(controller: c)),
 
-          // 4. 顶部控制栏
+          // 4. 顶部控制栏（ClipRect 防小屏溢出）
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Obx(() {
-              final visible = c.showControls.value && !c.lockPanel.value;
-              final compact = !c.isFullscreen.value;
-              return AnimatedSlide(
-                duration: const Duration(milliseconds: 250),
-                offset: visible ? Offset.zero : const Offset(0, -1),
-                child: AnimatedOpacity(
+            child: ClipRect(
+              child: Obx(() {
+                final visible = c.showControls.value && !c.lockPanel.value;
+                final compact = !c.isFullscreen.value;
+                return AnimatedSlide(
                   duration: const Duration(milliseconds: 250),
-                  opacity: visible ? 1 : 0,
-                  child: PlayerTopBar(
-                    title: widget.title,
-                    onBack: widget.onBack,
-                    onEnterPip: widget.onEnterPip,
-                    controller: c,
-                    compact: compact,
+                  offset: visible ? Offset.zero : const Offset(0, -1),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: visible ? 1 : 0,
+                    child: PlayerTopBar(
+                      title: widget.title,
+                      onBack: widget.onBack,
+                      onEnterPip: widget.onEnterPip,
+                      controller: c,
+                      compact: compact,
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
 
-          // 5. 底部控制栏
+          // 5. 底部控制栏（ClipRect 防小屏溢出）
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: Obx(() {
-              final visible = c.showControls.value && !c.lockPanel.value;
-              final compact = !c.isFullscreen.value;
-              return AnimatedSlide(
-                duration: const Duration(milliseconds: 250),
-                offset: visible ? Offset.zero : const Offset(0, 1),
-                child: AnimatedOpacity(
+            child: ClipRect(
+              child: Obx(() {
+                final visible = c.showControls.value && !c.lockPanel.value;
+                final compact = !c.isFullscreen.value;
+                return AnimatedSlide(
                   duration: const Duration(milliseconds: 250),
-                  opacity: visible ? 1 : 0,
-                  child: PlayerBottomBar(
-                    controller: c,
-                    compact: compact,
-                    onScreenshot: widget.onScreenshot,
-                    onEnterPip: widget.onEnterPip,
+                  offset: visible ? Offset.zero : const Offset(0, 1),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: visible ? 1 : 0,
+                    child: PlayerBottomBar(
+                      controller: c,
+                      compact: compact,
+                      onScreenshot: widget.onScreenshot,
+                      onEnterPip: widget.onEnterPip,
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
 
           // 6. HUD 层

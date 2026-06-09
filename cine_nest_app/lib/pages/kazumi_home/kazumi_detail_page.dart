@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:cine_nest/repositories/local_favorite_repository.dart';
 import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_info_card.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/network_img_layer.dart';
@@ -18,12 +19,30 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
     with TickerProviderStateMixin {
   static const List<String> _tabs = ['概览', '吐槽', '角色', '评论', '制作人员'];
 
+  final _favRepo = LocalFavoriteRepository();
   late final TabController _tabController;
+  late bool _isFav;
+
+  String get _favKey => 'tmdb:${widget.item.id}';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _isFav = _favRepo.isFavorite(_favKey);
+  }
+
+  Future<void> _toggleFav() async {
+    await _favRepo.toggle(FavoriteRecord(
+      id: '${widget.item.id}',
+      title: widget.item.title,
+      cover: widget.item.poster(),
+      year: widget.item.year,
+      source: 'tmdb',
+      sourceName: 'TMDB',
+      savedAt: DateTime.now().millisecondsSinceEpoch,
+    ));
+    setState(() => _isFav = !_isFav);
   }
 
   @override
@@ -95,7 +114,11 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(
                                 16, kToolbarHeight, 16, 0),
-                            child: BangumiInfoCardV(item: widget.item),
+                            child: BangumiInfoCardV(
+                              item: widget.item,
+                              isFavorite: _isFav,
+                              onToggleFavorite: _toggleFav,
+                            ),
                           ),
                         ),
                       ),

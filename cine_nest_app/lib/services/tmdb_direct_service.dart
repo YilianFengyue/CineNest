@@ -80,9 +80,26 @@ class TmdbDirectService {
   Future<List<TmdbMediaItem>> trending({
     String mediaType = 'all',
     String timeWindow = 'week',
+    int page = 1,
   }) async {
-    final resp = await _dio.get('/trending/$mediaType/$timeWindow');
+    final resp = await _dio.get('/trending/$mediaType/$timeWindow',
+        queryParameters: {'page': page});
     return _parseList(resp.data);
+  }
+
+  Future<List<TmdbMediaItem>> discover({
+    String mediaType = 'movie',
+    int? genreId,
+    int page = 1,
+  }) async {
+    final params = <String, dynamic>{
+      'page': page,
+      'sort_by': 'popularity.desc',
+    };
+    if (genreId != null) params['with_genres'] = genreId;
+    final resp =
+        await _dio.get('/discover/$mediaType', queryParameters: params);
+    return _parseList(resp.data, fallbackType: mediaType);
   }
 
   Future<List<TmdbMediaItem>> popular({String mediaType = 'movie', int page = 1}) async {

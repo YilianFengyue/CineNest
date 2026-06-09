@@ -8,10 +8,14 @@ class BangumiInfoCardV extends StatelessWidget {
     super.key,
     required this.item,
     this.isLoading = false,
+    this.isFavorite = false,
+    this.onToggleFavorite,
   });
 
   final TmdbMediaItem item;
   final bool isLoading;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -117,9 +121,12 @@ class BangumiInfoCardV extends StatelessWidget {
                           width: 120,
                           height: 40,
                           child: FilledButton.tonalIcon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.favorite_border, size: 18),
-                            label: const Text('收藏'),
+                            onPressed: onToggleFavorite,
+                            icon: Icon(
+                              isFavorite ? Icons.favorite : Icons.favorite_border,
+                              size: 18,
+                            ),
+                            label: Text(isFavorite ? '已收藏' : '收藏'),
                           ),
                         ),
                       ],
