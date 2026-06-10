@@ -26,6 +26,7 @@ class AgentAttachment(BaseModel):
         "news_task",
         "debate_recommendation",
         "bilibili_companion",
+        "phone_task",
     ]
     schema_version: str = "microdesign.v1.1"
     payload: dict[str, Any]

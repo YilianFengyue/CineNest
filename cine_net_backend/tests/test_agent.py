@@ -78,6 +78,19 @@ class AgentAttachmentTests(TestCase):
         self.assertEqual("bilibili_companion", attachment.type)
         self.assertEqual("你的名字", attachment.payload["movie"])
 
+    def test_phone_tool_message_becomes_task_attachment(self) -> None:
+        message = ToolMessage(
+            content=json.dumps({"schema_version": "phone_task.v2", "task_id": "phone-1", "status": "queued"}),
+            name="start_phone_task",
+            tool_call_id="call-phone",
+        )
+
+        attachment = _attachment_from_tool_message(message)
+
+        self.assertIsNotNone(attachment)
+        self.assertEqual("phone_task", attachment.type)
+        self.assertEqual("phone-1", attachment.payload["task_id"])
+
     def test_non_visual_tool_does_not_become_attachment(self) -> None:
         message = ToolMessage(content="{}", name="get_backend_status", tool_call_id="call-5")
 

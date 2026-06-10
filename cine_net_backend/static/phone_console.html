@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CineNest Phone Agent Console</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #152033;
+      --muted: #667085;
+      --line: #d8dee9;
+      --brand: #1463ff;
+      --ok: #0f8a5f;
+      --warn: #b36b00;
+      --bad: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 18px 24px;
+      background: #101828;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    h1 { margin: 0; font-size: 19px; font-weight: 650; }
+    main {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 16px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    h2 { margin: 0 0 12px; font-size: 15px; }
+    label { display: block; margin: 10px 0 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea, button {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 9px 10px;
+      background: white;
+      color: var(--text);
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    button {
+      padding: 9px 12px;
+      background: var(--brand);
+      color: white;
+      border-color: var(--brand);
+      cursor: pointer;
+    }
+    button.secondary { background: white; color: var(--text); border-color: var(--line); }
+    button.danger { background: var(--bad); border-color: var(--bad); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > * { flex: 1; }
+    .stack { display: grid; gap: 16px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: #194185;
+      font-size: 12px;
+    }
+    .task {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fbfcff;
+    }
+    .task.active { border-color: var(--brand); }
+    .muted { color: var(--muted); font-size: 12px; }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0b1220;
+      color: #d6e2ff;
+      padding: 12px;
+      border-radius: 8px;
+      min-height: 280px;
+      max-height: 560px;
+      overflow: auto;
+      font-size: 12px;
+    }
+    .status-running { color: var(--brand); }
+    .status-done { color: var(--ok); }
+    .status-failed, .status-cancelled { color: var(--bad); }
+    .status-waiting_approval, .status-waiting_takeover { color: var(--warn); }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CineNest Phone Agent Console</h1>
+    <span id="wsState" class="badge">WS disconnected</span>
+  </header>
+  <main>
+    <div class="stack">
+      <section>
+        <h2>运行配置</h2>
+        <div class="row">
+          <label><input id="enabled" type="checkbox" /> 启用手机控制</label>
+          <label>设备类型
+            <select id="deviceType">
+              <option value="adb">ADB / Android</option>
+              <option value="hdc">HDC / HarmonyOS</option>
+            </select>
+          </label>
+        </div>
+        <label>模型服务地址</label>
+        <input id="baseUrl" placeholder="https://open.bigmodel.cn/api/paas/v4" />
+        <label>模型名称</label>
+        <input id="modelName" placeholder="autoglm-phone" />
+        <label>API Key（留空表示不修改）</label>
+        <input id="apiKey" type="password" placeholder="sk-..." />
+        <div class="row">
+          <label>设备 ID
+            <input id="deviceId" placeholder="自动检测" />
+          </label>
+          <label>最大步数
+            <input id="maxSteps" type="number" min="1" max="300" />
+          </label>
+        </div>
+        <div class="row" style="margin-top: 12px;">
+          <button id="saveConfig">保存到运行期</button>
+          <button id="loadDevices" class="secondary">检测设备</button>
+        </div>
+        <div id="devices" class="muted" style="margin-top: 10px;"></div>
+      </section>
+
+      <section>
+        <h2>启动任务</h2>
+        <label>任务目标</label>
+        <textarea id="objective">打开哔哩哔哩搜索流浪地球解说视频</textarea>
+        <label>验收标准</label>
+        <textarea id="criteria" style="min-height: 64px;">页面展示与流浪地球相关的视频搜索结果</textarea>
+        <div class="row" style="margin-top: 12px;">
+          <button id="startTask">启动任务</button>
+          <button id="refreshTasks" class="secondary">刷新列表</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section>
+        <h2>任务列表</h2>
+        <div id="tasks"></div>
+      </section>
+      <section>
+        <h2>实时事件</h2>
+        <pre id="log"></pre>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let selectedTaskId = "";
+
+    function api(path, options = {}) {
+      return fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+        return data;
+      });
+    }
+
+    function log(type, data) {
+      const line = `[${new Date().toLocaleTimeString()}] ${type}\n${JSON.stringify(data, null, 2)}\n\n`;
+      $("log").textContent = line + $("log").textContent;
+    }
+
+    async function loadConfig() {
+      const cfg = await api("/api/phone/config");
+      $("enabled").checked = cfg.enabled === true;
+      $("deviceType").value = cfg.device_type || "adb";
+      $("baseUrl").value = cfg.model_base_url || "";
+      $("modelName").value = cfg.model_name || "";
+      $("deviceId").value = cfg.device_id || "";
+      $("maxSteps").value = cfg.max_steps || 30;
+    }
+
+    async function saveConfig() {
+      const payload = {
+        enabled: $("enabled").checked,
+        device_type: $("deviceType").value,
+        model_base_url: $("baseUrl").value,
+        model_name: $("modelName").value,
+        device_id: $("deviceId").value,
+        max_steps: Number($("maxSteps").value || 30),
+      };
+      if ($("apiKey").value.trim()) payload.api_key = $("apiKey").value.trim();
+      const cfg = await api("/api/phone/config", { method: "POST", body: JSON.stringify(payload) });
+      $("apiKey").value = "";
+      log("config_saved", cfg);
+    }
+
+    async function loadDevices() {
+      const data = await api(`/api/phone/devices?device_type=${$("deviceType").value}`);
+      $("devices").textContent = data.error
+        ? data.error
+        : (data.devices || []).map((d) => `${d.id} ${d.status || ""} ${d.model || ""}`).join(" / ") || "未检测到设备";
+      log("devices", data);
+    }
+
+    function statusClass(status) {
+      return `status-${status || ""}`;
+    }
+
+    async function loadTasks() {
+      const data = await api("/api/phone/tasks?limit=20");
+      renderTasks(data.tasks || []);
+    }
+
+    function renderTasks(tasks) {
+      $("tasks").innerHTML = "";
+      for (const task of tasks) {
+        const div = document.createElement("div");
+        div.className = `task ${task.task_id === selectedTaskId ? "active" : ""}`;
+        const current = task.current_step;
+        div.innerHTML = `
+          <div class="row">
+            <strong>${task.objective || task.description}</strong>
+            <span class="${statusClass(task.status)}">${task.status}</span>
+          </div>
+          <div class="muted">${task.task_id} · ${task.device_type}${task.device_id ? " · " + task.device_id : ""}</div>
+          <div class="muted">steps: ${task.step_count || 0}${current ? " · last: " + (current.action?.action || current.message || "") : ""}</div>
+          <div class="row" style="margin-top: 8px;">
+            <button class="secondary" data-action="inspect">检查</button>
+            <button class="secondary" data-action="approve">同意</button>
+            <button class="secondary" data-action="takeover">接管完成</button>
+            <button class="danger" data-action="cancel">取消</button>
+          </div>
+        `;
+        div.querySelector('[data-action="inspect"]').onclick = () => inspectTask(task.task_id);
+        div.querySelector('[data-action="approve"]').onclick = () => approveTask(task.task_id);
+        div.querySelector('[data-action="takeover"]').onclick = () => takeoverDone(task.task_id);
+        div.querySelector('[data-action="cancel"]').onclick = () => cancelTask(task.task_id);
+        $("tasks").appendChild(div);
+      }
+    }
+
+    async function startTask() {
+      const task = await api("/api/phone/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          objective: $("objective").value,
+          success_criteria: $("criteria").value,
+          device_type: $("deviceType").value,
+          device_id: $("deviceId").value,
+          max_steps: Number($("maxSteps").value || 30),
+        }),
+      });
+      selectedTaskId = task.task_id;
+      log("task_started_request", task);
+      await loadTasks();
+    }
+
+    async function inspectTask(taskId) {
+      selectedTaskId = taskId;
+      const data = await api(`/api/phone/tasks/${taskId}`);
+      log("inspect", data);
+      await loadTasks();
+    }
+
+    async function approveTask(taskId) {
+      const data = await api(`/api/phone/tasks/${taskId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ approved: true }),
+      });
+      log("approve", data);
+    }
+
+    async function takeoverDone(taskId) {
+      const data = await api(`/api/phone/tasks/${taskId}/takeover-done`, { method: "POST" });
+      log("takeover_done", data);
+    }
+
+    async function cancelTask(taskId) {
+      const data = await api(`/api/phone/tasks/${taskId}/cancel`, { method: "POST" });
+      log("cancel", data);
+      await loadTasks();
+    }
+
+    function connectWs() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${proto}://${location.host}/ws/tasks`);
+      ws.onopen = () => $("wsState").textContent = "WS connected";
+      ws.onclose = () => {
+        $("wsState").textContent = "WS disconnected";
+        setTimeout(connectWs, 1500);
+      };
+      ws.onerror = () => $("wsState").textContent = "WS error";
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        log(data.type, data.data || data);
+        if (data.type === "tasks_snapshot") renderTasks(data.data.tasks || []);
+        if (data.type && data.type.startsWith("task_")) loadTasks();
+      };
+    }
+
+    $("saveConfig").onclick = () => saveConfig().catch((e) => log("error", e.message));
+    $("loadDevices").onclick = () => loadDevices().catch((e) => log("error", e.message));
+    $("startTask").onclick = () => startTask().catch((e) => log("error", e.message));
+    $("refreshTasks").onclick = () => loadTasks().catch((e) => log("error", e.message));
+
+    loadConfig().then(loadTasks).then(connectWs).catch((e) => log("init_error", e.message));
+  </script>
+</body>
+</html>

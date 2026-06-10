@@ -1,0 +1,237 @@
+========= [SQLite] 正在检查并初始化本地数据库... =========
+========= [SQLite] 数据库初始化/检查成功！ =========
+
+>>> [收到请求] GET /console/phone
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:53234 - "GET /console/phone HTTP/1.1" 200 OK
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:53235 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /console/phone
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:56580 - "GET /console/phone HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:56580 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:56580 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /favicon.ico
+<<< [请求结束] 状态码: 404
+
+INFO:     127.0.0.1:56580 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:62725 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:60327 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] POST /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:63241 - "POST /api/phone/tasks HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:63241 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:53014 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:63241 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks/phone-b57d2400311b
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:63241 - "GET /api/phone/tasks/phone-b57d2400311b HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:63241 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /console/phone
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /console/phone HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /console/phone
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /console/phone HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /console/phone
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /console/phone HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:55060 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /favicon.ico
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 404
+
+INFO:     127.0.0.1:55060 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52751 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52751 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:54058 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /console/phone
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /console/phone HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52240 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:51608 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:51608 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:51608 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52591 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52591 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /console/phone
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52591 - "GET /console/phone HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/config
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52591 - "GET /api/phone/config HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/tasks
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:52591 - "GET /api/phone/tasks?limit=20 HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /favicon.ico
+<<< [请求结束] 状态码: 404
+
+INFO:     127.0.0.1:59798 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:59798 - "GET /api/phone/devices?device_type=adb HTTP/1.1" 200 OK
+
+>>> [收到请求] GET /api/phone/devices
+<<< [请求结束] 状态码: 200
+
+INFO:     127.0.0.1:62876 - "GET /api/phone/devices HTTP/1.1" 200 OK

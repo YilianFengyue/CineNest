@@ -58,6 +58,18 @@ class Settings(BaseSettings):
     asset_max_bytes: int = 20 * 1024 * 1024
     asset_public_base_url: str = ""
 
+    # AutoGLM 手机控制
+    phone_enabled: bool = False
+    phone_model_base_url: str = "https://open.bigmodel.cn/api/paas/v4"
+    phone_model_name: str = "autoglm-phone"
+    phone_api_key: str = ""
+    phone_device_type: str = "adb"
+    phone_device_id: str = ""
+    phone_max_steps: int = 30
+    phone_task_poll_interval_seconds: float = 0.2
+    phone_console_enabled: bool = True
+    static_phone_console_path: Path = BASE_DIR / "static" / "phone_console.html"
+
     # 服务
     host: str = "0.0.0.0"
     port: int = 8000

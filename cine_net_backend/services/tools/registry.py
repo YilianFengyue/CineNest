@@ -20,6 +20,15 @@ from .bili import (
 from .interactive import build_interactive_answer
 from .media import build_microdesign_posts, get_playable_resource_detail, search_playable_resources
 from .news import collect_movie_news, generate_movie_news
+from .phone import (
+    cancel_phone_task,
+    continue_phone_task,
+    execute_phone_task,
+    get_phone_task_status,
+    inspect_phone_task,
+    list_phone_tasks,
+    start_phone_task,
+)
 from .system import get_backend_status
 
 
@@ -42,4 +51,11 @@ def get_agent_tools() -> list[BaseTool]:
         build_bili_companion,
         collect_movie_news,
         generate_movie_news,
+        start_phone_task,
+        execute_phone_task,
+        get_phone_task_status,
+        inspect_phone_task,
+        continue_phone_task,
+        cancel_phone_task,
+        list_phone_tasks,
     ]

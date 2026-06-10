@@ -38,6 +38,13 @@ class ToolRegistryTests(TestCase):
                 "build_bili_companion",
                 "collect_movie_news",
                 "generate_movie_news",
+                "start_phone_task",
+                "execute_phone_task",
+                "get_phone_task_status",
+                "inspect_phone_task",
+                "continue_phone_task",
+                "cancel_phone_task",
+                "list_phone_tasks",
             },
             names,
         )

@@ -10,10 +10,11 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from config import settings
 from db import init_db
-from routers import agent, bili, catalog, chat, feed, health, microdesign, news, play, poster, resources, sources, uploads
+from routers import agent, bili, catalog, chat, feed, health, microdesign, news, phone, play, poster, resources, sources, uploads
 from services.resources import get_resource_aggregator
 
 
@@ -69,6 +70,13 @@ async def proxy_image(url: str):
         return Response(status_code=502)
 
 
+@app.get("/console/phone", tags=["phone (AutoGLM)"])
+async def phone_console():
+    """AutoGLM 手机任务 HTML 测试台。"""
+
+    return FileResponse(settings.static_phone_console_path)
+
+
 app.include_router(health.router)
 app.include_router(resources.router)
 app.include_router(catalog.router)
@@ -82,6 +90,7 @@ app.include_router(news.router)
 app.include_router(play.router)
 app.include_router(chat.router)
 app.include_router(uploads.router)
+app.include_router(phone.router)
 
 
 if __name__ == "__main__":

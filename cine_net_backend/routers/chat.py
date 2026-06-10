@@ -58,7 +58,10 @@ async def remove_chat_session(thread_id: str) -> dict:
 
 @router.websocket("/ws/chat")
 async def chat_ws(ws: WebSocket):
-    """流式 Agent 对话。客户端可发送纯文本或 `{message, thread_id, model, attachments}` JSON。"""
+    """流式 Agent 对话。客户端可发送纯文本或 `{message, thread_id, model, attachments}` JSON。
+
+    手机自动化任务是独立异步流：聊天 WS 只返回 Agent 对话事件；任务进度请订阅 `/ws/tasks`。
+    """
 
     await ws.accept()
     try:

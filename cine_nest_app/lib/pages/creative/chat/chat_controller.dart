@@ -292,6 +292,22 @@ class ChatController extends GetxController {
         await _finishTurn();
         _persist();
         break;
+      case AgentEventType.phoneStep:
+      case AgentEventType.phoneDone:
+      case AgentEventType.phoneError:
+      case AgentEventType.taskCreated:
+      case AgentEventType.taskStarted:
+      case AgentEventType.taskStep:
+      case AgentEventType.taskObservation:
+      case AgentEventType.taskWaitingApproval:
+      case AgentEventType.taskWaitingTakeover:
+      case AgentEventType.taskVerifying:
+      case AgentEventType.taskDone:
+      case AgentEventType.taskFailed:
+      case AgentEventType.taskCancelled:
+      case AgentEventType.tasksSnapshot:
+        // 手机任务已拆到独立 /ws/tasks；这里兼容旧后端或调试帧。
+        break;
       case AgentEventType.unknown:
         break;
     }
@@ -337,6 +353,7 @@ class ChatController extends GetxController {
       ChatMeta.kindInteractive,
       ChatMeta.kindNews,
       ChatMeta.kindNewsTask,
+      ChatMeta.kindPhoneTask,
     };
     final kind = known.contains(e.attachmentType)
         ? e.attachmentType

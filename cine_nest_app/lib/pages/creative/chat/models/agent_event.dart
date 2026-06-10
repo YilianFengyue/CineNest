@@ -11,6 +11,20 @@ enum AgentEventType {
   attachment, // 结构化附件（推荐 feed / 互动海报），渲染成卡片
   done, // 流结束，关加载
   error, // 出错，显示提示 + 重试
+  phoneStep, // 兼容旧后端：手机任务步骤
+  phoneDone, // 兼容旧后端：手机任务完成
+  phoneError, // 兼容旧后端：手机任务失败
+  taskCreated,
+  taskStarted,
+  taskStep,
+  taskObservation,
+  taskWaitingApproval,
+  taskWaitingTakeover,
+  taskVerifying,
+  taskDone,
+  taskFailed,
+  taskCancelled,
+  tasksSnapshot,
   unknown;
 
   static AgentEventType parse(String? raw) {
@@ -29,6 +43,34 @@ enum AgentEventType {
         return AgentEventType.done;
       case 'error':
         return AgentEventType.error;
+      case 'phone_step':
+        return AgentEventType.phoneStep;
+      case 'phone_done':
+        return AgentEventType.phoneDone;
+      case 'phone_error':
+        return AgentEventType.phoneError;
+      case 'task_created':
+        return AgentEventType.taskCreated;
+      case 'task_started':
+        return AgentEventType.taskStarted;
+      case 'task_step':
+        return AgentEventType.taskStep;
+      case 'task_observation':
+        return AgentEventType.taskObservation;
+      case 'task_waiting_approval':
+        return AgentEventType.taskWaitingApproval;
+      case 'task_waiting_takeover':
+        return AgentEventType.taskWaitingTakeover;
+      case 'task_verifying':
+        return AgentEventType.taskVerifying;
+      case 'task_done':
+        return AgentEventType.taskDone;
+      case 'task_failed':
+        return AgentEventType.taskFailed;
+      case 'task_cancelled':
+        return AgentEventType.taskCancelled;
+      case 'tasks_snapshot':
+        return AgentEventType.tasksSnapshot;
       default:
         return AgentEventType.unknown;
     }
@@ -76,8 +118,7 @@ class AgentEvent {
 
   // ── tool_started 便捷取值 ──
   /// 工具名（tool_started 用 `name`，tool_finished 用 `tool_name`）。
-  String get toolName =>
-      (data['name'] ?? data['tool_name'] ?? '').toString();
+  String get toolName => (data['name'] ?? data['tool_name'] ?? '').toString();
 
   // ── attachment 便捷取值 ──
   /// 附件类型：`recommendation_feed` / `microdesign_poster`。

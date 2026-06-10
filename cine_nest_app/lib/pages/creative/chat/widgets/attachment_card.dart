@@ -26,6 +26,9 @@ class AttachmentCard extends StatelessWidget {
     if (kind == ChatMeta.kindPoster) {
       return _PosterPreview(payload: payload, onAction: onAction);
     }
+    if (kind == ChatMeta.kindPhoneTask) {
+      return _PhoneTaskChip(payload: payload);
+    }
     if (kind == ChatMeta.kindInteractive) {
       // 交互卡片集合：payload.cards 是一串 block，直接拼贴。
       final cards = ContentBlock.listFrom(payload['cards']);
@@ -85,6 +88,71 @@ class AttachmentCard extends StatelessWidget {
                   onAction: onAction,
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneTaskChip extends StatelessWidget {
+  const _PhoneTaskChip({required this.payload});
+
+  final Map<String, dynamic> payload;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final status = (payload['status'] ?? 'queued').toString();
+    final objective = (payload['objective'] ?? payload['description'] ?? '手机任务')
+        .toString();
+    final taskId = (payload['task_id'] ?? payload['id'] ?? '').toString();
+    final steps = (payload['step_count'] as num?)?.toInt() ?? 0;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(right: 36),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.phone_android_rounded, size: 20, color: cs.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    objective,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      status,
+                      if (steps > 0) '$steps 步',
+                      if (taskId.isNotEmpty) taskId,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

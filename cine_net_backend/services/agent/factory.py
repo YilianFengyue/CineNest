@@ -28,6 +28,9 @@ _ATTACHMENT_TYPES = {
     "generate_movie_news": "news_task",
     "debate_movie_recommendation": "debate_recommendation",
     "build_bili_companion": "bilibili_companion",
+    "start_phone_task": "phone_task",
+    "execute_phone_task": "phone_task",
+    "continue_phone_task": "phone_task",
 }
 
 _NEWS_GENERATE_RE = re.compile(r"^(?:生成影视资讯|生成影讯|AI影讯|ai影讯)[:：]\s*(.+)$")
@@ -56,6 +59,9 @@ SYSTEM_PROMPT = """\
 用户明确要找播放地址时，调用 search_playable_resources 与 get_playable_resource_detail。
 工具字段为空时必须明确说“暂无”，不得用模型记忆补充简介、剧情、演职员、评分、封面或播放信息。
 如果工具没有返回结果，明确告诉用户暂未检索到，不要用常识补造任何影视资料或播放线路。
+当用户需要在手机上执行操作（如打开B站搜索视频、刷小红书、收藏内容、浏览推荐流等）时，优先调用 start_phone_task 启动 AutoGLM 手机子 Agent。
+手机任务是异步的：启动后你可以继续和用户对话；需要判断任务进度时调用 get_phone_task_status 或 inspect_phone_task；需要继续推进时调用 continue_phone_task 或再次 start_phone_task 派发更小的子任务；用户要求停止时调用 cancel_phone_task。
+手机任务完成不等于目标一定完成；如果用户给了复杂目标，你必须根据 inspect_phone_task 的步骤、动作、当前应用和结果判断是否需要继续派发小任务。
 回答使用简洁中文，并说明本次实际检索到的资源情况。
 """
 

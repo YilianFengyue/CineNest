@@ -78,26 +78,33 @@ class _ChatView extends StatelessWidget {
     return Chat(
       chatController: c.chat,
       currentUserId: ChatUsers.me,
-      resolveUser: (id) async => User(id: id, name: id == ChatUsers.bot ? 'CineNest' : '我'),
+      resolveUser: (id) async =>
+          User(id: id, name: id == ChatUsers.bot ? 'CineNest' : '我'),
       theme: ChatTheme.fromThemeData(theme),
       builders: Builders(
-        textMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) {
-          final bubble = FlyerChatTextMessage(message: message, index: index);
-          // Agent 回复气泡下挂"复制 / 重新生成"操作栏（仿 Gemini）。
-          if (isSentByMe || message.text.trim().isEmpty) return bubble;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              bubble,
-              _BotMessageActions(text: message.text, index: index),
-            ],
-          );
-        },
-        imageMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
-            _ChatImageBubble(message: message),
-        customMessageBuilder: (ctx, message, index, {required isSentByMe, groupStatus}) =>
-            _buildCustom(ctx, message),
+        textMessageBuilder:
+            (ctx, message, index, {required isSentByMe, groupStatus}) {
+              final bubble = FlyerChatTextMessage(
+                message: message,
+                index: index,
+              );
+              // Agent 回复气泡下挂"复制 / 重新生成"操作栏（仿 Gemini）。
+              if (isSentByMe || message.text.trim().isEmpty) return bubble;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  bubble,
+                  _BotMessageActions(text: message.text, index: index),
+                ],
+              );
+            },
+        imageMessageBuilder:
+            (ctx, message, index, {required isSentByMe, groupStatus}) =>
+                _ChatImageBubble(message: message),
+        customMessageBuilder:
+            (ctx, message, index, {required isSentByMe, groupStatus}) =>
+                _buildCustom(ctx, message),
         chatMessageBuilder: _wrapWithAvatar,
         composerBuilder: (ctx) => const ChatComposer(),
         emptyChatListBuilder: (ctx) => _EmptyState(onPrompt: c.send),
@@ -163,6 +170,7 @@ class _ChatView extends StatelessWidget {
       case ChatMeta.kindPoster:
       case ChatMeta.kindInteractive:
       case ChatMeta.kindNews:
+      case ChatMeta.kindPhoneTask:
         return AttachmentCard(
           message,
           onAction: (a) => handleChatAction(context, a),
@@ -304,7 +312,8 @@ class _ChatImageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final source = message.source;
-    final isRemote = source.startsWith('http://') ||
+    final isRemote =
+        source.startsWith('http://') ||
         source.startsWith('https://') ||
         source.startsWith('/api/');
 
@@ -353,7 +362,8 @@ class _NewsTaskChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final payload =
-        (message.metadata?[ChatMeta.payload] as Map?)?.cast<String, dynamic>() ??
+        (message.metadata?[ChatMeta.payload] as Map?)
+            ?.cast<String, dynamic>() ??
         const {};
     final query = (payload['query'] ?? '').toString();
     final status = (payload['status'] ?? 'queued').toString();
@@ -404,7 +414,11 @@ class _NewsTaskChip extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.chevron_right, size: 18, color: cs.onSecondaryContainer),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: cs.onSecondaryContainer,
+                  ),
                 ],
               ),
             ),
@@ -483,8 +497,11 @@ class _EmptyState extends StatelessWidget {
                 color: cs.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.movie_creation_outlined,
-                  color: cs.onPrimaryContainer, size: 32),
+              child: Icon(
+                Icons.movie_creation_outlined,
+                color: cs.onPrimaryContainer,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 16),
             Text('我是 CineNest 影视助手', style: theme.textTheme.titleMedium),

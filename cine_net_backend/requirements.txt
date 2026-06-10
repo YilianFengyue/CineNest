@@ -21,6 +21,11 @@ beautifulsoup4>=4.12.0
 playwright>=1.45.0
 jinja2>=3.1.0
 
+# AutoGLM 手机控制（从本地源码安装）
+# pip install -e ../CodeReference/Open-AutoGLM
+Pillow>=12.0.0
+openai>=2.9.0
+
 # 验收测试
 pytest>=8.0.0
 pytest-asyncio>=0.24.0

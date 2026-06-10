@@ -210,6 +210,64 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_agent_memory_edges_user ON agent_memory_edges(user_id)"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS phone_tasks (
+                id TEXT PRIMARY KEY,
+                thread_id TEXT NOT NULL DEFAULT '',
+                parent_task_id TEXT NOT NULL DEFAULT '',
+                objective TEXT NOT NULL,
+                success_criteria TEXT NOT NULL DEFAULT '',
+                device_type TEXT NOT NULL DEFAULT 'adb',
+                device_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                result TEXT NOT NULL DEFAULT '',
+                error TEXT NOT NULL DEFAULT '',
+                max_steps INTEGER NOT NULL DEFAULT 30,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_phone_tasks_status_updated ON phone_tasks(status, updated_at DESC)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS phone_steps (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                step_index INTEGER NOT NULL,
+                thinking TEXT NOT NULL DEFAULT '',
+                action_json TEXT NOT NULL DEFAULT '{}',
+                observation_json TEXT NOT NULL DEFAULT '{}',
+                success INTEGER NOT NULL DEFAULT 0,
+                finished INTEGER NOT NULL DEFAULT 0,
+                message TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(task_id) REFERENCES phone_tasks(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_phone_steps_task_index ON phone_steps(task_id, step_index)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS phone_events (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(task_id) REFERENCES phone_tasks(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_phone_events_task_time ON phone_events(task_id, created_at)"
+        )
 
 
 def _empty_preference() -> UserPreference:
