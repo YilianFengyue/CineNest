@@ -20,6 +20,19 @@ abstract final class SettingBoxKey {
   // ── 对话（成员 C · F9）──
   /// 当前选中的对话模型 id。
   static const String chatModel = 'chatModel';
+
+  // ── 弹幕（弹弹Play）──
+  static const String dandanAppId = 'dandanAppId';
+  static const String dandanAppSecret = 'dandanAppSecret';
+  static const String danmakuEnabled = 'danmakuEnabled';
+  static const String danmakuOpacity = 'danmakuOpacity';
+  static const String danmakuFontScale = 'danmakuFontScale';
+  static const String danmakuArea = 'danmakuArea';
+  static const String danmakuDuration = 'danmakuDuration';
+  static const String danmakuHideScroll = 'danmakuHideScroll';
+  static const String danmakuHideTop = 'danmakuHideTop';
+  static const String danmakuHideBottom = 'danmakuHideBottom';
+  static const String danmakuMassive = 'danmakuMassive';
 }
 
 /// 本地缓存键（非用户设置，运行期数据）。

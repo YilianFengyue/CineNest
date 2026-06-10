@@ -27,6 +27,7 @@ _ATTACHMENT_TYPES = {
     "collect_movie_news": "news_feed",
     "generate_movie_news": "news_task",
     "debate_movie_recommendation": "debate_recommendation",
+    "build_bili_companion": "bilibili_companion",
 }
 
 _NEWS_GENERATE_RE = re.compile(r"^(?:生成影视资讯|生成影讯|AI影讯|ai影讯)[:：]\s*(.+)$")
@@ -47,6 +48,7 @@ SYSTEM_PROMPT = """\
 当用户需要推荐帖子时调用 build_recommendation_feed；需要动态海报时调用 build_catalog_microdesign_poster。
 当用户在聊天中需要可点击卡片、电影轮播、评价卡或“像 ChatGPT 一样的交互回答”时，优先调用 build_interactive_answer。
 当用户询问影视资讯、热点、新闻或资讯页内容时，调用 collect_movie_news。
+当用户询问 B站、哔哩哔哩、解说、影评、混剪、UP主、专栏或观影延展内容时，调用 Bilibili 工具；不要编造 B站视频标题、播放量、UP 主或专栏内容。
 当用户要求“为某部电影生成资讯/特辑/海报资讯”时，调用 generate_movie_news 提交后台任务；任务完成后会持久化到资讯列表。
 当用户上传图片时，先观察图片本身：描述画面、人物、文字、海报/截图/剧照线索；如果用户要识片、找片、推荐或播放，再结合可见线索调用 Catalog/Resource 工具核验。
 图片内容可以作为用户提供的视觉证据，但影视事实、评分、播放源和播放 URL 仍必须通过工具确认。

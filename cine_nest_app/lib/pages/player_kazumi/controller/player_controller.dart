@@ -9,7 +9,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
+import '../../../services/dandanplay_service.dart';
 import '../../../services/logger.dart';
+import '../../../services/shader_asset_service.dart';
+import '../../../utils/storage_pref.dart';
 
 /// 播放器核心控制器（GetX 包装 media_kit Player + VideoController）。
 class KazumiPlayerController extends GetxController {
@@ -71,6 +74,23 @@ class KazumiPlayerController extends GetxController {
   final brightness = 0.5.obs;
   final aspectRatioType = 1.obs;
 
+  /// 超分辨率档位: 1=关, 2=效率, 3=质量
+  final superResolution = 1.obs;
+
+  // ─── 弹幕状态 ─────────────────────────────────────────
+  final danmakuVisible = true.obs;
+  final danmakuOpacity = 1.0.obs;
+  final danmakuFontScale = 1.0.obs;
+  final danmakuArea = 0.8.obs;
+  final danmakuDuration = 8.0.obs;
+  final danmakuHideScroll = false.obs;
+  final danmakuHideTop = false.obs;
+  final danmakuHideBottom = false.obs;
+  final danmakuMassive = false.obs;
+  final danmakuLoading = false.obs;
+  final danmakuItems = <DanDanComment>[].obs;
+  final danmakuCount = 0.obs;
+
   // ─── UI 状态 ──────────────────────────────────────────
   final showControls = true.obs;
   final lockPanel = false.obs;
@@ -89,6 +109,7 @@ class KazumiPlayerController extends GetxController {
   Timer? _hideTimer;
   Timer? _hudHideTimer;
   Timer? _volumeGestureSyncTimer;
+  Timer? _errorHideTimer;
   double? _pendingGestureVolume;
   double _savedSpeedBeforeLongPress = 1.0;
   bool _opening = false;
@@ -128,7 +149,7 @@ class KazumiPlayerController extends GetxController {
           logger.w('PLAYER OPEN TRANSIENT ERROR: $msg');
           return;
         }
-        lastError.value = msg;
+        _showTransientError(msg);
         loading.value = false;
         logger.e('PLAYER ERROR: $msg');
       }),
@@ -166,6 +187,37 @@ class KazumiPlayerController extends GetxController {
     }
   }
 
+  /// Anime4K 超分辨率：1=关, 2=效率(Lite), 3=质量(Full)
+  Future<void> setShader(int type) async {
+    try {
+      final pp = player.platform;
+      if (pp is! NativePlayer) return;
+      final svc = ShaderAssetService.instance;
+      await svc.ensureShadersCopied();
+      if (type == 2) {
+        await pp.command([
+          'change-list',
+          'glsl-shaders',
+          'set',
+          buildShadersPath(svc.shadersPath, kAnime4KShadersLite),
+        ]);
+      } else if (type == 3) {
+        await pp.command([
+          'change-list',
+          'glsl-shaders',
+          'set',
+          buildShadersPath(svc.shadersPath, kAnime4KShaders),
+        ]);
+      } else {
+        await pp.command(['change-list', 'glsl-shaders', 'clr', '']);
+      }
+      superResolution.value = type;
+      logger.i('Anime4K shader set to type=$type');
+    } catch (e) {
+      logger.w('setShader failed: $e');
+    }
+  }
+
   /// 解析并缓存 mpv 磁盘缓存目录（app 临时目录）。
   Future<String?> _resolveDemuxerCacheDir() async {
     if (_demuxerCacheDir != null) return _demuxerCacheDir;
@@ -182,6 +234,7 @@ class KazumiPlayerController extends GetxController {
   Future<void> onClose() async {
     _cancelHideTimer();
     _cancelHudHideTimer();
+    _cancelErrorHideTimer();
     _volumeGestureSyncTimer?.cancel();
     for (final s in _subs) {
       try {
@@ -215,7 +268,7 @@ class KazumiPlayerController extends GetxController {
     bool autoPlay = true,
   }) async {
     loading.value = true;
-    lastError.value = '';
+    _clearError();
     _opening = true;
     _openingErrors.clear();
     final httpHeaders = _buildPlaybackHeaders(url, headers);
@@ -231,11 +284,11 @@ class KazumiPlayerController extends GetxController {
       logger.i('player.open rendered first frame');
       await _syncSystemVolumeInitial();
       await _syncSystemBrightnessInitial();
-      lastError.value = '';
+      _clearError();
       showControlsTemporarily();
     } catch (e) {
       final message = _friendlyOpenFailure(e);
-      lastError.value = message;
+      _showTransientError(message);
       logger.e('open failed: $message');
     } finally {
       _opening = false;
@@ -552,6 +605,26 @@ class KazumiPlayerController extends GetxController {
     _hudHideTimer = null;
   }
 
+  void _showTransientError(String message) {
+    _cancelErrorHideTimer();
+    lastError.value = message;
+    _errorHideTimer = Timer(const Duration(seconds: 3), () {
+      if (lastError.value == message) {
+        lastError.value = '';
+      }
+    });
+  }
+
+  void _clearError() {
+    _cancelErrorHideTimer();
+    lastError.value = '';
+  }
+
+  void _cancelErrorHideTimer() {
+    _errorHideTimer?.cancel();
+    _errorHideTimer = null;
+  }
+
   // ═══════════════════════════════════════════════════════
   //  截图 / 全屏
   // ═══════════════════════════════════════════════════════
@@ -567,4 +640,49 @@ class KazumiPlayerController extends GetxController {
 
   void setFullscreen(bool v) => isFullscreen.value = v;
   void toggleFullscreen() => isFullscreen.value = !isFullscreen.value;
+
+  // ═══════════════════════════════════════════════════════
+  //  弹幕
+  // ═══════════════════════════════════════════════════════
+
+  void loadDanmakuPrefs() {
+    danmakuVisible.value = Pref.danmakuEnabled;
+    danmakuOpacity.value = Pref.danmakuOpacity;
+    danmakuFontScale.value = Pref.danmakuFontScale;
+    danmakuArea.value = Pref.danmakuArea;
+    danmakuDuration.value = Pref.danmakuDuration;
+    danmakuHideScroll.value = Pref.danmakuHideScroll;
+    danmakuHideTop.value = Pref.danmakuHideTop;
+    danmakuHideBottom.value = Pref.danmakuHideBottom;
+    danmakuMassive.value = Pref.danmakuMassive;
+  }
+
+  void toggleDanmaku() {
+    danmakuVisible.value = !danmakuVisible.value;
+    Pref.setDanmakuEnabled(danmakuVisible.value);
+  }
+
+  final _dandanService = DanDanPlayService();
+
+  Future<void> fetchDanmaku({
+    required String title,
+    int? tmdbId,
+    int? episodeNumber,
+  }) async {
+    if (!_dandanService.hasCredentials) return;
+    danmakuLoading.value = true;
+    try {
+      final items = await _dandanService.fetchDanmaku(
+        title: title,
+        tmdbId: tmdbId,
+        episodeNumber: episodeNumber,
+      );
+      danmakuItems.value = items;
+      danmakuCount.value = items.length;
+    } catch (e) {
+      logger.w('fetchDanmaku failed: $e');
+    } finally {
+      danmakuLoading.value = false;
+    }
+  }
 }

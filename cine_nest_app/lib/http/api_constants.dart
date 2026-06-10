@@ -20,6 +20,9 @@ abstract final class ApiConstants {
   static const String sourcesParse = '/api/sources/parse';
   static const String bilibiliSearch = '/api/bilibili/search';
 
+  // Bilibili 伴侣资源
+  static const String biliMovieVideos = '/api/bili/movie/videos';
+
   // Member C
   static const String wsChat = '/ws/chat';
 

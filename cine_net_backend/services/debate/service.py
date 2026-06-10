@@ -53,12 +53,55 @@ label, why, spoiler_level, approx_time。
 """
 
 
+def _parse_approx_time_ms(text: str) -> int | None:
+    """Parse approximate time strings into milliseconds.
+
+    Handles: '约1h15m', '前30分钟', '约45min', '1:15:00', '约2小时10分',
+    '开头10分钟', '约90分钟', '1h20m', '50min' etc.
+    """
+    if not text:
+        return None
+    s = text.strip()
+    # strip common prefixes
+    for prefix in ("约", "前", "开头", "大约", "大概", "接近"):
+        s = s.removeprefix(prefix)
+    s = s.strip()
+
+    # HH:MM:SS or MM:SS
+    m = re.match(r"(\d+):(\d+)(?::(\d+))?$", s)
+    if m:
+        if m.group(3) is not None:
+            total_s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
+        else:
+            total_s = int(m.group(1)) * 60 + int(m.group(2))
+        return total_s * 1000 if total_s > 0 else None
+
+    # Xh Ym / X小时Y分 / Xmin / X分钟
+    hours = 0
+    minutes = 0
+    m_h = re.search(r"(\d+)\s*(?:h|小时|hrs?)", s)
+    if m_h:
+        hours = int(m_h.group(1))
+    m_m = re.search(r"(\d+)\s*(?:m(?:in)?|分钟?)", s)
+    if m_m:
+        minutes = int(m_m.group(1))
+    if hours or minutes:
+        return (hours * 3600 + minutes * 60) * 1000
+
+    # bare number → treat as minutes
+    m_bare = re.match(r"(\d+)$", s)
+    if m_bare:
+        return int(m_bare.group(1)) * 60 * 1000
+
+    return None
+
+
 def _highlight_action(label: str, approx_time: str = "") -> dict:
     return {
         "type": "seek_or_hint",
         "label": label,
         "approx_time": approx_time,
-        "start_ms": None,
+        "start_ms": _parse_approx_time_ms(approx_time),
         "episode_index": 0,
     }
 
@@ -221,9 +264,13 @@ def _normalize_result_payload(data: dict, request: DebateRecommendationRequest) 
         item["label"] = label
         item["why"] = str(item.get("why") or "适合判断这部作品是否合胃口")
         item["spoiler_level"] = level_map.get(raw_level, "low")
-        item["approx_time"] = str(item.get("approx_time") or "")
+        approx = str(item.get("approx_time") or "")
+        item["approx_time"] = approx
         item["button_text"] = str(item.get("button_text") or "查看片段")
-        item["action"] = item.get("action") if isinstance(item.get("action"), dict) else _highlight_action(label)
+        action = item.get("action") if isinstance(item.get("action"), dict) else _highlight_action(label, approx)
+        if isinstance(action, dict) and not action.get("start_ms"):
+            action["start_ms"] = _parse_approx_time_ms(approx)
+        item["action"] = action
         normalized_moments.append(item)
     if not normalized_moments:
         normalized_moments = [

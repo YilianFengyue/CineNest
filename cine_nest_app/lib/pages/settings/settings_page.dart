@@ -5,6 +5,7 @@ import 'package:cine_nest/pages/kazumi_home/kazumi_favorites_page.dart';
 import 'package:cine_nest/pages/settings/appearance_settings_page.dart';
 import 'package:cine_nest/pages/settings/agent_profile_page.dart';
 import 'package:cine_nest/pages/settings/connection_settings_page.dart';
+import 'package:cine_nest/pages/settings/dandanplay_settings_page.dart';
 import 'package:cine_nest/pages/settings/placeholder_settings_page.dart';
 import 'package:cine_nest/pages/settings/taste_settings_page.dart';
 import 'package:cine_nest/router/app_pages.dart';
@@ -109,6 +110,12 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.download_rounded,
                 owner: 'Member A',
               ),
+            ),
+            SettingsTile.navigation(
+              leading: const Icon(Icons.subtitles_rounded),
+              title: const Text('弹幕设置'),
+              description: const Text('配置弹弹Play API Key，播放时自动加载弹幕'),
+              onPressed: (_) => Get.to(() => const DanDanPlaySettingsPage()),
             ),
             SettingsTile.navigation(
               leading: const Icon(Icons.cast_rounded),

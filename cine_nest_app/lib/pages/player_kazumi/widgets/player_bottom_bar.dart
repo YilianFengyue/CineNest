@@ -34,33 +34,35 @@ class PlayerBottomBar extends StatelessWidget {
   }
 
   Widget _progressBar(BuildContext context, {required bool thin}) {
-    return Obx(() => ProgressBar(
-          progress: controller.position.value,
-          buffered: controller.buffer.value,
-          total: controller.duration.value,
-          timeLabelLocation: TimeLabelLocation.none,
-          // 关键：ProgressBar 实际占高 ≈ max(barHeight, thumbRadius*2)
-          // compact 用 3.5 → 总高 ~7px；full 用 5 → 总高 ~10px
-          barHeight: thin ? 2.0 : 3.0,
-          thumbRadius: thin ? 3.5 : 5.0,
-          baseBarColor: Colors.white24,
-          bufferedBarColor: Colors.white38,
-          progressBarColor: Theme.of(context).colorScheme.primary,
-          thumbColor: Theme.of(context).colorScheme.primary,
-          onDragStart: (_) {
-            controller.pause();
-            controller.beginSeekPreview();
-          },
-          onDragUpdate: (d) {
-            controller.seekTargetMs.value = d.timeStamp.inMilliseconds;
-            controller.showSeekHud.value = true;
-          },
-          onDragEnd: () {
-            controller.commitSeekPreview();
-            controller.play();
-          },
-          onSeek: (to) => controller.seekTo(to),
-        ));
+    return Obx(
+      () => ProgressBar(
+        progress: controller.position.value,
+        buffered: controller.buffer.value,
+        total: controller.duration.value,
+        timeLabelLocation: TimeLabelLocation.none,
+        // 关键：ProgressBar 实际占高 ≈ max(barHeight, thumbRadius*2)
+        // compact 用 3.5 → 总高 ~7px；full 用 5 → 总高 ~10px
+        barHeight: thin ? 2.0 : 3.0,
+        thumbRadius: thin ? 3.5 : 5.0,
+        baseBarColor: Colors.white24,
+        bufferedBarColor: Colors.white38,
+        progressBarColor: Theme.of(context).colorScheme.primary,
+        thumbColor: Theme.of(context).colorScheme.primary,
+        onDragStart: (_) {
+          controller.pause();
+          controller.beginSeekPreview();
+        },
+        onDragUpdate: (d) {
+          controller.seekTargetMs.value = d.timeStamp.inMilliseconds;
+          controller.showSeekHud.value = true;
+        },
+        onDragEnd: () {
+          controller.commitSeekPreview();
+          controller.play();
+        },
+        onSeek: (to) => controller.seekTo(to),
+      ),
+    );
   }
 
   Widget _buildCompact(BuildContext context) {
@@ -78,17 +80,18 @@ class PlayerBottomBar extends StatelessWidget {
       child: Row(
         children: [
           // ▶ 播放/暂停
-          Obx(() => IconButton(
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints.tightFor(width: 28, height: 28),
-                icon: Icon(
-                  controller.playing.value ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                onPressed: controller.playOrPause,
-              )),
+          Obx(
+            () => IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+              icon: Icon(
+                controller.playing.value ? Icons.pause : Icons.play_arrow,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: controller.playOrPause,
+            ),
+          ),
           const SizedBox(width: 4),
           // 进度条（wavy，占 8 份）
           Expanded(
@@ -105,8 +108,10 @@ class PlayerBottomBar extends StatelessWidget {
                 onHorizontalDragUpdate: (d) {
                   final box = context.findRenderObject() as RenderBox?;
                   if (box == null) return;
-                  final ratio =
-                      (d.localPosition.dx / box.size.width).clamp(0.0, 1.0);
+                  final ratio = (d.localPosition.dx / box.size.width).clamp(
+                    0.0,
+                    1.0,
+                  );
                   controller.seekTargetMs.value = (ratio * total).toInt();
                   controller.showSeekHud.value = true;
                 },
@@ -136,32 +141,36 @@ class PlayerBottomBar extends StatelessWidget {
               children: [
                 Flexible(
                   child: Obx(() {
-                    final pos =
-                        _formatDuration(controller.position.value);
-                    final dur =
-                        _formatDuration(controller.duration.value);
+                    final pos = _formatDuration(controller.position.value);
+                    final dur = _formatDuration(controller.duration.value);
                     return Text(
                       '$pos/$dur',
                       style: const TextStyle(
-                          color: Colors.white70, fontSize: 10),
+                        color: Colors.white70,
+                        fontSize: 10,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.clip,
                     );
                   }),
                 ),
-                Obx(() => IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                          width: 28, height: 28),
-                      icon: Icon(
-                        controller.isFullscreen.value
-                            ? Icons.fullscreen_exit
-                            : Icons.fullscreen,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: controller.toggleFullscreen,
-                    )),
+                Obx(
+                  () => IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 28,
+                      height: 28,
+                    ),
+                    icon: Icon(
+                      controller.isFullscreen.value
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    onPressed: controller.toggleFullscreen,
+                  ),
+                ),
               ],
             ),
           ),
@@ -195,39 +204,46 @@ class PlayerBottomBar extends StatelessWidget {
             height: 44,
             child: Row(
               children: [
-                Obx(() => IconButton(
-                      icon: Icon(
-                        controller.playing.value
-                            ? Icons.pause
-                            : Icons.play_arrow,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: controller.playOrPause,
-                    )),
+                Obx(
+                  () => IconButton(
+                    icon: Icon(
+                      controller.playing.value ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: controller.playOrPause,
+                  ),
+                ),
                 Obx(() {
                   final pos = _formatDuration(controller.position.value);
                   final dur = _formatDuration(controller.duration.value);
                   return Text(
                     '$pos / $dur',
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   );
                 }),
                 const Spacer(),
-                Obx(() => _SmallChip(
-                      label: _speedLabel(controller.speed.value),
-                      onTap: () => _cycleSpeed(controller),
-                    )),
+                Obx(
+                  () => _SmallChip(
+                    label: _speedLabel(controller.speed.value),
+                    onTap: () => _cycleSpeed(controller),
+                  ),
+                ),
                 const SizedBox(width: 4),
-                Obx(() => _SmallChip(
-                      label: _aspectLabel(controller.aspectRatioType.value),
-                      onTap: controller.cycleAspectRatio,
-                    )),
+                Obx(
+                  () => _SmallChip(
+                    label: _aspectLabel(controller.aspectRatioType.value),
+                    onTap: controller.cycleAspectRatio,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                _ShaderPopup(controller: controller),
                 if (onScreenshot != null)
                   IconButton(
-                    icon: const Icon(Icons.camera_alt_outlined,
-                        color: Colors.white),
+                    icon: const Icon(
+                      Icons.camera_alt_outlined,
+                      color: Colors.white,
+                    ),
                     tooltip: '截图',
                     onPressed: () {
                       controller.showControlsTemporarily();
@@ -236,23 +252,27 @@ class PlayerBottomBar extends StatelessWidget {
                   ),
                 if (onEnterPip != null)
                   IconButton(
-                    icon: const Icon(Icons.picture_in_picture_alt,
-                        color: Colors.white),
+                    icon: const Icon(
+                      Icons.picture_in_picture_alt,
+                      color: Colors.white,
+                    ),
                     tooltip: '小窗',
                     onPressed: () {
                       controller.showControlsTemporarily();
                       onEnterPip!();
                     },
                   ),
-                Obx(() => IconButton(
-                      icon: Icon(
-                        controller.isFullscreen.value
-                            ? Icons.fullscreen_exit
-                            : Icons.fullscreen,
-                        color: Colors.white,
-                      ),
-                      onPressed: controller.toggleFullscreen,
-                    )),
+                Obx(
+                  () => IconButton(
+                    icon: Icon(
+                      controller.isFullscreen.value
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                      color: Colors.white,
+                    ),
+                    onPressed: controller.toggleFullscreen,
+                  ),
+                ),
               ],
             ),
           ),
@@ -288,6 +308,63 @@ class PlayerBottomBar extends StatelessWidget {
     var idx = presets.indexWhere((s) => (s - cur).abs() < 0.01);
     idx = (idx + 1) % presets.length;
     c.setSpeed(presets[idx]);
+  }
+}
+
+class _ShaderPopup extends StatelessWidget {
+  const _ShaderPopup({required this.controller});
+  final KazumiPlayerController controller;
+
+  static const _labels = ['关闭', '效率档', '质量档'];
+  static const _types = [1, 2, 3];
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final current = controller.superResolution.value;
+      final isOn = current > 1;
+      return PopupMenuButton<int>(
+        onSelected: controller.setShader,
+        offset: const Offset(0, -160),
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        itemBuilder: (_) => [
+          for (int i = 0; i < 3; i++)
+            PopupMenuItem(
+              value: _types[i],
+              child: Text(
+                _labels[i],
+                style: TextStyle(
+                  color: current == _types[i]
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.black87,
+                  fontWeight: current == _types[i]
+                      ? FontWeight.w700
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+        ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isOn
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)
+                : Colors.white12,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            '超分辨率',
+            style: TextStyle(
+              color: isOn
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.white,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 

@@ -13,6 +13,7 @@ import 'package:cine_nest/router/app_pages.dart';
 import 'package:cine_nest/repositories/local_favorite_repository.dart';
 import 'package:cine_nest/repositories/local_history_repository.dart';
 import 'package:cine_nest/services/tmdb_direct_enrichment_service.dart';
+import 'package:cine_nest/pages/kazumi_home/widgets/bili_video_section.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/debate_recommendation_card.dart';
 
 class KazumiPlayerPage extends StatefulWidget {
@@ -36,6 +37,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   late final TabController _tabCtrl;
   KazumiAudioHandler? _audioHandler;
   Worker? _errorWorker;
+  Worker? _danmakuWorker;
   String _lastShownError = '';
 
   final _historyRepo = LocalHistoryRepository();
@@ -65,12 +67,19 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     _ctrl = KazumiPlayerController(
       firstFrameTimeout: const Duration(seconds: 8),
     );
+    _ctrl.loadDanmakuPrefs();
     Get.put(_ctrl, tag: _tag, permanent: false);
 
     _errorWorker = ever<String>(_ctrl.lastError, (error) {
       if (error.isEmpty || error == _lastShownError) return;
       _lastShownError = error;
       SmartDialog.showToast(_friendlyError(error));
+    });
+
+    _danmakuWorker = ever<int>(_ctrl.danmakuCount, (count) {
+      if (count > 0) {
+        SmartDialog.showToast('已加载 $count 条弹幕');
+      }
     });
 
     _bootstrap();
@@ -92,6 +101,17 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
       headers: _session!.headers,
       startAt: _session!.resumePosition,
     );
+    _fetchDanmaku();
+  }
+
+  void _fetchDanmaku() {
+    if (!_ctrl.danmakuVisible.value) return;
+    final tmdbId = widget.detail.tmdb?.tmdbId;
+    _ctrl.fetchDanmaku(
+      title: widget.detail.title,
+      tmdbId: tmdbId,
+      episodeNumber: _currentIndex + 1,
+    );
   }
 
   Future<void> _playEpisode(int index) async {
@@ -109,6 +129,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
       _audioHandler?.setMediaInfo(title: session.title);
       _lastShownError = '';
       await _ctrl.open(url: session.playUrl, headers: session.headers);
+      _fetchDanmaku();
     } catch (e) {
       SmartDialog.showToast('播放失败，建议换源');
     }
@@ -179,6 +200,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     _saveHistory();
     _tabCtrl.dispose();
     _errorWorker?.dispose();
+    _danmakuWorker?.dispose();
     _audioHandler?.detach();
     Get.delete<KazumiPlayerController>(tag: _tag);
     super.dispose();
@@ -302,6 +324,7 @@ class _InfoTab extends StatefulWidget {
 
 class _InfoTabState extends State<_InfoTab> {
   final _favRepo = LocalFavoriteRepository();
+  final _biliKey = GlobalKey<BiliVideoSectionState>();
   late bool _isFav;
 
   AggregatorMediaDetail get detail => widget.detail;
@@ -359,9 +382,17 @@ class _InfoTabState extends State<_InfoTab> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-      children: [
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n is ScrollEndNotification &&
+            n.metrics.pixels >= n.metrics.maxScrollExtent - 200) {
+          _biliKey.currentState?.loadMore();
+        }
+        return false;
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+        children: [
         // ── 标题 + 追剧 ──
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,8 +499,15 @@ class _InfoTabState extends State<_InfoTab> {
               },
             ),
           ),
+        // ── B 站相关视频 ──
+        BiliVideoSection(
+          key: _biliKey,
+          movieTitle: detail.title,
+          year: detail.year,
+        ),
         ],
       ],
+      ),
     );
   }
 

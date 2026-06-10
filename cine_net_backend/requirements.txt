@@ -13,6 +13,9 @@ langgraph>=1.2.0
 langgraph-checkpoint-sqlite>=3.1.0
 aiosqlite>=0.22.0
 python-multipart>=0.0.20
+bilibili-api-python>=17.3.0
+curl_cffi>=0.13.0
+beautifulsoup4>=4.12.0
 
 # 可选：后续 HTML 海报截图使用
 playwright>=1.45.0
