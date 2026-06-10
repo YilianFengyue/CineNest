@@ -4,12 +4,20 @@
 	- [x] Backend feed and agent logic
 	- [x] Frontend feed and API logic
 - [x] Initial Scenario Chip Implementation (Completed)
-- [/] Scenario Page & Priority Logic Redesign
+- [x] Scenario Page & Priority Logic Redesign
 	- [x] Create implementation plan
 	- [x] Update Backend logic (Priority & Debug Trace)
 	- [x] Create Frontend `ScenarioPage`
 	- [x] Add Entry Points in `DiscoveryPage` & `FeedPage`
+- [x] Movie Relationship Graph Implementation
+    - [x] Research and Planning
+    - [x] Backend: Implement `get_movie_graph` in `tmdb_service`
+    - [x] Backend: Add `/api/movie/{id}/graph` route
+    - [x] Frontend: Create `MovieGraph` models
+    - [x] Frontend: Implement `MovieGraphWidget`
+    - [x] Frontend: Integrate graph in `MovieDetailPage`
 - [x] Verification
 	- [x] Priority logic test (pytest)
-	- [x] Manual verification of the new page
+	- [x] Graph API test (pytest)
+	- [x] Manual graph interaction verification
 	- [x] Final Documentation

@@ -1,31 +1,46 @@
-# 场景化推荐（新独立页面）实现计划
+# 电影关系图谱功能实现计划
 
-该计划将“场景化推荐”从首页分离出来，作为一个独立的功能模块，支持手动输入场景描述，并确保其推荐逻辑具有最高优先级。
+该功能将在电影详情页底部展示一个交互式图谱，连接导演、主演、同类型电影、相似题材及推荐电影。
 
 ## 用户评审需求
 
-- **交互入口**：计划在 `DiscoveryPage`（探索页）新增一个“心情/场景找片”的大横幅入口。
-- **流程可视化**：后端将增加 `trace` 信息，在接口返回中说明 LLM 是如何解析关键词的，以便调试和查看。
-- **推荐优先级**：当用户指定 `scenario` 时，后端将**忽略**常规的 `liked_genres`（仅作为背景参考），完全围绕场景词进行搜索。
+- **图谱位置**：电影详情页“剧情简介”和“演职员”下方。
+- **图谱内容**：
+    - 中心节点：当前电影。
+    - 关联节点：导演、主演（前3）、类型标签、关键词/题材（如“梦境”、“烧脑”）、相似/推荐电影（前4）。
+- **交互**：点击电影节点跳转到对应详情页；点击人物/类型节点执行搜索（可选）。
 
 ## 方案设计
 
-### 1. 后端逻辑优化 (cine_net_backend)
+### 1. 后端接口 (cine_net_backend)
 
-- **接口增强**：
-    - `/api/feed` 返回增加可选的 `debug_info` 字段，包含关键词转换过程。
-- **Agent 服务优化 (`MovieAgentService`)**：
-    - 调整 prompt，明确告诉 LLM：用户当前的“心情/场景”是**绝对核心**，用户偏好（如“喜欢动作片”）仅在多个候选不相上下时用于二次排序，不能喧宾夺主。
-    - 在返回结果中包含 `smart_query` 的原始解析结果。
+- **新增接口**：`GET /api/movie/{movie_id}/graph`
+- **数据来源**：
+    - `TMDB /movie/{id}/keywords`：获取题材标签。
+    - `TMDB /movie/{id}/credits`：获取导演和主演。
+    - `TMDB /movie/{id}/recommendations`：获取关联电影。
+- **返回结构**：
+    ```json
+    {
+      "nodes": [
+        {"id": "m1", "label": "盗梦空间", "type": "movie", "movie_id": 27205},
+        {"id": "p1", "label": "诺兰", "type": "person"},
+        {"id": "g1", "label": "科幻", "type": "genre"}
+      ],
+      "links": [
+        {"source": "m1", "target": "p1", "relation": "导演"},
+        {"source": "m1", "target": "g1", "relation": "类型"}
+      ]
+    }
+    ```
 
-### 2. 前端页面实现 (cine_nest_app)
+### 2. 前端实现 (cine_nest_app)
 
-- **新页面 `ScenarioPage`**：
-    - 顶部一个醒目的搜索框/输入框，支持手动输入（如“想看点甜的”）。
-    - 下方保留快捷场景 Chip。
-    - 列表展示推荐结果，并显示“AI 理由”。
-- **路由注册**：在 `app_pages.dart` 注册 `/scenario` 路由。
-- **入口调整**：从 `DiscoveryPage` 的顶部横幅进入，或者从 `FeedPage` 移除之前的 Chip 栏，改为一个“试试按心情找片”的入口按钮。
+- **数据模型**：新增 `GraphNode` 和 `GraphLink` 模型。
+- **图谱组件 (`MovieGraphWidget`)**：
+    - 使用 `CustomPainter` 或 `Stack + Positioned` 实现一个简单的星型布局图谱。
+    - 中心是当前电影，周围环绕关联节点。
+- **控制器增强**：`MovieDetailController` 增加 `fetchMovieGraph()`。
 
 ---
 
@@ -33,36 +48,31 @@
 
 ### 后端 (cine_net_backend)
 
-#### [services/agent/service.py](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_net_backend/services/agent/service.py)
+#### [services/tmdb/service.py](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_net_backend/services/tmdb/service.py)
+- 增加 `get_movie_graph(movie_id)` 方法，聚合多方数据。
 
-- 优化 `_smart_search_query`：返回关键词的同时，记录解析过程。
-- 优化 `_agent_reason_map`：强化“场景优先”的 prompt。
-
-#### [models/schemas.py](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_net_backend/models/schemas.py)
-
-- 在 `Post` 或新增的 `ScenarioResponse` 中增加 `debug_trace`。
+#### [routers/feed.py](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_net_backend/routers/feed.py)
+- 暴露 `/api/movie/{movie_id}/graph` 路由。
 
 ### 前端 (cine_nest_app)
 
-#### [NEW] [scenario_view.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/pages/feed/scenario/scenario_view.dart)
-#### [NEW] [scenario_controller.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/pages/feed/scenario/scenario_controller.dart)
+#### [lib/models/movie_graph.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/models/movie_graph.dart)
+- [NEW] 定义图谱数据结构。
 
-#### [lib/pages/feed/feed_view.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/pages/feed/feed_view.dart)
+#### [lib/pages/feed/detail/detail_controller.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/pages/feed/detail/detail_controller.dart)
+- 增加图谱数据抓取逻辑。
 
-- 移除 Chip 栏，改为一个跳转到 `ScenarioPage` 的入口。
-
-#### [lib/router/app_routes.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/router/app_routes.dart) & [lib/router/app_pages.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/router/app_pages.dart)
-
-- 注册新路由。
+#### [lib/pages/feed/detail/widgets/movie_graph_widget.dart](file:///D:/code/undergraduated_3_down/Android/CineNest/cine_nest_app/lib/pages/feed/detail/widgets/movie_graph_widget.dart)
+- [NEW] 图谱 UI 组件。
 
 ---
 
 ## 验证计划
 
 ### 自动化测试
-- **后端**：更新 `tests/test_scenario_feed.py`，测试手动输入场景时的优先级逻辑。
+- **后端**：编写测试脚本验证 `/api/movie/{id}/graph` 返回的节点数和链接逻辑是否正确。
 
 ### 手动验证
-- 启动 App，点击探索页的“心情找片”。
-- 输入“我想看科幻大片”，验证返回的是否主要是科幻片（即使我的偏好设置是“爱情片”）。
-- 查看控制台日志（或 UI 上的调试信息），确认 LLM 转换的关键词准确。
+- 进入《盗梦空间》详情页，滑动到底部。
+- 确认图谱显示了“诺兰”、“莱昂纳多”等节点。
+- 点击图谱中的“星际穿越”节点，验证是否成功跳转。
