@@ -391,7 +391,7 @@ class _InfoTabState extends State<_InfoTab> {
         return false;
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
         children: [
         // ── 标题 + 追剧 ──
         Row(

@@ -104,7 +104,7 @@ class BiliVideoSectionState extends State<BiliVideoSection> {
 
         // 标题行
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
               const Icon(Icons.smart_display_outlined, size: 18),

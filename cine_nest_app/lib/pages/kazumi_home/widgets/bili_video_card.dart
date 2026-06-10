@@ -11,12 +11,15 @@ class BiliVideoCard extends StatelessWidget {
   final BiliVideo video;
 
   Future<void> _onTap() async {
+    // 直接尝试 bilibili:// scheme 唤起 APP，不用 canLaunchUrl（对自定义 scheme 不可靠）
     if (video.appUrl.isNotEmpty) {
-      final uri = Uri.parse(video.appUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return;
-      }
+      try {
+        final ok = await launchUrl(
+          Uri.parse(video.appUrl),
+          mode: LaunchMode.externalNonBrowserApplication,
+        );
+        if (ok) return;
+      } catch (_) {}
     }
     if (video.fallbackUrl.isNotEmpty) {
       await launchUrl(
@@ -36,7 +39,7 @@ class BiliVideoCard extends StatelessWidget {
       child: InkWell(
         onTap: _onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
