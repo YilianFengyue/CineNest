@@ -5,7 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class SourceDebugPanel extends StatefulWidget {
-  const SourceDebugPanel({super.key});
+  const SourceDebugPanel({
+    super.key,
+    this.initialMovieName = 'The Shawshank Redemption',
+    this.autoSearch = false,
+  });
+
+  final String initialMovieName;
+  final bool autoSearch;
 
   @override
   State<SourceDebugPanel> createState() => _SourceDebugPanelState();
@@ -13,13 +20,24 @@ class SourceDebugPanel extends StatefulWidget {
 
 class _SourceDebugPanelState extends State<SourceDebugPanel> {
   final _api = const SourceApiService();
-  final _movieController = TextEditingController(
-    text: 'The Shawshank Redemption',
-  );
+  late final TextEditingController _movieController;
 
   bool _loading = false;
   String _message = '';
   List<VideoSource> _sources = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _movieController = TextEditingController(text: widget.initialMovieName);
+    if (widget.autoSearch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _searchSources();
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -113,10 +131,16 @@ class _SourceDebugPanelState extends State<SourceDebugPanel> {
       }
 
       final title = parsed.name.isEmpty ? source.name : parsed.name;
+      // 直链走统一的 /source-picker（会重新搜索并自动选源播放）；非直链仍走 webview。
       final route = _isDirectVideo(playUrl)
-          ? Routes.player
+          ? Routes.sourcePicker
           : Routes.webviewPlayer;
-      Get.toNamed(route, arguments: {'url': playUrl, 'title': title});
+      Get.toNamed(
+        route,
+        arguments: route == Routes.sourcePicker
+            ? {'title': title}
+            : {'url': playUrl, 'title': title},
+      );
       setState(() => _message = 'Parsed successfully.');
     } catch (e) {
       setState(() => _message = 'Parse failed: $e');

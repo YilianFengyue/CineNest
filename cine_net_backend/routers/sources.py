@@ -1,3 +1,4 @@
+"""成员 A 视频源 API。"""
 from fastapi import APIRouter, HTTPException
 
 from models import VideoSource
@@ -7,25 +8,28 @@ from services.video_engine import (
     search_sources as engine_search_sources,
 )
 
-router = APIRouter(prefix="/api", tags=["sources (member A)"])
+router = APIRouter(prefix="/api", tags=["sources"])
 
 
-@router.get("/sources/search", response_model=list[VideoSource])
+@router.get("/sources/search")
 async def search_sources(movie_name: str):
-    """Search MacCMS providers and return a stable demo source as fallback."""
+    """Search MacCMS providers and return playable source candidates."""
+
     return await engine_search_sources(movie_name)
 
 
 @router.get("/sources/parse", response_model=VideoSource)
-async def parse_source(source_id: str):
+async def parse_source(source_id: str, episode_index: int = 0):
     """Parse a source id into a playable URL or a fallback web URL."""
+
     try:
-        return await engine_parse_source(source_id)
+        return await engine_parse_source(source_id, episode_index=episode_index)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/bilibili/search", response_model=list[VideoSource])
+@router.get("/bilibili/search")
 async def bilibili_search(keyword: str):
     """Search Bilibili and return WebView-friendly results."""
+
     return await engine_bilibili_search(keyword)

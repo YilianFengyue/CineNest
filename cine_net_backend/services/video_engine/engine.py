@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import quote, unquote, urlencode
 from urllib.request import Request, urlopen
 
-from models import VideoSource
+from models import VideoEpisode, VideoSource
 
 DEMO_VIDEO_URL = "https://media.w3.org/2010/05/sintel/trailer.mp4"
 
@@ -224,19 +224,21 @@ async def _search_provider(
     return sources[:8]
 
 
-async def parse_source(source_id: str) -> VideoSource:
+async def parse_source(source_id: str, episode_index: int = 0) -> VideoSource:
     source_id = source_id.strip()
     if not source_id:
         raise ValueError("source_id is required")
 
     if source_id.startswith("demo:"):
         keyword = unquote(source_id.removeprefix("demo:"))
+        episode = VideoEpisode(index=0, title="Demo", play_url=DEMO_VIDEO_URL)
         return VideoSource(
             id=source_id,
             name=f"TEST ONLY - fixed demo video for {keyword or 'Demo'}",
             quality="720P fixed sample",
             type="netdisk",
             play_url=DEMO_VIDEO_URL,
+            episodes=[episode],
         )
 
     if source_id.startswith("bili:"):
@@ -265,17 +267,19 @@ async def parse_source(source_id: str) -> VideoSource:
     vod_id = parts[2]
     item = await _detail_item(provider, vod_id)
     title = _clean_text(item.get("vod_name")) or provider.name
-    play_url = _pick_play_url(_clean_text(item.get("vod_play_url")))
+    episodes = _parse_episodes(_clean_text(item.get("vod_play_url")))
+    play_url = _pick_episode_url(episodes, episode_index)
     if not play_url:
         raise ValueError("no playable url found")
 
     return VideoSource(
         id=source_id,
         name=f"{title} - {provider.name}",
-        quality=_quality_from_item(item) or _episode_title(item.get("vod_play_url")),
+        quality=_quality_from_item(item) or _episode_quality(episodes, episode_index),
         type="web",
         play_url=play_url,
         cover=_clean_text(item.get("vod_pic")) or None,
+        episodes=episodes,
     )
 
 
@@ -288,38 +292,43 @@ async def _detail_item(provider: MacCmsProvider, vod_id: str) -> dict[str, Any]:
     raise ValueError("source detail not found")
 
 
-def _episode_title(raw: Any) -> str | None:
-    text = _clean_text(raw)
-    first = next((part for part in text.split("#") if "$" in part), "")
-    title = first.split("$", 1)[0].strip()
-    return title[:30] if title else None
-
-
-def _pick_play_url(raw: str) -> str | None:
+def _parse_episodes(raw: str) -> list[VideoEpisode]:
     if not raw:
-        return None
+        return []
 
-    candidates: list[tuple[str, int]] = []
-    for episode in raw.split("#"):
-        if "$" not in episode:
+    episodes: list[VideoEpisode] = []
+    for raw_episode in raw.split("#"):
+        if "$" not in raw_episode:
             continue
-        _, url = episode.split("$", 1)
+        title, url = raw_episode.split("$", 1)
+        title = title.strip()
         url = url.strip()
         if not url.startswith(("http://", "https://")):
             continue
-        lower = url.lower()
-        if ".m3u8" in lower:
-            score = 3
-        elif ".mp4" in lower:
-            score = 2
-        else:
-            score = 1
-        candidates.append((url, score))
+        episodes.append(
+            VideoEpisode(
+                index=len(episodes),
+                title=title or f"Episode {len(episodes) + 1}",
+                play_url=url,
+            )
+        )
+    return episodes
 
-    if not candidates:
+
+def _pick_episode_url(episodes: list[VideoEpisode], episode_index: int) -> str | None:
+    if not episodes:
         return None
-    candidates.sort(key=lambda item: item[1], reverse=True)
-    return candidates[0][0]
+    if 0 <= episode_index < len(episodes):
+        return episodes[episode_index].play_url
+    return episodes[0].play_url
+
+
+def _episode_quality(episodes: list[VideoEpisode], episode_index: int) -> str | None:
+    if not episodes:
+        return None
+    if 0 <= episode_index < len(episodes):
+        return episodes[episode_index].title[:30]
+    return episodes[0].title[:30]
 
 
 async def bilibili_search(keyword: str) -> list[VideoSource]:

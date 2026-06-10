@@ -9,6 +9,8 @@ class DiscoveryController extends GetxController {
   var movieList = <Movie>[].obs;
   int _page = 1;
 
+  String get baseUrl => Request.dio.options.baseUrl;
+
   @override
   void onInit() {
     super.onInit();

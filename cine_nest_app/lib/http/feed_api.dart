@@ -1,25 +1,58 @@
-import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/http/api_constants.dart';
+import 'package:cine_nest/http/init.dart';
+import 'package:cine_nest/models/movie.dart';
 import 'package:cine_nest/models/post.dart';
 
 class FeedApi {
-  /// 获取 AI 推荐帖子流
-  static Future<List<Post>> getAiRecommendations({int page = 1}) async {
-    try {
-      // 对应后端 routers/feed.py 中的路径：@router.get("/feed") 且 prefix="/api"
-      // 后端返回的是直接的 List[Post]，没有 code/data 包装
-      final response = await Request().get(ApiConstants.feed, queryParameters: {
-        'refresh': page == 1,
-        'mode': 'popular',
-      });
+  const FeedApi._();
 
-      if (response.data is List) {
-        List data = response.data;
-        return data.map((json) => Post.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      rethrow;
+  static Future<List<Post>> getAiRecommendations({int page = 1}) async {
+    final feedResponse = await Request().get(
+      ApiConstants.feed,
+      queryParameters: {
+        'page': page,
+        'refresh': true,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+    final feedPosts = _parsePosts(feedResponse.data);
+    if (feedResponse.statusCode == 200 && feedPosts.isNotEmpty) {
+      return feedPosts;
     }
+
+    final discoveryResponse = await Request().get(
+      ApiConstants.discovery,
+      queryParameters: {'page': page},
+    );
+    return _parseMovies(discoveryResponse.data)
+        .map(
+          (movie) => Post(
+            movie: movie,
+            recommendReason: 'Fallback discovery recommendation',
+            hasVideoSource: true,
+            hasBilibili: true,
+          ),
+        )
+        .toList();
+  }
+
+  static List<Post> _parsePosts(Object? data) {
+    if (data is! List) {
+      return const [];
+    }
+    return data
+        .whereType<Map>()
+        .map((item) => Post.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  static List<Movie> _parseMovies(Object? data) {
+    if (data is! List) {
+      return const [];
+    }
+    return data
+        .whereType<Map>()
+        .map((item) => Movie.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
   }
 }

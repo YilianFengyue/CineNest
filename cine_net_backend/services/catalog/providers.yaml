@@ -1,0 +1,14 @@
+providers:
+  - id: douban
+    name: 豆瓣
+    kind: douban
+    enabled: true
+    priority: 20
+
+  # TMDB 官方 API 需要 API Read Access Token。
+  # 填写 TMDB_READ_ACCESS_TOKEN 后自动参与聚合；设为 false 可禁用。
+  - id: tmdb
+    name: TMDB
+    kind: tmdb
+    enabled: true
+    priority: 5

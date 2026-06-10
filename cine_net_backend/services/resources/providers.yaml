@@ -1,0 +1,79 @@
+providers:
+  - id: wujin
+    name: 无尽资源
+    endpoint: https://api.wujinapi.me/api.php/provide/vod
+  - id: zuida
+    name: 最大资源
+    endpoint: https://api.zuidapi.com/api.php/provide/vod
+  - id: jisu
+    name: 极速资源
+    endpoint: https://jszyapi.com/api.php/provide/vod
+  - id: heimuer
+    name: 黑木耳
+    endpoint: https://json.heimuer.xyz/api.php/provide/vod
+  - id: dytt
+    name: 电影天堂资源
+    endpoint: http://caiji.dyttzyapi.com/api.php/provide/vod
+  - id: ruyi
+    name: 如意资源
+    endpoint: http://cj.rycjapi.com/api.php/provide/vod
+  - id: baofeng
+    name: 暴风资源
+    endpoint: https://bfzyapi.com/api.php/provide/vod
+  - id: tianya
+    name: 天涯资源
+    endpoint: https://tyyszy.com/api.php/provide/vod
+  - id: feifan
+    name: 非凡影视
+    endpoint: http://ffzy5.tv/api.php/provide/vod
+  - id: zy360
+    name: 360资源
+    endpoint: https://360zy.com/api.php/provide/vod
+  - id: maotai
+    name: 茅台资源
+    endpoint: https://caiji.maotaizy.cc/api.php/provide/vod
+  - id: wolong
+    name: 卧龙资源
+    endpoint: https://wolongzyw.com/api.php/provide/vod
+  - id: douban
+    name: 豆瓣资源
+    endpoint: https://dbzy.tv/api.php/provide/vod
+  - id: mozhu
+    name: 魔爪资源
+    endpoint: https://mozhuazy.com/api.php/provide/vod
+  - id: modu
+    name: 魔都资源
+    endpoint: https://www.mdzyapi.com/api.php/provide/vod
+  - id: yinghua
+    name: 樱花资源
+    endpoint: https://m3u8.apiyhzy.com/api.php/provide/vod
+  - id: wangwang
+    name: 旺旺短剧
+    endpoint: https://wwzy.tv/api.php/provide/vod
+  - id: ikun
+    name: iKun资源
+    endpoint: https://ikunzyapi.com/api.php/provide/vod
+  - id: liangzi
+    name: 量子资源站
+    endpoint: https://cj.lziapi.com/api.php/provide/vod
+  - id: xiaomaomi
+    name: 小猫咪资源
+    endpoint: https://zy.xmm.hk/api.php/provide/vod
+
+  # 以下 Provider 为后续扩展骨架，默认禁用，不参与当前 20 源并发搜索。
+  - id: bilibili
+    name: B站视频
+    kind: bilibili
+    enabled: false
+  - id: baidu_netdisk
+    name: 百度网盘
+    kind: netdisk
+    enabled: false
+  - id: alist
+    name: Alist挂载
+    kind: alist
+    enabled: false
+  - id: pc_local
+    name: PC本地电影
+    kind: local
+    enabled: false

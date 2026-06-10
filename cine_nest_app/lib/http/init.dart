@@ -11,24 +11,36 @@ import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
+/// Dio HTTP 客户端封装（移植自 PiliPlus 的 `lib/http/init.dart`）。
+///
+/// 保留的通用基建：
+///   · 单例 + HTTP/1.1 适配器（FastAPI/uvicorn 默认通道）
+///   · gzip / brotli 响应解压（Http2Adapter 不自动解压）
+///   · [RetryInterceptor] 通用重试
+///   · debug 下的 LogInterceptor、后台线程 JSON 解析
+///   · DioException → 友好错误信息 的统一封装
+///
+/// 已剔除的 B站强相关逻辑：
+///   · AccountManager 拦截器、WBI 签名、Cookie/account_key 注入
+///   · setCookie / buvidActive / setCoin 等账号链路
 class Request {
   static final _gzipDecoder = GZipDecoder();
   static final _brotliDecoder = BrotliDecoder();
 
-  // 1. 保持单例私有构造
   static final Request _instance = Request._internal();
-  static final bool _enableHttp2 = Pref.enableHttp2;
-
-  // ✨ 修改点：去掉 static 和 late，让 dio 成为单例的普通实例属性
-  final Dio dio;
+  // FastAPI/uvicorn 默认是 HTTP/1.1；移动端强行 HTTP/2 会出现
+  // "Connection is being forcefully terminated"。保留 Pref 字段给以后设置页扩展，
+  // 当前主通道固定走 HTTP/1.1。
+  static const bool _enableHttp2 = false;
+  static late final Dio dio;
 
   factory Request() => _instance;
 
-  Request._internal() : dio = Dio() { // ✨ 在初始化列表中直接完成 dio 的内存分配，断绝 late 未初始化漏洞
+  Request._internal() {
     final BaseOptions options = BaseOptions(
       baseUrl: Pref.baseUrl,
-      connectTimeout: const Duration(milliseconds: 15000),
-      receiveTimeout: const Duration(milliseconds: 60000), // AI 生成较慢，增加到 60s
+      connectTimeout: const Duration(milliseconds: 10000),
+      receiveTimeout: const Duration(milliseconds: 10000),
       headers: {
         'user-agent': 'CineNest/1.0 (Flutter; dart:io)',
         if (!_enableHttp2) 'connection': 'keep-alive',
@@ -38,22 +50,21 @@ class Request {
       persistentConnection: true,
     );
 
-    // 将配置同步给 dio
-    dio.options = options;
-
     final h11 = IOHttpClientAdapter(
       createHttpClient: () => HttpClient()
         ..idleTimeout = const Duration(seconds: 15)
-        ..autoUncompress = false,
+        ..autoUncompress = false, // 统一交给 _responseDecoder 解压
     );
 
-    dio.httpClientAdapter = _enableHttp2
-        ? Http2Adapter(
-            ConnectionManager(idleTimeout: const Duration(seconds: 15)),
-            fallbackAdapter: h11,
-          )
-        : h11;
+    dio = Dio(options)
+      ..httpClientAdapter = _enableHttp2
+          ? Http2Adapter(
+              ConnectionManager(idleTimeout: const Duration(seconds: 15)),
+              fallbackAdapter: h11,
+            )
+          : h11;
 
+    // 重试拦截器需先于其他拦截器
     if (Pref.retryCount != 0) {
       dio.interceptors.add(
         RetryInterceptor(dio, Pref.retryCount, Pref.retryDelay),
@@ -63,23 +74,22 @@ class Request {
     if (kDebugMode) {
       dio.interceptors.add(
         LogInterceptor(
-          request: true,
+          request: false,
           requestHeader: false,
           responseHeader: false,
-          responseBody: false, // 禁止打印巨大的 Response Body，防止 ADB 崩溃
         ),
       );
     }
 
     dio
       ..transformer = BackgroundTransformer()
-      ..options.validateStatus =
-          (int? status) => status != null && status >= 200 && status < 300;
+      ..options.validateStatus = (int? status) =>
+          status != null && status >= 200 && status < 300;
   }
 
-  /// ✨ 修改点：由于 dio 变成了实例属性，运行期切换基址应通过单例实例修改
+  /// 运行期切换后端基址（设置页填写 PC 的 IP:Port 后调用）。见 ConnectionService。
   static void updateBaseUrl(String baseUrl) {
-    _instance.dio.options.baseUrl = baseUrl;
+    dio.options.baseUrl = baseUrl;
   }
 
   Future<Response> get<T>(
@@ -89,7 +99,7 @@ class Request {
     CancelToken? cancelToken,
   }) async {
     try {
-      return await dio.get<T>( // ✨ 去掉 static 后这里直接用实例的 dio
+      return await dio.get<T>(
         url,
         queryParameters: queryParameters,
         options: options,
@@ -108,7 +118,7 @@ class Request {
     CancelToken? cancelToken,
   }) async {
     try {
-      return await dio.post<T>( // ✨ 同上
+      return await dio.post<T>(
         url,
         data: data,
         queryParameters: queryParameters,
@@ -144,6 +154,7 @@ class Request {
     requestOptions: e.requestOptions,
   );
 
+  /// 将 DioException 翻译成中文友好提示（替代 AccountManager.dioError）。
   static String dioError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:

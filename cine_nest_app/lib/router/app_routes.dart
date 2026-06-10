@@ -1,18 +1,42 @@
 part of 'app_pages.dart';
 
-/// 路由名常量（移植自 PiliPlus 风格）。各模块 Owner 在此追加自己的路由名。
 abstract final class Routes {
   static const String home = '/';
 
-  // 成员 B
-  static const String movieDetail = '/movie-detail'; // 跳转时拼 /movie-detail/:movieId
+  // Member B
+  static const String feed = '/feed';
+  static const String movieDetail = '/movie-detail';
   static const String preference = '/preference';
   static const String history = '/history';
+  static const String collection = '/collection';
 
-  // 成员 A
-  static const String player = '/player';
+  // Member A
+  static const String sourcePicker = '/source-picker';
   static const String webviewPlayer = '/webview-player';
+  static const String localVideos = '/local-videos';
+  static const String pcRemote = '/pc-remote';
+  static const String tasteDna = '/taste-dna';
+  static const String forum = '/forum';
+  static const String forumDetail = '/forum-detail';
+  static const String forumCompose = '/forum-compose';
 
-  // settings
+  /// Kazumi 风播放器测试页（设置 → 播放器测试）。
+  static const String kazumiPlayerTest = '/kazumi-player-test';
+
+  /// MoonTV 风本地聚合器测试页（设置 → 聚合器 Temple）。
+  static const String aggregatorTemple = '/aggregator-temple';
+  static const String aggregatorDetailTemple = '/aggregator-detail-temple';
+  static const String sourceManagerTemple = '/source-manager-temple';
+
+  // Member C
+  /// F8 互动海报详情页。arguments: `{catalog_provider_id, catalog_source_id, media_kind}`（真）或空（mock）。
+  static const String creativePoster = '/creative-poster';
+
+  /// 我的收藏页（资讯 / 海报通用）。
+  static const String creativeFavorites = '/creative-favorites';
+
+  /// 资讯生成任务队列页。
+  static const String creativeNewsTasks = '/creative-news-tasks';
+
   static const String settings = '/settings';
 }

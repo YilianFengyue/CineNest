@@ -1,18 +1,26 @@
-import 'package:cine_nest/pages/player/views/source_debug_panel.dart';
-import 'package:cine_nest/services/connection_service.dart';
-import 'package:cine_nest/utils/storage_pref.dart';
+import 'package:cine_nest/pages/creative/chat/chat_page.dart';
+import 'package:cine_nest/pages/creative/news/news_page.dart';
+import 'package:cine_nest/pages/feed/discovery/discovery_view.dart';
+import 'package:cine_nest/pages/settings/settings_page.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class MainApp extends StatefulWidget {
-  const MainApp({super.key});
-
-  @override
-  State<MainApp> createState() => _MainAppState();
+/// 主导航控制器（共建基建）。
+///
+/// 把"当前 Tab"提升为响应式状态，这样对话页的侧边抽屉也能切回其它 Tab。
+class MainNavController extends GetxController {
+  static MainNavController get to => Get.find<MainNavController>();
+  final RxInt index = 0.obs;
+  void go(int i) => index.value = i;
 }
 
-class _MainAppState extends State<MainApp> {
-  int _index = 0;
+/// 应用主壳：底部导航框架（Day1 共建）。
+///
+/// 对话 Tab（F9）是全屏体验：它自带 AppBar + 侧边历史抽屉 + 输入框，
+/// 像详情页一样不显示底部 4-tab 导航；其余 Tab 挂底部导航。
+class MainApp extends StatelessWidget {
+  const MainApp({super.key});
 
   static const _tabs = [
     _TabDef('Home', Icons.movie_outlined, Icons.movie, 'Member B - feed'),
@@ -33,25 +41,66 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    final tab = _tabs[_index];
-    return Scaffold(
-      appBar: AppBar(title: Text('CineNest - ${tab.label}')),
-      body: _index == 3
-          ? const _ConnectionSettingsPanel()
-          : _Placeholder(title: tab.label, hint: tab.hint),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(
-              icon: Icon(t.icon),
-              selectedIcon: Icon(t.activeIcon),
-              label: t.label,
-            ),
-        ],
-      ),
-    );
+    final nav = Get.isRegistered<MainNavController>()
+        ? MainNavController.to
+        : Get.put(MainNavController(), permanent: true);
+
+    return Obx(() {
+      final index = nav.index.value;
+      if (index == 1) return const ChatPage();
+
+      final tab = _tabs[index];
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('CineNest · ${tab.label}'),
+          actions: index == 2
+              ? [
+                  IconButton(
+                    tooltip: '论坛',
+                    icon: const Icon(Icons.forum_outlined),
+                    onPressed: () => Get.toNamed(Routes.forum),
+                  ),
+                  IconButton(
+                    tooltip: '我的收藏',
+                    icon: const Icon(Icons.favorite_border),
+                    onPressed: () => Get.toNamed(Routes.creativeFavorites),
+                  ),
+                  IconButton(
+                    tooltip: '生成队列',
+                    icon: const Icon(Icons.dynamic_feed),
+                    onPressed: () => Get.toNamed(Routes.creativeNewsTasks),
+                  ),
+                ]
+              : null,
+        ),
+        body: _bodyFor(index, tab),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: nav.go,
+          destinations: [
+            for (final t in _tabs)
+              NavigationDestination(
+                icon: Icon(t.icon),
+                selectedIcon: Icon(t.activeIcon),
+                label: t.label,
+              ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _bodyFor(int index, _TabDef tab) {
+    switch (index) {
+      case 0:
+        return const DiscoveryPage();
+      case 2:
+        return const NewsPage();
+      case 3:
+        return const SettingsPage();
+      default:
+        return _Placeholder(title: tab.label, hint: tab.hint);
+    }
   }
 }
 
@@ -87,161 +136,6 @@ class _Placeholder extends StatelessWidget {
           Text(hint, style: TextStyle(color: cs.onSurfaceVariant)),
         ],
       ),
-    );
-  }
-}
-
-class _ConnectionSettingsPanel extends StatefulWidget {
-  const _ConnectionSettingsPanel();
-
-  @override
-  State<_ConnectionSettingsPanel> createState() =>
-      _ConnectionSettingsPanelState();
-}
-
-class _ConnectionSettingsPanelState extends State<_ConnectionSettingsPanel> {
-  late final TextEditingController _hostController;
-  late final TextEditingController _portController;
-  String? _inputError;
-
-  @override
-  void initState() {
-    super.initState();
-    _hostController = TextEditingController(text: Pref.pcHost);
-    _portController = TextEditingController(text: Pref.pcPort.toString());
-  }
-
-  @override
-  void dispose() {
-    _hostController.dispose();
-    _portController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveAndTest() async {
-    final host = _hostController.text.trim();
-    final port = int.tryParse(_portController.text.trim());
-    if (host.isEmpty || port == null || port <= 0 || port > 65535) {
-      setState(() => _inputError = 'Enter a valid PC IP and port.');
-      return;
-    }
-
-    setState(() => _inputError = null);
-    final service = ConnectionService.to;
-    await service.updateAddress(host: host, port: port);
-    await service.testConnection();
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final service = ConnectionService.to;
-    final cs = Theme.of(context).colorScheme;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Obx(() {
-        final status = service.status.value;
-        final isConnecting = status == ConnStatus.connecting;
-        final statusText = switch (status) {
-          ConnStatus.disconnected => 'Disconnected',
-          ConnStatus.connecting => 'Connecting...',
-          ConnStatus.connected => 'Connected',
-          ConnStatus.failed => 'Failed',
-        };
-        final statusColor = switch (status) {
-          ConnStatus.connected => Colors.green,
-          ConnStatus.failed => cs.error,
-          ConnStatus.connecting => cs.primary,
-          ConnStatus.disconnected => cs.onSurfaceVariant,
-        };
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'PC backend connection',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _hostController,
-                    decoration: const InputDecoration(
-                      labelText: 'PC IP',
-                      hintText: '192.168.1.100',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.url,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _portController,
-                    decoration: const InputDecoration(
-                      labelText: 'Port',
-                      hintText: '8000',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            if (_inputError != null) ...[
-              const SizedBox(height: 8),
-              Text(_inputError!, style: TextStyle(color: cs.error)),
-            ],
-            const SizedBox(height: 12),
-            SelectableText('Current base URL: ${service.baseUrl}'),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.icon(
-                  onPressed: isConnecting ? null : _saveAndTest,
-                  icon: isConnecting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save),
-                  label: const Text('Save and test'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: isConnecting ? null : service.testConnection,
-                  icon: const Icon(Icons.wifi_tethering),
-                  label: const Text('Test only'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.circle, size: 12, color: statusColor),
-                const SizedBox(width: 8),
-                Text(statusText, style: TextStyle(color: statusColor)),
-              ],
-            ),
-            if (service.message.value.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(service.message.value),
-              ),
-            const Divider(height: 40),
-            const SourceDebugPanel(),
-          ],
-        );
-      }),
     );
   }
 }

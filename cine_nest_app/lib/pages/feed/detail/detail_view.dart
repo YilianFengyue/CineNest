@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cine_nest/http/init.dart';
+import 'package:cine_nest/router/app_pages.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'detail_controller.dart';
 
@@ -29,12 +30,12 @@ class MovieDetailPage extends GetView<MovieDetailController> {
         // 处理背景和海报 URL
         String backdropUrl = movie.backdropUrl ?? '';
         if (backdropUrl.startsWith('/api')) {
-          backdropUrl = '${Request().dio.options.baseUrl}$backdropUrl';
+          backdropUrl = '${Request.dio.options.baseUrl}$backdropUrl';
         }
 
         String posterUrl = movie.posterUrl ?? '';
         if (posterUrl.startsWith('/api')) {
-          posterUrl = '${Request().dio.options.baseUrl}$posterUrl';
+          posterUrl = '${Request.dio.options.baseUrl}$posterUrl';
         }
 
         return CustomScrollView(
@@ -43,6 +44,15 @@ class MovieDetailPage extends GetView<MovieDetailController> {
             SliverAppBar(
               expandedHeight: 300,
               pinned: true,
+              actions: [
+                Obx(() => IconButton(
+                  onPressed: () => controller.toggleFavorite(),
+                  icon: Icon(
+                    controller.isFavorited.value ? Icons.favorite : Icons.favorite_border,
+                    color: controller.isFavorited.value ? Colors.red : Colors.white,
+                  ),
+                )),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,
@@ -50,7 +60,8 @@ class MovieDetailPage extends GetView<MovieDetailController> {
                     CachedNetworkImage(
                       imageUrl: backdropUrl,
                       fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => Container(color: colorScheme.surfaceContainerHighest),
+                      errorWidget: (context, url, error) =>
+                          Container(color: colorScheme.surfaceContainerHighest),
                     ),
                     const DecoratedBox(
                       decoration: BoxDecoration(
@@ -94,17 +105,25 @@ class MovieDetailPage extends GetView<MovieDetailController> {
                             children: [
                               Text(
                                 movie.title,
-                                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 "${movie.year ?? ''} · ${movie.genres.join(' / ')}",
-                                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.outline,
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  const Icon(Icons.star_rounded, color: Colors.amber, size: 24),
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber,
+                                    size: 24,
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     "${movie.rating ?? 0.0}",
@@ -114,7 +133,10 @@ class MovieDetailPage extends GetView<MovieDetailController> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text("/ 10 (TMDB)", style: theme.textTheme.bodySmall),
+                                  Text(
+                                    "/ 10 (TMDB)",
+                                    style: theme.textTheme.bodySmall,
+                                  ),
                                 ],
                               ),
                             ],
@@ -126,7 +148,12 @@ class MovieDetailPage extends GetView<MovieDetailController> {
                     const SizedBox(height: 24),
 
                     // 3. 剧情简介
-                    Text("剧情简介", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      "剧情简介",
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Text(
                       movie.overview ?? "暂无简介",
@@ -137,14 +164,24 @@ class MovieDetailPage extends GetView<MovieDetailController> {
 
                     // 4. 演职员 (简单列表)
                     if (movie.directors.isNotEmpty) ...[
-                      Text("导演", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      Text(
+                        "导演",
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Text(movie.directors.join(", ")),
                       const SizedBox(height: 16),
                     ],
 
                     if (movie.cast.isNotEmpty) ...[
-                      Text("主演", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      Text(
+                        "主演",
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Text(movie.cast.join(", ")),
                     ],
@@ -160,7 +197,11 @@ class MovieDetailPage extends GetView<MovieDetailController> {
       // 悬浮播放按钮（F3 任务预留）
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Get.snackbar("提示", "播放功能正在开发中...");
+          final movie = controller.movie.value;
+          if (movie == null) {
+            return;
+          }
+          Get.toNamed(Routes.sourcePicker, arguments: {'title': movie.title});
         },
         label: const Text("立即播放"),
         icon: const Icon(Icons.play_arrow_rounded),

@@ -1,3 +1,25 @@
-from .schemas import Movie, Post, VideoSource, UserPreference, Feedback
+from .schemas import (
+    Feedback,
+    LocalVideo,
+    Movie,
+    Post,
+    TasteAvatarResponse,
+    TasteDNA,
+    TasteScore,
+    UserPreference,
+    VideoEpisode,
+    VideoSource,
+)
 
-__all__ = ["Movie", "Post", "VideoSource", "UserPreference", "Feedback"]
+__all__ = [
+    "Movie",
+    "Post",
+    "VideoEpisode",
+    "VideoSource",
+    "UserPreference",
+    "Feedback",
+    "LocalVideo",
+    "TasteScore",
+    "TasteDNA",
+    "TasteAvatarResponse",
+]

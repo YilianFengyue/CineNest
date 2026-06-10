@@ -22,6 +22,7 @@ class Movie(BaseModel):
     backdrop_url: Optional[str] = None
     directors: list[str] = Field(default_factory=list)
     cast: list[str] = Field(default_factory=list)
+    is_collected: bool = False
 
 
 class Post(BaseModel):
@@ -32,6 +33,12 @@ class Post(BaseModel):
     poster_url: Optional[str] = None  # C 的 Micro Design 海报，空则前端回退 movie.poster_url
 
 
+class VideoEpisode(BaseModel):
+    index: int
+    title: str
+    play_url: str
+
+
 class VideoSource(BaseModel):
     id: str
     name: str
@@ -40,6 +47,7 @@ class VideoSource(BaseModel):
     play_url: Optional[str] = None
     cover: Optional[str] = None
     play_count: Optional[int] = None
+    episodes: list[VideoEpisode] = Field(default_factory=list)
 
 
 class UserPreference(BaseModel):
@@ -51,3 +59,139 @@ class UserPreference(BaseModel):
 class Feedback(BaseModel):
     movie_id: int
     liked: bool  # True=喜欢, False=不感兴趣
+
+
+class WatchHistoryItem(BaseModel):
+    movie_id: int
+    title: str
+    visited_at: str
+
+
+class WatchHistoryRequest(BaseModel):
+    movie_id: int
+    title: str
+
+
+class CollectionItem(BaseModel):
+    movie_id: int
+    title: str
+    poster_url: Optional[str] = None
+    collected_at: str
+
+
+class CollectionToggleRequest(BaseModel):
+    movie_id: int
+    title: str
+    poster_url: Optional[str] = None
+
+
+class LocalVideo(BaseModel):
+    id: str
+    title: str
+    filename: str
+    relative_path: str
+    size: int
+    modified_at: str
+    stream_url: str
+
+
+class TasteScore(BaseModel):
+    name: str
+    score: float
+
+
+class TasteDNA(BaseModel):
+    top_genres: list[TasteScore] = Field(default_factory=list)
+    avoid_genres: list[str] = Field(default_factory=list)
+    mood_tags: list[str] = Field(default_factory=list)
+    era_tags: list[str] = Field(default_factory=list)
+    summary: str
+    confidence: float
+    avatar_url: Optional[str] = None
+    signature: str
+
+
+class TasteAvatarResponse(BaseModel):
+    avatar_url: str
+    prompt: str
+    cached: bool = False
+    signature: str
+    warning: Optional[str] = None
+
+
+class ForumPostCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+    content: str = Field(min_length=1, max_length=2000)
+    author_name: str = Field(min_length=1, max_length=24)
+    client_id: str = Field(min_length=4, max_length=80)
+    movie_id: Optional[int] = None
+    movie_title: Optional[str] = Field(default=None, max_length=120)
+    image_url: Optional[str] = Field(default=None, max_length=500)
+    sticker: Optional[str] = Field(default=None, max_length=80)
+
+
+class ForumCommentCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=800)
+    author_name: str = Field(min_length=1, max_length=24)
+    client_id: str = Field(min_length=4, max_length=80)
+
+
+class ForumLikeRequest(BaseModel):
+    client_id: str = Field(min_length=4, max_length=80)
+
+
+class ForumPostSummary(BaseModel):
+    id: str
+    title: str
+    content_preview: str
+    author_name: str
+    movie_id: Optional[int] = None
+    movie_title: Optional[str] = None
+    image_url: Optional[str] = None
+    sticker: Optional[str] = None
+    like_count: int = 0
+    comment_count: int = 0
+    liked_by_me: bool = False
+    created_at: str
+    updated_at: str
+
+
+class ForumComment(BaseModel):
+    id: str
+    post_id: str
+    content: str
+    author_name: str
+    created_at: str
+
+
+class ForumPostDetail(BaseModel):
+    id: str
+    title: str
+    content: str
+    author_name: str
+    movie_id: Optional[int] = None
+    movie_title: Optional[str] = None
+    image_url: Optional[str] = None
+    sticker: Optional[str] = None
+    like_count: int = 0
+    comment_count: int = 0
+    liked_by_me: bool = False
+    created_at: str
+    updated_at: str
+
+
+class ForumPostList(BaseModel):
+    items: list[ForumPostSummary] = Field(default_factory=list)
+    page: int
+    page_size: int
+    total: int
+
+
+class ForumPostDetailResponse(BaseModel):
+    post: ForumPostDetail
+    comments: list[ForumComment] = Field(default_factory=list)
+
+
+class ForumLikeResponse(BaseModel):
+    liked: bool
+    like_count: int
