@@ -202,7 +202,6 @@ async def generate_taste_avatar(force: bool = False) -> TasteAvatarResponse:
         prompt,
         size="1024x1024",
         timeout_seconds=180,
-        attempts=2,
     )
     if asset is None:
         if cached:
@@ -239,7 +238,6 @@ async def _generate_avatar_in_background(signature: str, prompt: str) -> None:
             prompt,
             size="1024x1024",
             timeout_seconds=240,
-            attempts=2,
         )
         if asset is None:
             logger.warning("Taste DNA background avatar generation returned no asset.")
