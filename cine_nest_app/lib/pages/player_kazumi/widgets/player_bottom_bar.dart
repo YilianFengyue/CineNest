@@ -1,9 +1,8 @@
-import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:progress_indicator_m3e/progress_indicator_m3e.dart';
 
 import '../controller/player_controller.dart';
+import 'wavy_seek_bar.dart';
 
 /// 底部控制栏。
 ///
@@ -35,38 +34,40 @@ class PlayerBottomBar extends StatelessWidget {
 
   Widget _progressBar(BuildContext context, {required bool thin}) {
     return Obx(
-      () => ProgressBar(
-        progress: controller.position.value,
+      () => WavySeekBar(
+        position: controller.position.value,
         buffered: controller.buffer.value,
-        total: controller.duration.value,
-        timeLabelLocation: TimeLabelLocation.none,
-        // 关键：ProgressBar 实际占高 ≈ max(barHeight, thumbRadius*2)
-        // compact 用 3.5 → 总高 ~7px；full 用 5 → 总高 ~10px
-        barHeight: thin ? 2.0 : 3.0,
-        thumbRadius: thin ? 3.5 : 5.0,
-        baseBarColor: Colors.white24,
-        bufferedBarColor: Colors.white38,
-        progressBarColor: Theme.of(context).colorScheme.primary,
-        thumbColor: Theme.of(context).colorScheme.primary,
-        onDragStart: (_) {
+        duration: controller.duration.value,
+        playing: controller.playing.value,
+        // ── 微调旋钮 ──────────────────────────────────────
+        height: thin ? 16 : 22, // 控件总高（手势热区）
+        strokeWidth: thin ? 2.2 : 3.0, // 线粗
+        amplitude: thin ? 2.2 : 3.0, // 波浪振幅（波峰高度）
+        wavelength: thin ? 24 : 32, // 波长（越小越密）
+        waveCycle: const Duration(milliseconds: 1800), // 滚动速度（越短越快）
+        thumbWidth: thin ? 3.5 : 4.5, // 竖条宽
+        thumbHeight: thin ? 16 : 18, // 竖条高
+        // ─────────────────────────────────────────────────
+        activeColor: Theme.of(context).colorScheme.primary,
+        inactiveColor: Colors.white24,
+        bufferedColor: Colors.white38,
+        onSeekStart: () {
           controller.pause();
           controller.beginSeekPreview();
         },
-        onDragUpdate: (d) {
-          controller.seekTargetMs.value = d.timeStamp.inMilliseconds;
+        onSeekPreview: (d) {
+          controller.seekTargetMs.value = d.inMilliseconds;
           controller.showSeekHud.value = true;
         },
-        onDragEnd: () {
+        onSeekEnd: (_) {
           controller.commitSeekPreview();
           controller.play();
         },
-        onSeek: (to) => controller.seekTo(to),
       ),
     );
   }
 
   Widget _buildCompact(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       height: 36,
       padding: const EdgeInsets.only(left: 6, right: 4),
@@ -94,43 +95,7 @@ class PlayerBottomBar extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           // 进度条（wavy，吃剩余空间）
-          Expanded(
-            child: Obx(() {
-              final total = controller.duration.value.inMilliseconds;
-              final pos = controller.position.value.inMilliseconds;
-              final value = total > 0 ? (pos / total).clamp(0.0, 1.0) : 0.0;
-              return GestureDetector(
-                onHorizontalDragStart: (d) {
-                  controller.pause();
-                  controller.beginSeekPreview();
-                },
-                onHorizontalDragUpdate: (d) {
-                  final box = context.findRenderObject() as RenderBox?;
-                  if (box == null) return;
-                  final ratio = (d.localPosition.dx / box.size.width).clamp(
-                    0.0,
-                    1.0,
-                  );
-                  controller.seekTargetMs.value = (ratio * total).toInt();
-                  controller.showSeekHud.value = true;
-                },
-                onHorizontalDragEnd: (_) {
-                  controller.commitSeekPreview();
-                  controller.play();
-                },
-                child: SizedBox(
-                  height: 12,
-                  child: LinearProgressIndicatorM3E(
-                    value: value,
-                    size: LinearProgressM3ESize.s,
-                    shape: ProgressM3EShape.wavy,
-                    activeColor: primary,
-                    trackColor: Colors.white24,
-                  ),
-                ),
-              );
-            }),
-          ),
+          Expanded(child: _progressBar(context, thin: true)),
           const SizedBox(width: 6),
           // 时间
           Obx(() {

@@ -181,6 +181,18 @@ class KazumiPlayerController extends GetxController {
       // 强制低码率或手动 cache 参数干扰。
       await pp.setProperty('user-agent', _browserUserAgent);
 
+      // 分片中途 TCP 读超时（tcp:ffurl_read returned 0xffffff92 / -110）时
+      // ffmpeg 默认直接断流报错；开启 reconnect 后改为带退避自动重连续读，
+      // 配合大 demuxer 缓存可把源站 CDN 抖动变成无感恢复。
+      await pp.setProperty(
+        'demuxer-lavf-o',
+        'reconnect=1,reconnect_streamed=1,'
+        'reconnect_on_network_error=1,reconnect_delay_max=5',
+      );
+      // mpv 默认 network-timeout=60s：半死连接要挂 60 秒才触发上面的重连，
+      // 收紧到 12s 让重连尽快接管（仍长于正常分片请求耗时）。
+      await pp.setProperty('network-timeout', '12');
+
       // ─── 平台差异 ────────────────────────────────────────────
       if (Platform.isAndroid) {
         await pp.setProperty('volume-max', '100');
