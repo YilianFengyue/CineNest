@@ -19,6 +19,15 @@ abstract final class ApiConstants {
   static const String sourcesSearch = '/api/sources/search';
   static const String sourcesParse = '/api/sources/parse';
   static const String bilibiliSearch = '/api/bilibili/search';
+  static const String localVideos = '/api/local-videos';
+  static const String localVideosRescan = '/api/local-videos/rescan';
+  static String localVideoStream(Object id) => '/api/local-videos/stream/$id';
+  static const String tasteDna = '/api/taste-dna';
+  static const String tasteDnaAvatarGenerate = '/api/taste-dna/avatar/generate';
+  static const String forumPosts = '/api/forum/posts';
+  static String forumPost(Object id) => '/api/forum/posts/$id';
+  static String forumPostLike(Object id) => '/api/forum/posts/$id/like';
+  static String forumPostComments(Object id) => '/api/forum/posts/$id/comments';
 
   // Bilibili 伴侣资源
   static const String biliMovieVideos = '/api/bili/movie/videos';
