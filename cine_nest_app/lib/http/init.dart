@@ -40,7 +40,7 @@ class Request {
     final BaseOptions options = BaseOptions(
       baseUrl: Pref.baseUrl,
       connectTimeout: const Duration(milliseconds: 15000),
-      receiveTimeout: const Duration(milliseconds: 30000), // AI 生成较慢，延长至 2 分钟
+      receiveTimeout: const Duration(milliseconds: 30000), // AI 生成较慢，延长时间
       headers: {
         'user-agent': 'CineNest/1.0 (Flutter; dart:io)',
         if (!_enableHttp2) 'connection': 'keep-alive',

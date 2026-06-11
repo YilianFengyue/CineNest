@@ -5,6 +5,9 @@ import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_info_card.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/network_img_layer.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/source_sheet.dart';
+import 'package:cine_nest/pages/feed/detail/widgets/movie_graph_widget.dart';
+import 'package:cine_nest/models/movie_graph.dart';
+import 'package:cine_nest/http/init.dart';
 
 class KazumiDetailPage extends StatefulWidget {
   const KazumiDetailPage({super.key, required this.item});
@@ -157,12 +160,55 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
   }
 }
 
-class _OverviewTab extends StatelessWidget {
+class _OverviewTab extends StatefulWidget {
   const _OverviewTab({required this.item});
   final TmdbMediaItem item;
 
   @override
+  State<_OverviewTab> createState() => _OverviewTabState();
+}
+
+class _OverviewTabState extends State<_OverviewTab> with AutomaticKeepAliveClientMixin {
+  MovieGraphResponse? _graph;
+  bool _isLoadingGraph = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    debugPrint(">>> [_OverviewTab] initState for movie ${widget.item.id}");
+    _fetchGraph();
+  }
+
+  Future<void> _fetchGraph() async {
+    try {
+      setState(() => _isLoadingGraph = true);
+      debugPrint(">>> [KazumiGraph] Fetching graph for movie ${widget.item.id}...");
+      final response = await Request().get("/api/movie/${widget.item.id}/graph");
+      
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data.containsKey('nodes')) {
+          setState(() {
+            _graph = MovieGraphResponse.fromJson(data);
+          });
+          debugPrint(">>> [KazumiGraph] Success: ${_graph?.nodes.length} nodes");
+        }
+      }
+    } catch (e) {
+      debugPrint(">>> [KazumiGraph] Error: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingGraph = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // 这是 AutomaticKeepAliveClientMixin 的要求
     return Builder(
       builder: (context) {
         return CustomScrollView(
@@ -177,26 +223,47 @@ class _OverviewTab extends StatelessWidget {
                   Text('简介', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    item.overview.isNotEmpty ? item.overview : '暂无简介',
+                    widget.item.overview.isNotEmpty ? widget.item.overview : '暂无简介',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
                   Text('信息', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    '原名: ${item.originalTitle.isNotEmpty ? item.originalTitle : item.title}',
+                    '原名: ${widget.item.originalTitle.isNotEmpty ? widget.item.originalTitle : widget.item.title}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '类型: ${item.mediaType == 'tv' ? '剧集' : '电影'}',
+                    '类型: ${widget.item.mediaType == 'tv' ? '剧集' : '电影'}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '上映: ${item.releaseDate.isNotEmpty ? item.releaseDate : '未知'}',
+                    '上映: ${widget.item.releaseDate.isNotEmpty ? widget.item.releaseDate : '未知'}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  const SizedBox(height: 32),
+                  
+                  // 关系图谱部分
+                  StatefulBuilder(
+                    builder: (context, setTabState) {
+                      if (_isLoadingGraph) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      if (_graph != null) {
+                        return MovieGraphWidget(graph: _graph!);
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                    
+                  const SizedBox(height: 80),
                 ]),
               ),
             ),

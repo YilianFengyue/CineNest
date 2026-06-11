@@ -89,3 +89,21 @@ class CollectionToggleRequest(BaseModel):
     movie_id: int
     title: str
     poster_url: Optional[str] = None
+
+
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    type: str  # movie | person | genre | keyword
+    movie_id: Optional[int] = None  # 仅当 type 为 movie 时存在
+
+
+class GraphLink(BaseModel):
+    source: str
+    target: str
+    relation: str
+
+
+class MovieGraphResponse(BaseModel):
+    nodes: list[GraphNode]
+    links: list[GraphLink]

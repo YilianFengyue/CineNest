@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'widgets/movie_graph_widget.dart';
 import 'detail_controller.dart';
 
 class MovieDetailPage extends GetView<MovieDetailController> {
@@ -185,6 +186,25 @@ class MovieDetailPage extends GetView<MovieDetailController> {
                       const SizedBox(height: 8),
                       Text(movie.cast.join(", ")),
                     ],
+
+                    const SizedBox(height: 32),
+
+                    // 5. 电影关系图谱
+                    Obx(() {
+                      if (controller.movieGraph.value == null && controller.isLoading.value) {
+                        return const SizedBox(
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      
+                      final graph = controller.movieGraph.value;
+                      if (graph == null || graph.nodes.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return MovieGraphWidget(graph: graph);
+                    }),
 
                     const SizedBox(height: 100), // 底部留白
                   ],

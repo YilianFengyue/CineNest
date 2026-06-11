@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:cine_nest/models/movie.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/http/api_constants.dart';
+import 'package:cine_nest/models/movie_graph.dart';
 import 'package:flutter/foundation.dart';
 
 class MovieDetailController extends GetxController {
@@ -11,26 +12,54 @@ class MovieDetailController extends GetxController {
   var isFavorited = false.obs;
   var isFavoriting = false.obs;
   var movie = Rxn<Movie>();
+  var movieGraph = Rxn<MovieGraphResponse>();
 
   @override
   void onInit() {
     super.onInit();
+    debugPrint(">>> [MovieDetail] Controller initialized for movie: $movieId");
     fetchMovieDetail();
+    fetchMovieGraph();
   }
 
   Future<void> fetchMovieDetail() async {
     try {
       isLoading(true);
+      debugPrint(">>> [MovieDetail] Fetching detail from backend...");
       final response = await Request().get(ApiConstants.movieDetail(movieId));
-      if (response.data != null) {
+      if (response.data != null && response.statusCode == 200) {
         movie.value = Movie.fromJson(response.data);
-        // 从响应中同步收藏状态
         isFavorited.value = movie.value!.isCollected;
+        debugPrint(">>> [MovieDetail] Detail loaded: ${movie.value?.title}");
+      } else {
+        debugPrint(">>> [MovieDetail] Backend detail fetch failed: ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint("获取详情失败: $e");
+      debugPrint(">>> [MovieDetail] Error fetching detail: $e");
     } finally {
       isLoading(false);
+    }
+  }
+
+  Future<void> fetchMovieGraph() async {
+    try {
+      debugPrint(">>> [MovieGraph] Attempting to fetch graph: /api/movie/$movieId/graph");
+      final response = await Request().get("/api/movie/$movieId/graph");
+      
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data.containsKey('nodes')) {
+          movieGraph.value = MovieGraphResponse.fromJson(data);
+          debugPrint(">>> [MovieGraph] Success: ${movieGraph.value?.nodes.length} nodes");
+        } else {
+          debugPrint(">>> [MovieGraph] Data format error: $data");
+        }
+      } else {
+        debugPrint(">>> [MovieGraph] Request failed: ${response.statusCode} - ${response.data}");
+      }
+    } catch (e, stack) {
+      debugPrint(">>> [MovieGraph] Exception: $e");
+      debugPrint(stack.toString());
     }
   }
 

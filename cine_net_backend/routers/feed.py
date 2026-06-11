@@ -19,6 +19,7 @@ from models.schemas import (
     CollectionToggleRequest,
     Feedback,
     Movie,
+    MovieGraphResponse,
     Post,
     ScenarioResponse,
     UserPreference,
@@ -372,6 +373,15 @@ async def get_movie(movie_id: int):
         movie.is_collected = is_movie_collected(movie_id)
         _safe_add_watch_history(movie.id, movie.title)
         return movie
+
+
+@router.get("/movie/{movie_id}/graph", response_model=MovieGraphResponse)
+async def get_movie_graph(movie_id: int):
+    """获取电影关系图谱数据。"""
+    try:
+        return await tmdb_service.get_movie_graph(movie_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch movie graph: {exc}") from exc
 
 
 @router.get("/discovery", response_model=list[Movie])
