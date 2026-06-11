@@ -131,6 +131,8 @@ class PhoneRuntime:
     ) -> PhoneTask:
         if not self.config.enabled:
             raise RuntimeError("手机控制功能未启用，请在 .env 中配置 PHONE_ENABLED=true 或在控制台临时启用")
+        if not self.config.api_key.strip():
+            raise RuntimeError("AutoGLM API Key 未配置，请在 .env 填写 PHONE_API_KEY 或在控制台临时配置")
         if self._running_task_id:
             raise RuntimeError("已有手机任务在执行，请等待完成或取消后再试")
 

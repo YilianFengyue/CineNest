@@ -81,6 +81,7 @@ dependencies:
   screen_brightness_ios: ^2.1.2
   audio_service: ^0.18.15              # 后台播放/锁屏控件
   audio_session: ^0.2.2
+  permission_handler: ^11.3.1          # Android 13+ 通知权限
   saver_gallery: ^4.1.0                # 截图保存到相册
   floating: ^6.0.0                     # Android 画中画（V2 embedding）
   window_manager: ^0.5.1               # 桌面端窗口/全屏

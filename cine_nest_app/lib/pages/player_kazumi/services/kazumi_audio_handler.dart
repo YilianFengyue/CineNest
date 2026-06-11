@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../controller/player_controller.dart';
 
@@ -19,6 +21,8 @@ import '../controller/player_controller.dart';
 /// 失败时会被 catch 并打日志（Android 需要在 manifest 注册 Foreground Service）。
 class KazumiAudioHandler extends BaseAudioHandler with SeekHandler {
   KazumiPlayerController? _ctrl;
+  void Function()? onSkipToNext;
+  void Function()? onSkipToPrevious;
   StreamSubscription? _playingSub;
   StreamSubscription? _positionSub;
   StreamSubscription? _durationSub;
@@ -57,6 +61,8 @@ class KazumiAudioHandler extends BaseAudioHandler with SeekHandler {
     _bufferingSub = null;
     _completedSub = null;
     _ctrl = null;
+    onSkipToNext = null;
+    onSkipToPrevious = null;
   }
 
   void setMediaInfo({required String title, String? artist, String? album, Uri? artUri}) {
@@ -106,6 +112,10 @@ class KazumiAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> seek(Duration position) async => _ctrl?.seekTo(position);
   @override
+  Future<void> skipToNext() async => onSkipToNext?.call();
+  @override
+  Future<void> skipToPrevious() async => onSkipToPrevious?.call();
+  @override
   Future<void> stop() async {
     await _ctrl?.pause();
     await super.stop();
@@ -123,6 +133,9 @@ Future<KazumiAudioHandler?> ensureKazumiAudioHandler() async {
   if (_initStarted) return null;
   _initStarted = true;
   try {
+    if (Platform.isAndroid) {
+      await Permission.notification.request();
+    }
     _instance = await AudioService.init<KazumiAudioHandler>(
       builder: KazumiAudioHandler.new,
       config: const AudioServiceConfig(

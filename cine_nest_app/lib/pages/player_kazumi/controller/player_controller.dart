@@ -88,6 +88,9 @@ class KazumiPlayerController extends GetxController {
   final danmakuHideTop = false.obs;
   final danmakuHideBottom = false.obs;
   final danmakuMassive = false.obs;
+  final danmakuDensity = 1.0.obs;
+  final danmakuHideColor = false.obs;
+  final danmakuHideAdvanced = false.obs;
   final danmakuLoading = false.obs;
   final danmakuItems = <DanDanComment>[].obs;
   final danmakuCount = 0.obs;
@@ -656,6 +659,9 @@ class KazumiPlayerController extends GetxController {
     danmakuHideTop.value = Pref.danmakuHideTop;
     danmakuHideBottom.value = Pref.danmakuHideBottom;
     danmakuMassive.value = Pref.danmakuMassive;
+    danmakuDensity.value = Pref.danmakuDensity;
+    danmakuHideColor.value = Pref.danmakuHideColor;
+    danmakuHideAdvanced.value = Pref.danmakuHideAdvanced;
   }
 
   void toggleDanmaku() {

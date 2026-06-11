@@ -144,4 +144,19 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.danmakuMassive, defaultValue: false);
   static Future<void> setDanmakuMassive(bool v) =>
       _setting.put(SettingBoxKey.danmakuMassive, v);
+
+  static double get danmakuDensity =>
+      _setting.get(SettingBoxKey.danmakuDensity, defaultValue: 1.0);
+  static Future<void> setDanmakuDensity(double v) =>
+      _setting.put(SettingBoxKey.danmakuDensity, v);
+
+  static bool get danmakuHideColor =>
+      _setting.get(SettingBoxKey.danmakuHideColor, defaultValue: false);
+  static Future<void> setDanmakuHideColor(bool v) =>
+      _setting.put(SettingBoxKey.danmakuHideColor, v);
+
+  static bool get danmakuHideAdvanced =>
+      _setting.get(SettingBoxKey.danmakuHideAdvanced, defaultValue: false);
+  static Future<void> setDanmakuHideAdvanced(bool v) =>
+      _setting.put(SettingBoxKey.danmakuHideAdvanced, v);
 }

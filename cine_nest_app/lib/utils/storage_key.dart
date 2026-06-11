@@ -36,6 +36,9 @@ abstract final class SettingBoxKey {
   static const String danmakuHideTop = 'danmakuHideTop';
   static const String danmakuHideBottom = 'danmakuHideBottom';
   static const String danmakuMassive = 'danmakuMassive';
+  static const String danmakuDensity = 'danmakuDensity';
+  static const String danmakuHideColor = 'danmakuHideColor';
+  static const String danmakuHideAdvanced = 'danmakuHideAdvanced';
 }
 
 /// 本地缓存键（非用户设置，运行期数据）。

@@ -88,10 +88,24 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   Future<void> _bootstrap() async {
     _audioHandler = await ensureKazumiAudioHandler();
     _audioHandler?.attach(_ctrl);
+    _audioHandler?.onSkipToNext = () {
+      if (_currentIndex < _playable.length - 1) _playEpisode(_currentIndex + 1);
+    };
+    _audioHandler?.onSkipToPrevious = () {
+      if (_currentIndex > 0) _playEpisode(_currentIndex - 1);
+    };
     if (_session != null) {
-      _audioHandler?.setMediaInfo(title: _session!.title);
+      _updateMediaInfo(_session!.title);
       await _openCurrent();
     }
+  }
+
+  void _updateMediaInfo(String title) {
+    final cover = widget.detail.bestPoster;
+    _audioHandler?.setMediaInfo(
+      title: title,
+      artUri: cover != null && cover.isNotEmpty ? Uri.tryParse(cover) : null,
+    );
   }
 
   Future<void> _openCurrent() async {
@@ -126,7 +140,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
         _session = session;
         _currentIndex = index;
       });
-      _audioHandler?.setMediaInfo(title: session.title);
+      _updateMediaInfo(session.title);
       _lastShownError = '';
       await _ctrl.open(url: session.playUrl, headers: session.headers);
       _fetchDanmaku();
@@ -218,17 +232,21 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   Widget build(BuildContext context) {
     return Obx(() {
       final fullscreen = _ctrl.isFullscreen.value;
+      // 退出全屏后方向旋转是异步的，landscape 期间强制保持全屏布局防溢出
+      final isLandscape =
+          MediaQuery.of(context).orientation == Orientation.landscape;
+      final showFullLayout = fullscreen || isLandscape;
       return PopScope(
         canPop: !fullscreen,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop && fullscreen) _ctrl.setFullscreen(false);
         },
         child: Scaffold(
-          backgroundColor: fullscreen
+          backgroundColor: showFullLayout
               ? Colors.black
               : Theme.of(context).colorScheme.surface,
-          body: fullscreen
-              ? _buildPlayer(fullscreen: true)
+          body: showFullLayout
+              ? _buildPlayer(fullscreen: fullscreen)
               : SafeArea(
                   bottom: false,
                   child: Column(

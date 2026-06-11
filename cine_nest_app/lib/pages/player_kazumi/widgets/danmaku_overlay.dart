@@ -109,6 +109,22 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
   }
 
   void _addDanmaku(DanmakuController ctrl, DanDanComment item) {
+    // 彩色弹幕屏蔽（非白色 = 彩色）
+    if (c.danmakuHideColor.value && (item.color & 0x00FFFFFF) != 0x00FFFFFF) {
+      return;
+    }
+    // 高级弹幕屏蔽（非标准 1/4/5 模式）
+    if (c.danmakuHideAdvanced.value &&
+        item.mode != 1 && item.mode != 4 && item.mode != 5) {
+      return;
+    }
+    // 密度过滤：确定性哈希采样，同一条弹幕永远显示/隐藏，seek 不闪烁
+    final density = c.danmakuDensity.value;
+    if (density < 1.0 &&
+        item.content.hashCode.abs() % 100 >= (density * 100).round()) {
+      return;
+    }
+
     DanmakuItemType type;
     switch (item.mode) {
       case 4:
