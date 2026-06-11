@@ -28,6 +28,8 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
   String _statusMessage = '正在搜索播放源…';
   String? _error;
   String? _url;
+  String? _directUrl;
+  String? _directSourceName;
   bool _loadingSources = true;
   bool _switching = false;
   double _rate = 1.0;
@@ -52,7 +54,12 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     });
     _readArgs();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadSources();
+      if (!mounted) return;
+      if (_directUrl != null && _directUrl!.isNotEmpty) {
+        _loadDirectUrl();
+      } else {
+        _loadSources();
+      }
     });
   }
 
@@ -69,7 +76,48 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
     if (title != null && title.trim().isNotEmpty) {
       _movieName = title.trim();
     }
+    final directUrl = args is Map ? args['url']?.toString() : null;
+    if (directUrl != null && directUrl.trim().isNotEmpty) {
+      _directUrl = directUrl.trim();
+      _directSourceName = args is Map ? args['sourceName']?.toString() : null;
+    }
     _title = _movieName;
+  }
+
+  Future<void> _loadDirectUrl() async {
+    final url = _directUrl;
+    if (url == null || url.isEmpty) return;
+    setState(() {
+      _loadingSources = false;
+      _switching = true;
+      _error = null;
+      _sources = const [];
+      _selectedSource = null;
+      _parsedSource = null;
+      _selectedEpisodeIndex = 0;
+      _statusMessage = '正在打开直连视频…';
+    });
+
+    try {
+      _url = url;
+      _title = (_directSourceName == null || _directSourceName!.trim().isEmpty)
+          ? _movieName
+          : _directSourceName!.trim();
+      await _player.open(Media(url));
+      await _player.setRate(_rate);
+      if (!mounted) return;
+      setState(() {
+        _switching = false;
+        _statusMessage = '直连视频播放中';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _switching = false;
+        _error = e.toString();
+        _statusMessage = '直连视频播放失败';
+      });
+    }
   }
 
   Future<void> _loadSources() async {
@@ -314,9 +362,9 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
                         onRetry: _selectedSource == null
                             ? _loadSources
                             : () => _switchSource(
-                                  _selectedSource!,
-                                  episodeIndex: _selectedEpisodeIndex,
-                                ),
+                                _selectedSource!,
+                                episodeIndex: _selectedEpisodeIndex,
+                              ),
                       )
                     : MaterialVideoControlsTheme(
                         normal: buildPlayerTheme(
@@ -346,10 +394,8 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
                   Text(
                     _statusMessage,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _error != null
-                              ? cs.error
-                              : cs.onSurfaceVariant,
-                        ),
+                      color: _error != null ? cs.error : cs.onSurfaceVariant,
+                    ),
                   ),
                   if (_url != null && _error != null) ...[
                     const SizedBox(height: 8),
@@ -358,9 +404,9 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
                       onRetry: _selectedSource == null
                           ? _loadSources
                           : () => _switchSource(
-                                _selectedSource!,
-                                episodeIndex: _selectedEpisodeIndex,
-                              ),
+                              _selectedSource!,
+                              episodeIndex: _selectedEpisodeIndex,
+                            ),
                       onOpenWebView: _url == null ? null : _openWebView,
                     ),
                   ],
@@ -377,10 +423,7 @@ class _SourcePickerPageState extends State<SourcePickerPage> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    '播放源',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text('播放源', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   _SourceGrid(
                     sources: _sources,
@@ -449,10 +492,7 @@ class _PlaceholderArea extends StatelessWidget {
             ),
             if (!loading && error != null) ...[
               const SizedBox(height: 12),
-              FilledButton.tonal(
-                onPressed: onRetry,
-                child: const Text('重试'),
-              ),
+              FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
             ],
           ],
         ),
@@ -496,10 +536,7 @@ class _ErrorCard extends StatelessWidget {
           const SizedBox(width: 8),
           TextButton(onPressed: onRetry, child: const Text('重试')),
           if (onOpenWebView != null)
-            TextButton(
-              onPressed: onOpenWebView,
-              child: const Text('浏览器播放'),
-            ),
+            TextButton(onPressed: onOpenWebView, child: const Text('浏览器播放')),
         ],
       ),
     );
@@ -548,12 +585,12 @@ class _EpisodeGrid extends StatelessWidget {
                   onPressed: switching
                       ? null
                       : () => onEpisodeSelected(
-                            VideoEpisode(
-                              index: index,
-                              title: episode.title,
-                              playUrl: episode.playUrl,
-                            ),
+                          VideoEpisode(
+                            index: index,
+                            title: episode.title,
+                            playUrl: episode.playUrl,
                           ),
+                        ),
                   style: FilledButton.styleFrom(
                     backgroundColor: selected
                         ? Theme.of(context).colorScheme.primary

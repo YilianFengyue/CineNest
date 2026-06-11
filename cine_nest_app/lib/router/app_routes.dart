@@ -14,6 +14,12 @@ abstract final class Routes {
   // Member A
   static const String sourcePicker = '/source-picker';
   static const String webviewPlayer = '/webview-player';
+  static const String localVideos = '/local-videos';
+  static const String pcRemote = '/pc-remote';
+  static const String tasteDna = '/taste-dna';
+  static const String forum = '/forum';
+  static const String forumDetail = '/forum-detail';
+  static const String forumCompose = '/forum-compose';
 
   /// Kazumi 风播放器测试页（设置 → 播放器测试）。
   static const String kazumiPlayerTest = '/kazumi-player-test';

@@ -123,6 +123,12 @@ class SettingsPage extends StatelessWidget {
               description: const Text('连接 PC 后端，拉取推荐与视频源'),
               onPressed: (_) => Get.to(() => const ConnectionSettingsPage()),
             ),
+            SettingsTile.navigation(
+              leading: const Icon(Icons.video_library_rounded),
+              title: const Text('PC 本地视频库 / 投屏控制'),
+              description: const Text('手机播放电脑视频，或遥控 PC 浏览器播放'),
+              onPressed: (_) => Get.toNamed(Routes.localVideos),
+            ),
           ],
         ),
 
@@ -178,12 +184,50 @@ class SettingsPage extends StatelessWidget {
   /// 现在留空（返回零高占位），后续要加用户画像卡时，把卡片 Widget 返回
   /// 即可——它会作为列表的可滚动头部出现在所有分组之上。
   Widget _buildProfileHeader(BuildContext context) {
-    // TODO(C): 用户画像卡接入点。示例：
-    // return Padding(
-    //   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-    //   child: ProfileCard(...),
-    // );
-    return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Get.toNamed(Routes.tasteDna),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: cs.primaryContainer,
+                  foregroundColor: cs.onPrimaryContainer,
+                  child: const Icon(Icons.auto_awesome_rounded),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '口味 DNA',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '根据偏好、历史和收藏生成观影画像',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _openPlaceholder({

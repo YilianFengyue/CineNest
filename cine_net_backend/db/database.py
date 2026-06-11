@@ -148,6 +148,71 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS taste_dna_avatars (
+                signature TEXT PRIMARY KEY,
+                avatar_url TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS forum_posts (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                client_id TEXT NOT NULL,
+                movie_id INTEGER,
+                movie_title TEXT,
+                image_url TEXT,
+                sticker TEXT,
+                like_count INTEGER NOT NULL DEFAULT 0,
+                comment_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        _ensure_column(conn, "forum_posts", "image_url", "TEXT")
+        _ensure_column(conn, "forum_posts", "sticker", "TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_forum_posts_created ON forum_posts(created_at DESC)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_forum_posts_hot ON forum_posts(like_count DESC, comment_count DESC, created_at DESC)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS forum_comments (
+                id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                client_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(post_id) REFERENCES forum_posts(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_forum_comments_post ON forum_comments(post_id, created_at)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS forum_likes (
+                post_id TEXT NOT NULL,
+                client_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(post_id, client_id),
+                FOREIGN KEY(post_id) REFERENCES forum_posts(id) ON DELETE CASCADE
+            )
+            """
+        )
+        _seed_forum_defaults(conn)
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS agent_sync_batches (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -270,6 +335,12 @@ def init_db() -> None:
         )
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, column_type: str) -> None:
+    columns = {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+
+
 def _empty_preference() -> UserPreference:
     return UserPreference(liked_genres=[], disliked_genres=[], free_text="")
 
@@ -286,6 +357,49 @@ def _json_list(value: str | None) -> list[str]:
 
 def _now_text() -> str:
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _seed_forum_defaults(conn: sqlite3.Connection) -> None:
+    existing = conn.execute(
+        "SELECT id FROM forum_posts WHERE client_id = 'cinenest-seed' LIMIT 1"
+    ).fetchone()
+    if existing is not None:
+        return
+
+    now = _now_text()
+    posts = [
+        (
+            "seed-welcome",
+            "欢迎来到 CineNest 放映厅",
+            "这里可以记录你刚看完的电影、想推荐给朋友的片段，或者发起一次片单讨论。",
+            "CineNest",
+            None,
+            "CineNest Forum",
+            None,
+            "🎬",
+        ),
+        (
+            "seed-favorites",
+            "今晚想看什么？",
+            "试着发一条帖子，把片名、心情和你想要的观影氛围写下来，其他人就能接上你的片单。",
+            "策展助手",
+            None,
+            "私人影院",
+            None,
+            "✨",
+        ),
+    ]
+    for post in posts:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO forum_posts (
+                id, title, content, author_name, client_id, movie_id, movie_title,
+                image_url, sticker, like_count, comment_count, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, 'cinenest-seed', ?, ?, ?, ?, 0, 0, ?, ?)
+            """,
+            (*post, now, now),
+        )
 
 
 def save_user_preference(pref: UserPreference) -> None:
@@ -396,3 +510,31 @@ def is_movie_collected(movie_id: int) -> bool:
             (movie_id,),
         ).fetchone()
     return row is not None
+
+
+def get_taste_avatar(signature: str) -> dict[str, str] | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT avatar_url, prompt
+            FROM taste_dna_avatars
+            WHERE signature = ?
+            """,
+            (signature,),
+        ).fetchone()
+    return dict(row) if row is not None else None
+
+
+def save_taste_avatar(signature: str, avatar_url: str, prompt: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO taste_dna_avatars (signature, avatar_url, prompt, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(signature) DO UPDATE SET
+                avatar_url = excluded.avatar_url,
+                prompt = excluded.prompt,
+                created_at = excluded.created_at
+            """,
+            (signature, avatar_url, prompt, _now_text()),
+        )

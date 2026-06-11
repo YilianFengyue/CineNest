@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # SQLite 持久化。后续可替换 PostgreSQL，不影响 API 契约。
     database_path: Path = BASE_DIR / "db" / "cinenest.db"
     agent_checkpoint_db_path: Path = BASE_DIR / "db" / "agent_checkpoints.sqlite"
+    local_video_dir: Path = BASE_DIR.parent / "LocalVideos"
 
     # 上传资产。图片可进入多模态模型；文件先持久化并预留 RAG。
     asset_dir: Path = BASE_DIR / "uploads"
