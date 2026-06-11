@@ -114,8 +114,8 @@ class SettingsPage extends StatelessWidget {
             SettingsTile.navigation(
               leading: const Icon(Icons.subtitles_rounded),
               title: const Text('弹幕设置'),
-              description: const Text('配置弹弹Play API Key，播放时自动加载弹幕'),
-              onPressed: (_) => Get.to(() => const DanDanPlaySettingsPage()),
+              description: const Text('弹幕数据源配置，播放时自动加载弹幕'),
+              onPressed: (_) => Get.to(() => const DanmakuSettingsPage()),
             ),
             SettingsTile.navigation(
               leading: const Icon(Icons.cast_rounded),

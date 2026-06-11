@@ -66,7 +66,29 @@ abstract final class Pref {
   static Future<void> setChatModelId(String value) =>
       _setting.put(SettingBoxKey.chatModel, value);
 
-  // ───────────────────────── 弹幕（弹弹Play）─────────────────────────
+  // ───────────────────────── 弹幕 ─────────────────────────
+  static String get danmakuSource =>
+      _setting.get(SettingBoxKey.danmakuSource, defaultValue: 'logvar');
+  static Future<void> setDanmakuSource(String v) =>
+      _setting.put(SettingBoxKey.danmakuSource, v);
+
+  static String get logvarBaseUrl =>
+      _setting.get(SettingBoxKey.logvarBaseUrl, defaultValue: '');
+  static Future<void> setLogvarBaseUrl(String v) =>
+      _setting.put(SettingBoxKey.logvarBaseUrl, v);
+
+  static String get logvarToken =>
+      _setting.get(SettingBoxKey.logvarToken, defaultValue: '');
+  static Future<void> setLogvarToken(String v) =>
+      _setting.put(SettingBoxKey.logvarToken, v);
+
+  static bool get hasDanmakuCredentials {
+    if (danmakuSource == 'dandanplay') {
+      return dandanAppId.isNotEmpty && dandanAppSecret.isNotEmpty;
+    }
+    return logvarBaseUrl.isNotEmpty;
+  }
+
   static String get dandanAppId =>
       _setting.get(SettingBoxKey.dandanAppId, defaultValue: '');
   static Future<void> setDandanAppId(String v) =>

@@ -81,7 +81,7 @@ class PlayerTopBar extends StatelessWidget {
         () {
           final on = controller.danmakuVisible.value;
           final count = controller.danmakuCount.value;
-          final hasKey = Pref.dandanAppId.isNotEmpty;
+          final hasKey = Pref.hasDanmakuCredentials;
           return IconButton(
             padding: EdgeInsets.zero,
             constraints: BoxConstraints.tightFor(width: iconBox, height: iconBox),
@@ -95,7 +95,7 @@ class PlayerTopBar extends StatelessWidget {
                 : '弹幕 关',
             onPressed: () {
               if (!hasKey) {
-                SmartDialog.showToast('请先在 设置→弹幕设置 中填写弹弹Play API Key');
+                SmartDialog.showToast('请先在 设置→弹幕设置 中配置弹幕源');
                 return;
               }
               controller.toggleDanmaku();

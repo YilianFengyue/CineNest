@@ -37,7 +37,7 @@
     main {
       padding: 18px;
       display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      grid-template-columns: minmax(300px, 380px) minmax(360px, 1fr) minmax(360px, 1fr);
       gap: 16px;
     }
     section {
@@ -73,6 +73,39 @@
     .row { display: flex; gap: 8px; align-items: center; }
     .row > * { flex: 1; }
     .stack { display: grid; gap: 16px; }
+    .chat {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: calc(100vh - 118px);
+      min-height: 620px;
+    }
+    .chat-log {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcff;
+      padding: 10px;
+    }
+    .msg {
+      padding: 9px 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      max-width: 92%;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user { margin-left: auto; background: #e7f0ff; }
+    .msg.agent { margin-right: auto; background: #eef2f7; }
+    .msg.event { margin-right: auto; background: #fff7e6; color: #704600; font-size: 12px; }
+    .msg.error { margin-right: auto; background: #fee4e2; color: #912018; }
+    .chat-send {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -109,8 +142,9 @@
     .status-done { color: var(--ok); }
     .status-failed, .status-cancelled { color: var(--bad); }
     .status-waiting_approval, .status-waiting_takeover { color: var(--warn); }
-    @media (max-width: 900px) {
+    @media (max-width: 1180px) {
       main { grid-template-columns: 1fr; }
+      .chat { height: auto; min-height: 520px; }
       header { align-items: flex-start; flex-direction: column; }
     }
   </style>
@@ -118,7 +152,10 @@
 <body>
   <header>
     <h1>CineNest Phone Agent Console</h1>
-    <span id="wsState" class="badge">WS disconnected</span>
+    <div class="row" style="width: auto;">
+      <span id="chatWsState" class="badge">chat WS disconnected</span>
+      <span id="taskWsState" class="badge">task WS disconnected</span>
+    </div>
   </header>
   <main>
     <div class="stack">
@@ -167,6 +204,28 @@
       </section>
     </div>
 
+    <section class="chat">
+      <h2>主 Agent 对话验收</h2>
+      <div class="row">
+        <label>Thread ID
+          <input id="threadId" />
+        </label>
+        <label>模型
+          <input id="modelId" value="default" />
+        </label>
+      </div>
+      <div id="chatLog" class="chat-log"></div>
+      <div class="chat-send">
+        <textarea id="chatInput" placeholder="例如：帮我用手机打开哔哩哔哩搜索流浪地球解说视频，然后持续监控是否进入搜索结果页"></textarea>
+        <button id="sendChat">发送</button>
+      </div>
+      <div class="row">
+        <button id="newThread" class="secondary">新会话</button>
+        <button id="clearChat" class="secondary">清空聊天显示</button>
+      </div>
+      <div class="muted">验收重点：这里发给主 Agent；右侧任务事件应同时出现 AutoGLM 子任务流。</div>
+    </section>
+
     <div class="stack">
       <section>
         <h2>任务列表</h2>
@@ -182,6 +241,9 @@
   <script>
     const $ = (id) => document.getElementById(id);
     let selectedTaskId = "";
+    let taskWs = null;
+    let chatWs = null;
+    let currentAssistant = null;
 
     function api(path, options = {}) {
       return fetch(path, {
@@ -197,6 +259,19 @@
     function log(type, data) {
       const line = `[${new Date().toLocaleTimeString()}] ${type}\n${JSON.stringify(data, null, 2)}\n\n`;
       $("log").textContent = line + $("log").textContent;
+    }
+
+    function newThreadId() {
+      return `pc_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+    }
+
+    function addChatMessage(kind, text) {
+      const div = document.createElement("div");
+      div.className = `msg ${kind}`;
+      div.textContent = text;
+      $("chatLog").appendChild(div);
+      $("chatLog").scrollTop = $("chatLog").scrollHeight;
+      return div;
     }
 
     async function loadConfig() {
@@ -313,14 +388,14 @@
 
     function connectWs() {
       const proto = location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${proto}://${location.host}/ws/tasks`);
-      ws.onopen = () => $("wsState").textContent = "WS connected";
-      ws.onclose = () => {
-        $("wsState").textContent = "WS disconnected";
+      taskWs = new WebSocket(`${proto}://${location.host}/ws/tasks`);
+      taskWs.onopen = () => $("taskWsState").textContent = "task WS connected";
+      taskWs.onclose = () => {
+        $("taskWsState").textContent = "task WS disconnected";
         setTimeout(connectWs, 1500);
       };
-      ws.onerror = () => $("wsState").textContent = "WS error";
-      ws.onmessage = (event) => {
+      taskWs.onerror = () => $("taskWsState").textContent = "task WS error";
+      taskWs.onmessage = (event) => {
         const data = JSON.parse(event.data);
         log(data.type, data.data || data);
         if (data.type === "tasks_snapshot") renderTasks(data.data.tasks || []);
@@ -328,12 +403,102 @@
       };
     }
 
+    function connectChatWs() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      chatWs = new WebSocket(`${proto}://${location.host}/ws/chat`);
+      chatWs.onopen = () => $("chatWsState").textContent = "chat WS connected";
+      chatWs.onclose = () => {
+        $("chatWsState").textContent = "chat WS disconnected";
+        setTimeout(connectChatWs, 1500);
+      };
+      chatWs.onerror = () => $("chatWsState").textContent = "chat WS error";
+      chatWs.onmessage = (event) => {
+        const frame = JSON.parse(event.data);
+        handleChatFrame(frame);
+      };
+    }
+
+    function handleChatFrame(frame) {
+      if (frame.type === "started") {
+        currentAssistant = addChatMessage("event", "主 Agent 正在思考...");
+        return;
+      }
+      if (frame.type === "tool_started") {
+        const name = frame.data?.name || "";
+        addChatMessage("event", `调用工具：${name}\n${JSON.stringify(frame.data?.args || {}, null, 2)}`);
+        return;
+      }
+      if (frame.type === "tool_finished") {
+        addChatMessage("event", `工具完成：${frame.data?.tool_name || ""}`);
+        return;
+      }
+      if (frame.type === "attachment") {
+        addChatMessage("event", `附件：${frame.data?.type || ""}\n${JSON.stringify(frame.data?.payload || {}, null, 2)}`);
+        return;
+      }
+      if (frame.type === "delta") {
+        if (!currentAssistant || !currentAssistant.classList.contains("agent")) {
+          currentAssistant = addChatMessage("agent", "");
+        }
+        currentAssistant.textContent += frame.content || "";
+        $("chatLog").scrollTop = $("chatLog").scrollHeight;
+        return;
+      }
+      if (frame.type === "done") {
+        addChatMessage("event", "主 Agent 回合结束。");
+        currentAssistant = null;
+        return;
+      }
+      if (frame.type === "error") {
+        addChatMessage("error", frame.content || "Agent 出错");
+      }
+    }
+
+    function sendChat() {
+      const text = $("chatInput").value.trim();
+      if (!text) return;
+      if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
+        addChatMessage("error", "chat WS 尚未连接");
+        return;
+      }
+      const frame = {
+        message: text,
+        thread_id: $("threadId").value || newThreadId(),
+        model: $("modelId").value || "default",
+        attachments: [],
+      };
+      $("threadId").value = frame.thread_id;
+      addChatMessage("user", text);
+      currentAssistant = null;
+      chatWs.send(JSON.stringify(frame));
+      $("chatInput").value = "";
+    }
+
     $("saveConfig").onclick = () => saveConfig().catch((e) => log("error", e.message));
     $("loadDevices").onclick = () => loadDevices().catch((e) => log("error", e.message));
     $("startTask").onclick = () => startTask().catch((e) => log("error", e.message));
     $("refreshTasks").onclick = () => loadTasks().catch((e) => log("error", e.message));
+    $("sendChat").onclick = sendChat;
+    $("chatInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendChat();
+    });
+    $("newThread").onclick = () => {
+      $("threadId").value = newThreadId();
+      addChatMessage("event", `切换到新会话：${$("threadId").value}`);
+    };
+    $("clearChat").onclick = () => {
+      $("chatLog").innerHTML = "";
+      currentAssistant = null;
+    };
 
-    loadConfig().then(loadTasks).then(connectWs).catch((e) => log("init_error", e.message));
+    $("threadId").value = newThreadId();
+    loadConfig()
+      .then(loadTasks)
+      .then(() => {
+        connectWs();
+        connectChatWs();
+      })
+      .catch((e) => log("init_error", e.message));
   </script>
 </body>
 </html>

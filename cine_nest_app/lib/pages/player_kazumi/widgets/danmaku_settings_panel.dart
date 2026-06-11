@@ -176,7 +176,7 @@ class DanmakuSettingsPanel extends StatelessWidget {
                   },
                 ),
 
-                if (Pref.dandanAppId.isEmpty) ...[
+                if (!Pref.hasDanmakuCredentials) ...[
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -191,7 +191,7 @@ class DanmakuSettingsPanel extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '未配置弹弹Play API Key，请在设置中填写',
+                            '未配置弹幕源，请在 设置→弹幕设置 中配置',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onErrorContainer,
                             ),

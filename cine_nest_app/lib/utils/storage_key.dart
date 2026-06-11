@@ -21,9 +21,12 @@ abstract final class SettingBoxKey {
   /// 当前选中的对话模型 id。
   static const String chatModel = 'chatModel';
 
-  // ── 弹幕（弹弹Play）──
+  // ── 弹幕 ──
+  static const String danmakuSource = 'danmakuSource';
   static const String dandanAppId = 'dandanAppId';
   static const String dandanAppSecret = 'dandanAppSecret';
+  static const String logvarBaseUrl = 'logvarBaseUrl';
+  static const String logvarToken = 'logvarToken';
   static const String danmakuEnabled = 'danmakuEnabled';
   static const String danmakuOpacity = 'danmakuOpacity';
   static const String danmakuFontScale = 'danmakuFontScale';

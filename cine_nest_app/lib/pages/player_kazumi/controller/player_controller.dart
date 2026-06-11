@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 import '../../../services/dandanplay_service.dart';
+import '../../../services/logvar_danmu_service.dart';
 import '../../../services/logger.dart';
 import '../../../services/shader_asset_service.dart';
 import '../../../utils/storage_pref.dart';
@@ -663,16 +664,21 @@ class KazumiPlayerController extends GetxController {
   }
 
   final _dandanService = DanDanPlayService();
+  final _logvarService = LogvarDanmuService();
+
+  DanmakuSource get _danmakuSource =>
+      Pref.danmakuSource == 'dandanplay' ? _dandanService : _logvarService;
 
   Future<void> fetchDanmaku({
     required String title,
     int? tmdbId,
     int? episodeNumber,
   }) async {
-    if (!_dandanService.hasCredentials) return;
+    final source = _danmakuSource;
+    if (!source.hasCredentials) return;
     danmakuLoading.value = true;
     try {
-      final items = await _dandanService.fetchDanmaku(
+      final items = await source.fetchDanmaku(
         title: title,
         tmdbId: tmdbId,
         episodeNumber: episodeNumber,

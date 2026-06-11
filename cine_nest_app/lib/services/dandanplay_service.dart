@@ -6,6 +6,16 @@ import 'package:dio/dio.dart';
 import '../services/logger.dart';
 import '../utils/storage_pref.dart';
 
+abstract class DanmakuSource {
+  bool get hasCredentials;
+  Future<List<DanDanComment>> fetchDanmaku({
+    required String title,
+    int? tmdbId,
+    int? episodeNumber,
+  });
+  Future<String> debugTest(String testKeyword);
+}
+
 class DanDanComment {
   const DanDanComment({
     required this.timeMs,
@@ -24,7 +34,7 @@ class DanDanComment {
   final String content;
 }
 
-class DanDanPlayService {
+class DanDanPlayService implements DanmakuSource {
   DanDanPlayService({Dio? dio})
       : _dio = dio ??
             Dio(BaseOptions(
@@ -56,6 +66,7 @@ class DanDanPlayService {
     };
   }
 
+  @override
   bool get hasCredentials =>
       Pref.dandanAppId.isNotEmpty && Pref.dandanAppSecret.isNotEmpty;
 
@@ -167,6 +178,7 @@ class DanDanPlayService {
     }
   }
 
+  @override
   Future<List<DanDanComment>> fetchDanmaku({
     required String title,
     int? tmdbId,
@@ -200,7 +212,7 @@ class DanDanPlayService {
     return items;
   }
 
-  /// 调试用：测试 API 连通性，返回诊断信息。
+  @override
   Future<String> debugTest(String testKeyword) async {
     final buf = StringBuffer();
     buf.writeln('── 弹弹Play API 调试 ──');
