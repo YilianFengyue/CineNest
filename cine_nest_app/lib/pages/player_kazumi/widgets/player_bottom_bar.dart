@@ -93,9 +93,8 @@ class PlayerBottomBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          // 进度条（wavy，占 8 份）
+          // 进度条（wavy，吃剩余空间）
           Expanded(
-            flex: 8,
             child: Obx(() {
               final total = controller.duration.value.inMilliseconds;
               final pos = controller.position.value.inMilliseconds;
@@ -133,45 +132,31 @@ class PlayerBottomBar extends StatelessWidget {
             }),
           ),
           const SizedBox(width: 6),
-          // 时间 + 全屏（占 4 份）
-          Expanded(
-            flex: 4,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Flexible(
-                  child: Obx(() {
-                    final pos = _formatDuration(controller.position.value);
-                    final dur = _formatDuration(controller.duration.value);
-                    return Text(
-                      '$pos/$dur',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                    );
-                  }),
-                ),
-                Obx(
-                  () => IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 28,
-                      height: 28,
-                    ),
-                    icon: Icon(
-                      controller.isFullscreen.value
-                          ? Icons.fullscreen_exit
-                          : Icons.fullscreen,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    onPressed: controller.toggleFullscreen,
-                  ),
-                ),
-              ],
+          // 时间
+          Obx(() {
+            final pos = _formatDuration(controller.position.value);
+            final dur = _formatDuration(controller.duration.value);
+            return Text(
+              '$pos/$dur',
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+            );
+          }),
+          // 全屏
+          Obx(
+            () => IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(
+                width: 28,
+                height: 28,
+              ),
+              icon: Icon(
+                controller.isFullscreen.value
+                    ? Icons.fullscreen_exit
+                    : Icons.fullscreen,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: controller.toggleFullscreen,
             ),
           ),
         ],

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'package:cine_nest/services/tmdb_direct_service.dart';
 import 'package:cine_nest/pages/kazumi_home/kazumi_detail_page.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/bangumi_card_v.dart';
+import 'package:cine_nest/utils/storage.dart';
+import 'package:cine_nest/utils/storage_key.dart';
 
 class KazumiSearchPage extends StatefulWidget {
   const KazumiSearchPage({super.key});
@@ -21,10 +24,14 @@ class _KazumiSearchPageState extends State<KazumiSearchPage> {
   bool _onlyMovie = false;
   bool _onlyTv = false;
 
+  List<String> _history = [];
+  static const int _maxHistory = 20;
+
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_scrollListener);
+    _loadHistory();
   }
 
   @override
@@ -33,6 +40,39 @@ class _KazumiSearchPageState extends State<KazumiSearchPage> {
     _scrollCtrl.dispose();
     super.dispose();
   }
+
+  // ── 搜索历史 ──
+
+  void _loadHistory() {
+    final raw = GStorage.localCache.get(LocalCacheKey.searchHistory);
+    if (raw is List) {
+      _history = raw.cast<String>();
+    }
+  }
+
+  Future<void> _saveHistory() =>
+      GStorage.localCache.put(LocalCacheKey.searchHistory, _history);
+
+  void _addToHistory(String term) {
+    _history.remove(term);
+    _history.insert(0, term);
+    if (_history.length > _maxHistory) {
+      _history = _history.sublist(0, _maxHistory);
+    }
+    _saveHistory();
+  }
+
+  void _removeFromHistory(String term) {
+    setState(() => _history.remove(term));
+    _saveHistory();
+  }
+
+  void _clearHistory() {
+    setState(() => _history.clear());
+    _saveHistory();
+  }
+
+  // ── 搜索逻辑 ──
 
   void _scrollListener() {
     if (_scrollCtrl.position.pixels >=
@@ -48,6 +88,7 @@ class _KazumiSearchPageState extends State<KazumiSearchPage> {
   Future<void> _search(String query, {bool append = false}) async {
     if (query.trim().isEmpty) return;
     if (!append) {
+      _addToHistory(query.trim());
       setState(() {
         _loading = true;
         _timeout = false;
@@ -166,7 +207,7 @@ class _KazumiSearchPageState extends State<KazumiSearchPage> {
             ),
           ),
 
-          // ── 结果 ──
+          // ── 内容 ──
           Expanded(child: _buildBody()),
         ],
       ),
@@ -194,12 +235,15 @@ class _KazumiSearchPageState extends State<KazumiSearchPage> {
         ),
       );
     }
+
+    // 无查询 or 清空后 → 显示搜索历史
+    if (_results.isEmpty && _searchCtrl.text.isEmpty) {
+      return _buildHistory(cs);
+    }
+
     if (_results.isEmpty) {
       return Center(
-        child: Text(
-          _searchCtrl.text.isEmpty ? '输入关键词搜索 TMDB' : '未找到结果',
-          style: TextStyle(color: cs.onSurfaceVariant),
-        ),
+        child: Text('未找到结果', style: TextStyle(color: cs.onSurfaceVariant)),
       );
     }
 
@@ -226,6 +270,60 @@ class _KazumiSearchPageState extends State<KazumiSearchPage> {
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => KazumiDetailPage(item: item)),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHistory(ColorScheme cs) {
+    if (_history.isEmpty) {
+      return Center(
+        child: Text(
+          '输入关键词搜索 TMDB',
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _history.length + 1,
+      itemBuilder: (context, i) {
+        // 头部：标题 + 清空按钮
+        if (i == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  '搜索历史',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _clearHistory,
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('清空'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final term = _history[i - 1];
+        return ListTile(
+          leading: Icon(Icons.history, color: cs.onSurfaceVariant, size: 20),
+          title: Text(term),
+          trailing: IconButton(
+            icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+            onPressed: () => _removeFromHistory(term),
+          ),
+          onTap: () {
+            _searchCtrl.text = term;
+            _search(term);
+          },
         );
       },
     );

@@ -48,4 +48,7 @@ abstract final class LocalCacheKey {
 
   /// 观影历史（成员 B），以 List 存储。
   static const String watchHistory = 'watchHistory';
+
+  /// 搜索历史关键词列表。
+  static const String searchHistory = 'searchHistory';
 }

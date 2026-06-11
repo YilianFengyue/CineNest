@@ -66,6 +66,8 @@ env/
 
 # ── Claude Code ──
 .claude/
+# ── Codex ──
+.artifacts
 skills-lock.json
 
 # ── 操作系统 ──
