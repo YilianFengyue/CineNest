@@ -14,7 +14,25 @@ from fastapi.responses import FileResponse
 
 from config import settings
 from db import init_db
-from routers import agent, bili, catalog, chat, feed, health, microdesign, news, phone, play, poster, resources, sources, uploads
+from routers import (
+    agent,
+    bili,
+    catalog,
+    chat,
+    feed,
+    forum,
+    health,
+    local_videos,
+    microdesign,
+    news,
+    phone,
+    play,
+    poster,
+    resources,
+    sources,
+    taste_dna,
+    uploads,
+)
 from services.resources import get_resource_aggregator
 
 
@@ -84,6 +102,7 @@ app.include_router(microdesign.router)
 app.include_router(agent.router)
 app.include_router(bili.router)
 app.include_router(feed.router)
+app.include_router(forum.router)
 app.include_router(sources.router)
 app.include_router(poster.router)
 app.include_router(news.router)
@@ -91,6 +110,8 @@ app.include_router(play.router)
 app.include_router(chat.router)
 app.include_router(uploads.router)
 app.include_router(phone.router)
+app.include_router(local_videos.router)
+app.include_router(taste_dna.router)
 
 
 if __name__ == "__main__":

@@ -7,10 +7,16 @@ import 'package:cine_nest/pages/feed/feed_view.dart';
 import 'package:cine_nest/pages/feed/history/history_view.dart';
 import 'package:cine_nest/pages/feed/preference/preference_view.dart';
 import 'package:cine_nest/pages/feed/scenario/scenario_view.dart';
+import 'package:cine_nest/pages/forum/forum_compose_page.dart';
+import 'package:cine_nest/pages/forum/forum_detail_page.dart';
+import 'package:cine_nest/pages/forum/forum_page.dart';
+import 'package:cine_nest/pages/local_videos/local_videos_page.dart';
+import 'package:cine_nest/pages/local_videos/pc_remote_page.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
 import 'package:cine_nest/pages/player/views/source_picker_page.dart';
 import 'package:cine_nest/pages/player/views/webview_player_page.dart';
 import 'package:cine_nest/pages/player_kazumi/test_page/local_player_test_page.dart';
+import 'package:cine_nest/pages/taste_dna/taste_dna_page.dart';
 import 'package:cine_nest/modules/media_aggregator/pages/aggregator_detail_temple_page.dart';
 import 'package:cine_nest/modules/media_aggregator/pages/aggregator_temple_page.dart';
 import 'package:cine_nest/modules/media_aggregator/pages/source_manager_temple_page.dart';
@@ -33,6 +39,12 @@ abstract final class AppPages {
     // Member A
     GetPage(name: Routes.sourcePicker, page: () => const SourcePickerPage()),
     GetPage(name: Routes.webviewPlayer, page: () => const WebViewPlayerPage()),
+    GetPage(name: Routes.localVideos, page: () => const LocalVideosPage()),
+    GetPage(name: Routes.pcRemote, page: () => const PcRemotePage()),
+    GetPage(name: Routes.tasteDna, page: () => const TasteDnaPage()),
+    GetPage(name: Routes.forum, page: () => const ForumPage()),
+    GetPage(name: Routes.forumDetail, page: () => const ForumDetailPage()),
+    GetPage(name: Routes.forumCompose, page: () => const ForumComposePage()),
     GetPage(
       name: Routes.kazumiPlayerTest,
       page: () => const LocalPlayerTestPage(),

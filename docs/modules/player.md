@@ -22,9 +22,9 @@
 | `cine_nest_app/lib/pages/main/main_app.dart` | 设置页 PC 连接配置 UI |
 | `cine_nest_app/lib/router/app_pages.dart` | 注册 `/player` 和 `/webview-player` |
 | `cine_nest_app/android/app/src/main/AndroidManifest.xml` | 真机网络权限和开发期 HTTP 明文访问 |
-| `fastApiProject1/routers/sources.py` | 成员 A API 路由 |
-| `fastApiProject1/services/video_engine/engine.py` | MacCMS/Bilibili/demo 视频源解析引擎 |
-| `fastApiProject1/services/video_engine/providers.json` | MacCMS 源配置 |
+| `cine_net_backend/routers/sources.py` | 成员 A API 路由 |
+| `cine_net_backend/services/video_engine/engine.py` | MacCMS/Bilibili/demo 视频源解析引擎 |
+| `cine_net_backend/services/video_engine/providers.json` | MacCMS 源配置 |
 
 ## 3. 关键接口
 
@@ -52,14 +52,14 @@ GET /api/bilibili/search?keyword=肖申克的救赎 解说
 
 ## 4. 真机验收步骤
 
-1. 在 PyCharm 打开 `D:\AndoridProject\fastApiProject1`，运行：
+1. 在 PyCharm 打开 `d:\FLutter\HarmonyOs\CineNest\cine_net_backend`，运行：
 
    ```powershell
    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 2. 在电脑命令行执行 `ipconfig`，找到和手机同一 Wi-Fi 下的 IPv4 地址，例如 `192.168.1.100`。
-3. Android Studio 打开 `D:\AndoridProject\CineNest-master\CineNest-master\cine_nest_app`，重新运行 App。
+3. Android Studio 打开 `d:\FLutter\HarmonyOs\CineNest\cine_nest_app`，重新运行 App。
 4. 进入底部“Settings”，填写 PC IP 和端口 `8000`，点击保存并测试连接。
 5. 状态显示已连接后，在成员 A 视频源验收区输入电影名，例如“肖申克的救赎”。
 6. 点击搜索视频源：

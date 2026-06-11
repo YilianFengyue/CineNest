@@ -80,6 +80,11 @@ class MainApp extends StatelessWidget {
           actions: index == 2
               ? [
                   IconButton(
+                    tooltip: '论坛',
+                    icon: const Icon(Icons.forum_outlined),
+                    onPressed: () => Get.toNamed(Routes.forum),
+                  ),
+                  IconButton(
                     tooltip: '我的收藏',
                     icon: const Icon(Icons.favorite_border),
                     onPressed: () => Get.toNamed(Routes.creativeFavorites),
