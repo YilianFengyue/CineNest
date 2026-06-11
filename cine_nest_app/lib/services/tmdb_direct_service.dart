@@ -58,6 +58,36 @@ class TmdbMediaItem {
   }
 }
 
+/// 演职员条目：cast（演员）时 [role] 是饰演角色名，crew（制作人员）时是职务。
+class TmdbCredit {
+  final int id;
+  final String name;
+  final String originalName;
+  final String role;
+  final String department;
+  final String profilePath;
+
+  const TmdbCredit({
+    required this.id,
+    required this.name,
+    this.originalName = '',
+    this.role = '',
+    this.department = '',
+    this.profilePath = '',
+  });
+
+  String profile([String size = 'w185']) =>
+      profilePath.isEmpty ? '' : '${TmdbMediaItem._imageBase}/$size$profilePath';
+}
+
+/// 一部影片/剧集的演职员表。
+class TmdbCredits {
+  final List<TmdbCredit> cast;
+  final List<TmdbCredit> crew;
+
+  const TmdbCredits({this.cast = const [], this.crew = const []});
+}
+
 class TmdbDirectService {
   TmdbDirectService({Dio? dio})
       : _dio = dio ??
@@ -137,6 +167,52 @@ class TmdbDirectService {
           (json['genres'] as List?)?.map((g) => g['id'] as int).toList() ?? [];
     }
     return TmdbMediaItem.fromJson(json);
+  }
+
+  /// 演职员表。电影走 /credits；剧集走 /aggregate_credits（按整部剧聚合，
+  /// cast 的角色在 roles 数组、crew 的职务在 jobs 数组里）。
+  Future<TmdbCredits> credits(int id, {String mediaType = 'movie'}) async {
+    final isTv = mediaType == 'tv';
+    final resp = await _dio
+        .get(isTv ? '/tv/$id/aggregate_credits' : '/movie/$id/credits');
+    final data = resp.data as Map;
+
+    TmdbCredit parse(Map raw, {required bool isCast}) {
+      final json = Map<String, dynamic>.from(raw);
+      String role;
+      String department = '';
+      if (isCast) {
+        role = isTv
+            ? ((json['roles'] as List?)?.isNotEmpty == true
+                ? (json['roles'][0]['character'] ?? '').toString()
+                : '')
+            : (json['character'] ?? '').toString();
+      } else {
+        role = isTv
+            ? ((json['jobs'] as List?)?.isNotEmpty == true
+                ? (json['jobs'][0]['job'] ?? '').toString()
+                : '')
+            : (json['job'] ?? '').toString();
+        department = (json['department'] ?? '').toString();
+      }
+      return TmdbCredit(
+        id: json['id'] ?? 0,
+        name: (json['name'] ?? '').toString(),
+        originalName: (json['original_name'] ?? '').toString(),
+        role: role,
+        department: department,
+        profilePath: (json['profile_path'] ?? '').toString(),
+      );
+    }
+
+    return TmdbCredits(
+      cast: ((data['cast'] as List?) ?? [])
+          .map((e) => parse(e as Map, isCast: true))
+          .toList(),
+      crew: ((data['crew'] as List?) ?? [])
+          .map((e) => parse(e as Map, isCast: false))
+          .toList(),
+    );
   }
 
   List<TmdbMediaItem> _parseList(dynamic data, {String? fallbackType}) {

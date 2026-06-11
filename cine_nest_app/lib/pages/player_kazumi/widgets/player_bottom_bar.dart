@@ -46,7 +46,7 @@ class PlayerBottomBar extends StatelessWidget {
         wavelength: thin ? 24 : 32, // 波长（越小越密）
         waveCycle: const Duration(milliseconds: 1800), // 滚动速度（越短越快）
         thumbWidth: thin ? 3.5 : 4.5, // 竖条宽
-        thumbHeight: thin ? 16 : 18, // 竖条高
+        thumbHeight: thin ? 16 : 20, // 竖条高
         // ─────────────────────────────────────────────────
         activeColor: Theme.of(context).colorScheme.primary,
         inactiveColor: Colors.white24,
@@ -110,10 +110,7 @@ class PlayerBottomBar extends StatelessWidget {
           Obx(
             () => IconButton(
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(
-                width: 28,
-                height: 28,
-              ),
+              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
               icon: Icon(
                 controller.isFullscreen.value
                     ? Icons.fullscreen_exit

@@ -208,6 +208,10 @@ class KazumiPlayerController extends GetxController {
     try {
       final pp = player.platform;
       if (pp is! NativePlayer) return;
+      // 对齐原版 Kazumi：等 mpv 和渲染上下文就绪再下发 shader 命令，
+      // 避免初始化竞态导致命令丢失（设了档位但画面没变化）
+      await pp.waitForPlayerInitialization;
+      await pp.waitForVideoControllerInitializationIfAttached;
       final svc = ShaderAssetService.instance;
       await svc.ensureShadersCopied();
       if (type == 2) {
@@ -291,6 +295,11 @@ class KazumiPlayerController extends GetxController {
     logger.i('player.open url=$url headers=$httpHeaders');
 
     try {
+      // 对齐原版 Kazumi：起播前恢复用户已选的超分档位
+      //（glsl-shaders 属性跨 loadfile 持久，但换源/重建后需重设保险）
+      if (superResolution.value > 1) {
+        await setShader(superResolution.value);
+      }
       await _openWithRetry(
         url: url,
         headers: httpHeaders,

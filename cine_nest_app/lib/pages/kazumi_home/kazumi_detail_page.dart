@@ -20,19 +20,62 @@ class KazumiDetailPage extends StatefulWidget {
 
 class _KazumiDetailPageState extends State<KazumiDetailPage>
     with TickerProviderStateMixin {
-  static const List<String> _tabs = ['概览', '吐槽', '角色', '评论', '制作人员'];
+  static const List<String> _tabs = ['概览', '角色', '制作人员'];
 
   final _favRepo = LocalFavoriteRepository();
+  final _tmdb = TmdbDirectService();
   late final TabController _tabController;
   late bool _isFav;
 
+  TmdbCredits? _credits;
+  bool _creditsLoading = true;
+
   String get _favKey => 'tmdb:${widget.item.id}';
+
+  /// 制作人员按职务重要度排序：导演/编剧/原作排前，其余按部门聚拢。
+  static List<TmdbCredit> _sortedCrew(List<TmdbCredit> crew) {
+    int weight(TmdbCredit c) {
+      final job = c.role.toLowerCase();
+      if (job.contains('director') && !job.contains('art')) return 0;
+      if (job.contains('screenplay') ||
+          job.contains('writer') ||
+          job.contains('story')) {
+        return 1;
+      }
+      if (job.contains('novel') || job.contains('original')) return 2;
+      if (job.contains('producer')) return 3;
+      if (job.contains('composer') || job.contains('music')) return 4;
+      return 5;
+    }
+
+    final sorted = List<TmdbCredit>.from(crew)
+      ..sort((a, b) {
+        final w = weight(a).compareTo(weight(b));
+        return w != 0 ? w : a.department.compareTo(b.department);
+      });
+    return sorted;
+  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _isFav = _favRepo.isFavorite(_favKey);
+    _fetchCredits();
+  }
+
+  Future<void> _fetchCredits() async {
+    try {
+      final credits = await _tmdb.credits(
+        widget.item.id,
+        mediaType: widget.item.mediaType,
+      );
+      if (mounted) setState(() => _credits = credits);
+    } catch (e) {
+      debugPrint('>>> [KazumiDetail] credits error: $e');
+    } finally {
+      if (mounted) setState(() => _creditsLoading = false);
+    }
   }
 
   Future<void> _toggleFav() async {
@@ -144,10 +187,16 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
           controller: _tabController,
           children: [
             _OverviewTab(item: widget.item),
-            _PlaceholderTab(label: '吐槽'),
-            _PlaceholderTab(label: '角色'),
-            _PlaceholderTab(label: '评论'),
-            _PlaceholderTab(label: '制作人员'),
+            _CreditsTab(
+              loading: _creditsLoading,
+              entries: _credits?.cast ?? const [],
+              isCast: true,
+            ),
+            _CreditsTab(
+              loading: _creditsLoading,
+              entries: _sortedCrew(_credits?.crew ?? const []),
+              isCast: false,
+            ),
           ],
         ),
       ),
@@ -274,9 +323,45 @@ class _OverviewTabState extends State<_OverviewTab> with AutomaticKeepAliveClien
   }
 }
 
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({required this.label});
-  final String label;
+/// 演职员列表（角色 / 制作人员共用）：Material ListTile 风格，
+/// 头像 + 中文名 + 原名副标题，制作人员尾部带职务标签。
+class _CreditsTab extends StatelessWidget {
+  const _CreditsTab({
+    required this.loading,
+    required this.entries,
+    required this.isCast,
+  });
+
+  final bool loading;
+  final List<TmdbCredit> entries;
+  final bool isCast;
+
+  /// TMDB 的职务名不随 language 本地化，常见职务映射成中文。
+  static const Map<String, String> _jobZh = {
+    'Director': '导演',
+    'Screenplay': '编剧',
+    'Writer': '编剧',
+    'Story': '故事',
+    'Novel': '原作',
+    'Original Story': '原作',
+    'Comic Book': '原作',
+    'Original Concept': '原案',
+    'Producer': '制片人',
+    'Executive Producer': '监制',
+    'Co-Producer': '联合制片',
+    'Original Music Composer': '配乐',
+    'Music': '音乐',
+    'Director of Photography': '摄影',
+    'Editor': '剪辑',
+    'Production Design': '美术设计',
+    'Art Direction': '美术指导',
+    'Character Designer': '人物设计',
+    'Animation Director': '动画导演',
+    'Costume Design': '服装设计',
+    'Casting': '选角',
+    'Sound Designer': '音效设计',
+    'Visual Effects Supervisor': '视效总监',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -287,20 +372,85 @@ class _PlaceholderTab extends StatelessWidget {
             SliverOverlapInjector(
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Text(
-                  '$label - 开发中',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+            if (loading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (entries.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    '暂无数据',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.only(top: 8, bottom: 80),
+                sliver: SliverList.builder(
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) =>
+                      _buildTile(context, entries[index]),
                 ),
               ),
-            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildTile(BuildContext context, TmdbCredit credit) {
+    final theme = Theme.of(context);
+    final hasOriginalName = credit.originalName.isNotEmpty &&
+        credit.originalName != credit.name;
+    final subtitle = isCast
+        ? (credit.role.isNotEmpty ? '饰 ${credit.role}' : '')
+        : (hasOriginalName ? credit.originalName : '');
+    final trailing = isCast
+        ? (hasOriginalName ? credit.originalName : '')
+        : (_jobZh[credit.role] ?? credit.role);
+
+    return ListTile(
+      leading: credit.profilePath.isNotEmpty
+          ? NetworkImgLayer(
+              src: credit.profile(),
+              width: 48,
+              height: 48,
+              type: 'avatar',
+            )
+          : CircleAvatar(
+              radius: 24,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              child: Icon(
+                Icons.person_outline,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+      title: Text(
+        credit.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: subtitle.isEmpty
+          ? null
+          : Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+      trailing: trailing.isEmpty
+          ? null
+          : Text(
+              trailing,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
     );
   }
 }
