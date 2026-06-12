@@ -16,6 +16,9 @@ abstract final class Routes {
   static const String webviewPlayer = '/webview-player';
   static const String localVideos = '/local-videos';
   static const String pcRemote = '/pc-remote';
+
+  /// 投屏遥控页（在线视频/本地库视频投到 CineLink）。
+  static const String castRemote = '/cast-remote';
   static const String tasteDna = '/taste-dna';
   static const String forum = '/forum';
   static const String forumDetail = '/forum-detail';

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
+import json
 import mimetypes
 from pathlib import Path
 
@@ -13,9 +14,28 @@ from models.schemas import LocalVideo
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".mov", ".webm", ".m3u8", ".avi"}
 
+# 影视库目录运行期可改（CineLink/手机端设置），覆盖 .env 的 LOCAL_VIDEO_DIR
+_LIBRARY_CONFIG = Path(__file__).resolve().parents[1] / "data" / "library_config.json"
+
+
+def get_configured_video_dir() -> str:
+    try:
+        data = json.loads(_LIBRARY_CONFIG.read_text("utf-8"))
+        return str(data.get("dir") or "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
+def set_configured_video_dir(directory: str) -> None:
+    _LIBRARY_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    _LIBRARY_CONFIG.write_text(
+        json.dumps({"dir": directory}, ensure_ascii=False), "utf-8"
+    )
+
 
 def get_local_video_root() -> Path:
-    root = Path(settings.local_video_dir).expanduser().resolve()
+    configured = get_configured_video_dir()
+    root = Path(configured or settings.local_video_dir).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     return root
 

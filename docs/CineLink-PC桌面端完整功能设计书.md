@@ -264,7 +264,69 @@ mirror.stop() / mirror.getState() → { running, pid }
 
 ---
 
-## 九、明天开工指引
+## 九、投屏 Cast v2 + PC 影视库（实现实录 2026-06-12）
+
+> 注意：P2/P3/P5 实际已完成且与上文方案有出入——P5 投屏最终是 **Tango 协议级**
+> （`@yume-chan/adb` 连 adb server → 推 scrcpy-server.jar → H.264 → WebCodecs canvas，
+> 无声、USB only，定位是 AutoGLM 工作台观察窗），**不是** spawn scrcpy.exe 窗口吸附。
+
+### 9.1 设计原则：手机是大脑，PC 是哑屏幕
+
+在线视频投屏走 **传链接（cast）** 而非屏幕镜像：搜源/解析/选集/弹幕匹配全在手机，
+PC（CineLink）只收成品渲染。镜像仅作 cast 播不动时的兜底。
+
+### 9.2 协议 v2（跑在后端 `/ws/pc-control/{room}` 房间广播上，后端零改动）
+
+| 消息 | 方向 | 载荷 |
+|------|------|------|
+| `hello` | 双向 | `{sender}` 报身份 |
+| `load_remote` | 📱→💻 | `{url, headers, title, cover, episodeLabel, position}`（兼容旧 `load`） |
+| `danmaku` | 📱→💻 | `{items:[{t秒, text, color, mode}]}` 手机已匹配好的整包 |
+| `play/pause/seek/setRate/danmakuToggle/stop` | 📱→💻 | 控制指令 |
+| `state` | 💻→📱 | `{position, duration, paused, rate, buffering}` 事件驱动+1s节流 |
+| `error` | 💻→📱 | PC 播不动时提示走镜像兜底 |
+
+防盗链关键：hls.js 走 XHR 设不了 Referer/UA，由 Electron 主进程
+`session.webRequest.onBeforeSendHeaders` 按 host 注入（IPC `cast:setStreamHeaders`）；
+HLS 分片跨 host 时媒体类路径（.m3u8/.ts/.m4s…）兜底注入。
+
+### 9.3 影视库
+
+- 后端：`services/library/`（scanner 文件名解析 + matcher TMDB 匹配，缓存
+  `data/library_cache.json` 按 路径+mtime+size 失效）；`GET /api/library` 只读缓存，
+  `POST /api/library/scan?force=true` 才打 TMDB；目录运行期可改
+  （`/api/library/config`，存 `data/library_config.json` 覆盖 .env）
+- 播放仍走 `/api/local-videos/stream/{id}`（HTTP 206 Range）
+- CineLink `/library` 海报墙点击 → `castStore.playLocal()` 复用投屏播放器
+- 手机 LocalVideosPage 海报墙化，条目 = 本机播放（media_kit 全格式）/ 投屏到 PC
+
+### 9.4 文件清单
+
+| 端 | 文件 | 内容 |
+|----|------|------|
+| CineLink | `electron/main.ts` | + cast 区段（webRequest 注入），preload/types 同步 |
+| CineLink | `src/stores/castStore.ts` | 新建：常驻房间 WS，收 load 自动跳播放页 + `playLocal` |
+| CineLink | `src/views/pages/CastPlayerPage.vue` | 新建：hls.js + 弹幕层 + 状态回报 |
+| CineLink | `src/components/cast/DanmakuLayer.vue` | 新建：`danmaku` 库 media 模式绑 video |
+| CineLink | `src/views/pages/LibraryPage.vue` | 新建：海报墙，替换占位路由 |
+| CineLink | `package.json` | + `hls.js` `danmaku`（**dev server 关掉后补 yarn install**） |
+| Flutter | `lib/services/cast_service.dart` | 新建：CastChannel/CastLoadPayload/弹幕转线格式 |
+| Flutter | `lib/pages/cast/cast_remote_page.dart` | 新建：遥控页（进度/选集/倍速/弹幕开关） |
+| Flutter | `kazumi_player_page` + `player_top_bar` + `kazumi_player_view` | 播放器「投屏到 PC」按钮 + 切集解析闭包 |
+| Flutter | `lib/pages/local_videos/local_videos_page.dart` | 重做：影视库海报墙 |
+| Flutter | `lib/models/library_models.dart`、`api_constants.dart`、路由 | 配套 |
+| 后端 | `services/library/{scanner,matcher}.py`、`routers/library.py` | 影视库三件套 |
+| 后端 | `services/local_videos.py`、`main.py` | 目录可配 + 挂 router |
+
+### 9.5 已知边界
+
+- CineLink 播本地文件受 Chromium 解码限制（HEVC/10bit mkv 播不了）→ 提示用手机播
+- 弹幕开关在手机遥控页；PC 端 overlay 也有本地开关
+- 演示网络用手机热点：扫码 LAN 直连、Clash 照常跑（TMDB 刮削不受影响）
+
+---
+
+## 十、明天开工指引（历史，P2/P3 已完成）
 
 1. **先补一次收尾**：关 CineLink dev server → `yarn install` 写入 yarn.lock → 两个仓库各自 commit（主仓暂存区已备好）
 2. **推荐顺序 P2 → P3**：P2 半天内能完（4 个文件），换皮后 P3 的新页面直接按新风格写，不用返工

@@ -22,6 +22,11 @@ abstract final class ApiConstants {
   static const String localVideos = '/api/local-videos';
   static const String localVideosRescan = '/api/local-videos/rescan';
   static String localVideoStream(Object id) => '/api/local-videos/stream/$id';
+
+  // PC 影视库（TMDB 刮削版，播放仍走 localVideoStream）
+  static const String library = '/api/library';
+  static const String libraryScan = '/api/library/scan';
+  static const String libraryConfig = '/api/library/config';
   static const String tasteDna = '/api/taste-dna';
   static const String tasteDnaAvatarGenerate = '/api/taste-dna/avatar/generate';
   static const String forumPosts = '/api/forum/posts';

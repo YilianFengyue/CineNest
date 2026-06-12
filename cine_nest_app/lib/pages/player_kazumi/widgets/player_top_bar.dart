@@ -21,6 +21,7 @@ class PlayerTopBar extends StatelessWidget {
     this.compact = false,
     this.onToggleFavorite,
     this.isFavorite = false,
+    this.onCast,
   });
 
   final KazumiPlayerController controller;
@@ -30,6 +31,9 @@ class PlayerTopBar extends StatelessWidget {
   final bool compact;
   final VoidCallback? onToggleFavorite;
   final bool isFavorite;
+
+  /// 投屏到 PC（CineLink）。null 时不显示按钮。
+  final VoidCallback? onCast;
 
   void _showMore(BuildContext context) {
     controller.showControlsTemporarily();
@@ -76,6 +80,15 @@ class PlayerTopBar extends StatelessWidget {
     final double iconSize = compact ? 19 : 21;
 
     final iconButtons = <Widget>[
+      // 投屏到 PC
+      if (onCast != null)
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints.tightFor(width: iconBox, height: iconBox),
+          icon: Icon(Icons.cast_rounded, color: Colors.white, size: iconSize),
+          tooltip: '投屏到 PC',
+          onPressed: onCast,
+        ),
       // 弹幕开关
       Obx(
         () {

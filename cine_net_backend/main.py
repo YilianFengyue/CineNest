@@ -22,6 +22,7 @@ from routers import (
     feed,
     forum,
     health,
+    library,
     local_videos,
     microdesign,
     news,
@@ -111,6 +112,7 @@ app.include_router(chat.router)
 app.include_router(uploads.router)
 app.include_router(phone.router)
 app.include_router(local_videos.router)
+app.include_router(library.router)
 app.include_router(taste_dna.router)
 
 

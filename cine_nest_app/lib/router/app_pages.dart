@@ -10,6 +10,7 @@ import 'package:cine_nest/pages/feed/scenario/scenario_view.dart';
 import 'package:cine_nest/pages/forum/forum_compose_page.dart';
 import 'package:cine_nest/pages/forum/forum_detail_page.dart';
 import 'package:cine_nest/pages/forum/forum_page.dart';
+import 'package:cine_nest/pages/cast/cast_remote_page.dart';
 import 'package:cine_nest/pages/local_videos/local_videos_page.dart';
 import 'package:cine_nest/pages/local_videos/pc_remote_page.dart';
 import 'package:cine_nest/pages/main/main_app.dart';
@@ -41,6 +42,7 @@ abstract final class AppPages {
     GetPage(name: Routes.webviewPlayer, page: () => const WebViewPlayerPage()),
     GetPage(name: Routes.localVideos, page: () => const LocalVideosPage()),
     GetPage(name: Routes.pcRemote, page: () => const PcRemotePage()),
+    GetPage(name: Routes.castRemote, page: () => const CastRemotePage()),
     GetPage(name: Routes.tasteDna, page: () => const TasteDnaPage()),
     GetPage(name: Routes.forum, page: () => const ForumPage()),
     GetPage(name: Routes.forumDetail, page: () => const ForumDetailPage()),

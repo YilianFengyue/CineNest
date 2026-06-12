@@ -27,6 +27,7 @@ class KazumiPlayerView extends StatefulWidget {
     this.onEnterPip,
     this.onRetry,
     this.onOpenInWebView,
+    this.onCast,
   });
 
   final KazumiPlayerController controller;
@@ -36,6 +37,7 @@ class KazumiPlayerView extends StatefulWidget {
   final Future<void> Function()? onEnterPip;
   final Future<void> Function()? onRetry;
   final VoidCallback? onOpenInWebView;
+  final VoidCallback? onCast;
 
   @override
   State<KazumiPlayerView> createState() => _KazumiPlayerViewState();
@@ -164,6 +166,7 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
                       title: widget.title,
                       onBack: widget.onBack,
                       onEnterPip: widget.onEnterPip,
+                      onCast: widget.onCast,
                       controller: c,
                       compact: compact,
                     ),

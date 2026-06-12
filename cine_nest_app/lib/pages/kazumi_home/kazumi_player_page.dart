@@ -12,6 +12,10 @@ import 'package:cine_nest/pages/player_kazumi/widgets/kazumi_player_view.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:cine_nest/repositories/local_favorite_repository.dart';
 import 'package:cine_nest/repositories/local_history_repository.dart';
+import 'package:cine_nest/services/cast_service.dart';
+import 'package:cine_nest/services/dandanplay_service.dart';
+import 'package:cine_nest/services/logvar_danmu_service.dart';
+import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:cine_nest/services/tmdb_direct_enrichment_service.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/bili_video_section.dart';
 import 'package:cine_nest/pages/kazumi_home/widgets/debate_recommendation_card.dart';
@@ -126,6 +130,78 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
       tmdbId: tmdbId,
       episodeNumber: _currentIndex + 1,
     );
+  }
+
+  // ── 投屏到 PC（CineLink）─────────────────────────────────
+  //
+  // 手机是大脑：把已解析的播放地址 + 防盗链头 + 已匹配的弹幕整包推给 PC，
+  // 本地暂停省电，跳遥控页。选集由遥控页回调 _resolveCastEpisode 重新解析。
+
+  CastLoadPayload _castPayloadFor(
+    AggregatorPlaySession session,
+    int index, {
+    int positionSeconds = 0,
+  }) {
+    return CastLoadPayload(
+      url: session.playUrl,
+      headers: session.headers,
+      title: widget.detail.title,
+      cover: widget.detail.bestPoster ?? '',
+      episodeLabel:
+          index >= 0 && index < _playable.length ? _playable[index].name : '',
+      positionSeconds: positionSeconds,
+    );
+  }
+
+  /// 不动播放器本地状态，单独为投屏拉一包弹幕（切集用）。
+  Future<List<Map<String, dynamic>>> _castDanmakuFor(int index) async {
+    try {
+      final DanmakuSource source = Pref.danmakuSource == 'dandanplay'
+          ? DanDanPlayService()
+          : LogvarDanmuService();
+      if (!source.hasCredentials) return const [];
+      final items = await source.fetchDanmaku(
+        title: widget.detail.title,
+        tmdbId: widget.detail.tmdb?.tmdbId,
+        episodeNumber: index + 1,
+      );
+      return danmakuToWire(items);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<CastEpisodeBundle> _resolveCastEpisode(int index) async {
+    final session = await _detailEngine.buildPlaySession(
+      widget.detail,
+      episodeIndex: index,
+    );
+    return CastEpisodeBundle(
+      payload: _castPayloadFor(session, index),
+      danmaku: await _castDanmakuFor(index),
+    );
+  }
+
+  Future<void> _castToPc() async {
+    final session = _session;
+    if (session == null) {
+      SmartDialog.showToast('还没有可播放的源');
+      return;
+    }
+    try {
+      await _ctrl.player.pause();
+    } catch (_) {}
+    await Get.toNamed(Routes.castRemote, arguments: {
+      'payload': _castPayloadFor(
+        session,
+        _currentIndex,
+        positionSeconds: _ctrl.position.value.inSeconds,
+      ),
+      'danmaku': danmakuToWire(_ctrl.danmakuItems),
+      'episodes': _playable.map((e) => e.name).toList(),
+      'currentIndex': _currentIndex,
+      'resolveEpisode': _resolveCastEpisode,
+    });
   }
 
   Future<void> _playEpisode(int index) async {
@@ -318,6 +394,7 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
       onEnterPip: _doPip,
       onRetry: _openCurrent,
       onOpenInWebView: _openInWebView,
+      onCast: () => _castToPc(),
     );
   }
 }
