@@ -1,6 +1,8 @@
 import 'package:cine_nest/http/api_constants.dart';
 import 'package:cine_nest/http/init.dart';
 import 'package:cine_nest/models/library_models.dart';
+import 'package:cine_nest/modules/media_aggregator/models/media_models.dart';
+import 'package:cine_nest/pages/kazumi_home/kazumi_player_page.dart';
 import 'package:cine_nest/router/app_pages.dart';
 import 'package:cine_nest/services/cast_service.dart';
 import 'package:flutter/material.dart';
@@ -74,15 +76,46 @@ class _LocalVideosPageState extends State<LocalVideosPage> {
 
   // ── 动作 ─────────────────────────────────────────────────
 
-  void _playOnPhone(String title, LibraryFile file) {
-    Get.toNamed(
-      Routes.sourcePicker,
-      arguments: {
-        'title': title,
-        'url': _absoluteUrl(file.streamUrl),
-        'sourceName': 'PC 影视库 · ${file.filename}',
-      },
+  /// 本机播放走正规 Kazumi 播放器（和 TMDB→详情→播放 同一套 UI）。
+  /// 自造 detail/session：库流地址无后缀，挂个无害 query 过 isPlayableDirectUrl 检查。
+  void _playOnPhone(
+    String title, {
+    String cover = '',
+    required List<({String name, String url})> episodes,
+    int index = 0,
+  }) {
+    if (episodes.isEmpty) return;
+    final aggEpisodes = [
+      for (final (i, e) in episodes.indexed)
+        AggregatorEpisode(
+          index: i,
+          name: e.name,
+          url: '${e.url}${e.url.contains('?') ? '&' : '?'}fmt=.mp4',
+          lineName: 'PC 影视库',
+        ),
+    ];
+    final safeIndex = index.clamp(0, aggEpisodes.length - 1);
+    final detail = AggregatorMediaDetail(
+      source: 'pc_library',
+      sourceName: 'PC 影视库',
+      remoteId: title,
+      title: title,
+      poster: cover.isEmpty ? null : cover,
+      episodes: aggEpisodes,
     );
+    final session = AggregatorPlaySession(
+      title: aggEpisodes.length > 1
+          ? '$title · ${aggEpisodes[safeIndex].name}'
+          : title,
+      source: 'pc_library',
+      sourceName: 'PC 影视库',
+      remoteId: title,
+      episodeIndex: safeIndex,
+      episodes: aggEpisodes,
+      playUrl: aggEpisodes[safeIndex].url,
+      cover: cover.isEmpty ? null : cover,
+    );
+    Get.to(() => KazumiPlayerPage(session: session, detail: detail));
   }
 
   void _castToPc(
@@ -176,7 +209,16 @@ class _LocalVideosPageState extends State<LocalVideosPage> {
         _ActionSpec(
           '本机播放',
           Icons.play_arrow_rounded,
-          () => _playOnPhone(movie.meta.title, movie.file),
+          () => _playOnPhone(
+            movie.meta.title,
+            cover: _posterOf(movie.meta),
+            episodes: [
+              (
+                name: movie.meta.title,
+                url: _absoluteUrl(movie.file.streamUrl),
+              ),
+            ],
+          ),
         ),
         _ActionSpec(
           '投屏到 PC',
@@ -195,8 +237,18 @@ class _LocalVideosPageState extends State<LocalVideosPage> {
     _showDetailSheet(
       meta: show.meta,
       episodes: show.episodes,
-      onPlayEpisode: (index) =>
-          _playOnPhone(show.meta.title, show.episodes[index].file),
+      onPlayEpisode: (index) => _playOnPhone(
+        show.meta.title,
+        cover: _posterOf(show.meta),
+        episodes: [
+          for (final episode in show.episodes)
+            (
+              name: episode.episodeLabel,
+              url: _absoluteUrl(episode.file.streamUrl),
+            ),
+        ],
+        index: index,
+      ),
       onCastEpisode: (index) => _castToPc(
         show.meta.title,
         show.episodes[index].file,
@@ -358,11 +410,17 @@ class _LocalVideosPageState extends State<LocalVideosPage> {
               title: const Text('本机播放'),
               onTap: () {
                 Navigator.pop(context);
+                final title = item.parsedTitle.isEmpty
+                    ? item.file.filename
+                    : item.parsedTitle;
                 _playOnPhone(
-                  item.parsedTitle.isEmpty
-                      ? item.file.filename
-                      : item.parsedTitle,
-                  item.file,
+                  title,
+                  episodes: [
+                    (
+                      name: title,
+                      url: _absoluteUrl(item.file.streamUrl),
+                    ),
+                  ],
                 );
               },
             ),

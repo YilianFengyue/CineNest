@@ -80,8 +80,8 @@ class PlayerTopBar extends StatelessWidget {
     final double iconSize = compact ? 19 : 21;
 
     final iconButtons = <Widget>[
-      // 投屏到 PC
-      if (onCast != null)
+      // 投屏到 PC（内嵌小屏放不下，只在全屏模式给）
+      if (onCast != null && !compact)
         IconButton(
           padding: EdgeInsets.zero,
           constraints: BoxConstraints.tightFor(width: iconBox, height: iconBox),
