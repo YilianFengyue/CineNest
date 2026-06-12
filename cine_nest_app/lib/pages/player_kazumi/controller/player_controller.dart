@@ -181,7 +181,7 @@ class KazumiPlayerController extends GetxController {
       // 强制低码率或手动 cache 参数干扰。
       await pp.setProperty('user-agent', _browserUserAgent);
 
-      // 分片中途 TCP 读超时（tcp:ffurl_read returned 0xffffff92 / -110）时
+      // 分片中途 TCP 读超时（）时
       // ffmpeg 默认直接断流报错；开启 reconnect 后改为带退避自动重连续读，
       // 配合大 demuxer 缓存可把源站 CDN 抖动变成无感恢复。
       await pp.setProperty(

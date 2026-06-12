@@ -1,0 +1,91 @@
+{
+ "version": 1,
+ "entries": {
+  "新闻片头模板合集/[P1]第一版.mp4": {
+   "mtime": 1779375104.57306,
+   "size": 7746014,
+   "parsed": {
+    "title": "第一版",
+    "year": null,
+    "season": null,
+    "episode": null
+   },
+   "match": {
+    "kind": "movie",
+    "tmdb_id": 1311031,
+    "title": "鬼灭之刃：无限城篇 第一章 猗窝座再袭",
+    "year": "2025",
+    "poster": "https://image.tmdb.org/t/p/w500/bhIytk0hlaHmGrQFY9P7bWhZZfC.jpg",
+    "overview": "当鬼杀队的成员和柱之人在为即将到来的与鬼的战斗做准备，完成共同的体能训练——柱之训练时，鬼舞辻无惨在产屋敷宅邸出现。由于鬼杀队的主公处于危险之中，炭治郎和柱急忙赶往总部，但却被鸣女推入一个神秘的异空间。炭治郎和鬼杀队的目标是鬼的堡垒——无限城。因此，鬼杀队和鬼之间的最终战斗的战场已经准备就绪。",
+    "vote": 7.739,
+    "season": null,
+    "episode": null
+   }
+  },
+  "毛概小组作业.mp4": {
+   "mtime": 1767241316.8085837,
+   "size": 80820494,
+   "parsed": {
+    "title": "毛概小组作业",
+    "year": null,
+    "season": null,
+    "episode": null
+   },
+   "match": null
+  },
+  "中央戏剧学院3分钟短篇作业《想不出来》.mp4": {
+   "mtime": 1765004225.5042014,
+   "size": 76185886,
+   "parsed": {
+    "title": "中央戏剧学院3分钟短篇作业《想不出来》",
+    "year": null,
+    "season": null,
+    "episode": null
+   },
+   "match": null
+  },
+  "他们 死在了祖国胜利的前夜.mp4": {
+   "mtime": 1762082012.4521458,
+   "size": 67170399,
+   "parsed": {
+    "title": "他们 死在了祖国胜利的前夜",
+    "year": null,
+    "season": null,
+    "episode": null
+   },
+   "match": null
+  },
+  "自由的龙儿是关不住的《笑声客的救赎》.mp4": {
+   "mtime": 1780454800.6821547,
+   "size": 20222626,
+   "parsed": {
+    "title": "自由的龙儿是关不住的《笑声客的救赎》",
+    "year": null,
+    "season": null,
+    "episode": null
+   },
+   "match": null
+  },
+  "罗小黑战记/[P1]1 喵.mp4": {
+   "mtime": 1781252731.667989,
+   "size": 105828636,
+   "parsed": {
+    "title": "1 喵",
+    "year": null,
+    "season": null,
+    "episode": null
+   },
+   "match": {
+    "kind": "movie",
+    "tmdb_id": 358651,
+    "title": "妖怪手表：诞生的秘密喵",
+    "year": "2014",
+    "poster": "https://image.tmdb.org/t/p/w500/uAmi5MfzYrL4EGX6YJQIF9hjLqZ.jpg",
+    "overview": "某晚景太正睡觉时，手上的妖怪手錶突然发出刺眼光芒，接着消失不见了！翌日超巨大猫型妖怪「巨大喵」出现，声称世界即将落入魔爪之中并向景太救助。为了找寻线索，景太与威斯帕及地缚喵前往嫲嫲位于毛马本村的家，遇上了神秘的「浮游喵」！他们跟着「浮游喵」一起进行时光旅行，回到了六十年前的世界进行大冒险。在那裡等待着他们的强大敌人究竟是谁？他们又能否顺利找回妖怪手錶？",
+    "vote": 7.604,
+    "season": null,
+    "episode": null
+   }
+  }
+ }
+}
