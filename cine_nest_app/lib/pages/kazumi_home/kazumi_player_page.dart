@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -40,9 +42,8 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
   late final AggregatorDetailEngine _detailEngine;
   late final TabController _tabCtrl;
   KazumiAudioHandler? _audioHandler;
-  Worker? _errorWorker;
   Worker? _danmakuWorker;
-  String _lastShownError = '';
+  Timer? _historySaveTimer;
 
   final _historyRepo = LocalHistoryRepository();
   late AggregatorPlaySession? _session;
@@ -74,16 +75,17 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
     _ctrl.loadDanmakuPrefs();
     Get.put(_ctrl, tag: _tag, permanent: false);
 
-    _errorWorker = ever<String>(_ctrl.lastError, (error) {
-      if (error.isEmpty || error == _lastShownError) return;
-      _lastShownError = error;
-      SmartDialog.showToast(_friendlyError(error));
-    });
+    // 错误展示统一走播放器内的 chip/卡片（KazumiPlayerView），不再叠加 toast
 
     _danmakuWorker = ever<int>(_ctrl.danmakuCount, (count) {
       if (count > 0) {
         SmartDialog.showToast('已加载 $count 条弹幕');
       }
+    });
+
+    // 周期性落盘观看进度，进程被系统杀掉也不至于丢整段进度
+    _historySaveTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_ctrl.position.value > Duration.zero) _saveHistory();
     });
 
     _bootstrap();
@@ -217,7 +219,6 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
         _currentIndex = index;
       });
       _updateMediaInfo(session.title);
-      _lastShownError = '';
       await _ctrl.open(url: session.playUrl, headers: session.headers);
       _fetchDanmaku();
     } catch (e) {
@@ -287,21 +288,13 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
 
   @override
   void dispose() {
+    _historySaveTimer?.cancel();
     _saveHistory();
     _tabCtrl.dispose();
-    _errorWorker?.dispose();
     _danmakuWorker?.dispose();
     _audioHandler?.detach();
     Get.delete<KazumiPlayerController>(tag: _tag);
     super.dispose();
-  }
-
-  String _friendlyError(String raw) {
-    if (raw.contains('超时') || raw.contains('TimeoutException')) {
-      return '起播超时，可重试或返回换源';
-    }
-    if (raw.contains('403') || raw.contains('401')) return '源鉴权失败';
-    return raw.length > 100 ? '${raw.substring(0, 100)}...' : raw;
   }
 
   @override
@@ -392,7 +385,8 @@ class _KazumiPlayerPageState extends State<KazumiPlayerPage>
           : () => Navigator.of(context).maybePop(),
       onScreenshot: _doScreenshot,
       onEnterPip: _doPip,
-      onRetry: _openCurrent,
+      // 从当前位置续播，而不是回到建会话时的历史位置
+      onRetry: _ctrl.retryFromCurrentPosition,
       onOpenInWebView: _openInWebView,
       onCast: () => _castToPc(),
     );

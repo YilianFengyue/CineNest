@@ -176,8 +176,8 @@ class _PlayerHostState extends State<_PlayerHost> {
     _ctrl = KazumiPlayerController();
     Get.put(_ctrl, tag: 'kazumi_test', permanent: false);
 
-    // 错误反馈：lastError 一变就 toast
-    _errorWorker = ever<String>(_ctrl.lastError, (e) {
+    // 错误反馈：致命错误一变就 toast（测试页保留，便于肉眼盯日志）
+    _errorWorker = ever<String>(_ctrl.fatalError, (e) {
       if (e.isEmpty || e == _lastShownError) return;
       _lastShownError = e;
       SmartDialog.showToast(_friendlyError(e));

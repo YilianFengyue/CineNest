@@ -24,12 +24,18 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
   DanmakuController? _danmakuCtrl;
   final List<Worker> _workers = [];
 
+  // 按 timeMs 升序的快照 + 单调推进的游标，
+  // 每个 position tick 只扫新增区间，避免全量 O(N) 遍历。
+  List<DanDanComment> _sorted = const [];
+  int _cursor = 0;
   int _lastDispatchMs = -1;
   bool _seeked = false;
 
   @override
   void initState() {
     super.initState();
+    // 全屏切换会重建本 State，弹幕可能早已加载，先吃一次现有数据
+    _resetDispatch();
     _workers.addAll([
       ever<Duration>(c.position, _onPositionChanged),
       ever<bool>(c.playing, _onPlayingChanged),
@@ -73,6 +79,9 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
   }
 
   void _resetDispatch() {
+    _sorted = List.of(c.danmakuItems)
+      ..sort((a, b) => a.timeMs.compareTo(b.timeMs));
+    _cursor = 0;
     _lastDispatchMs = -1;
     _seeked = true;
     _danmakuCtrl?.clear();
@@ -82,30 +91,44 @@ class _DanmakuOverlayState extends State<DanmakuOverlay> {
     final ctrl = _danmakuCtrl;
     if (ctrl == null) return;
     if (!c.danmakuVisible.value) return;
+    if (_sorted.isEmpty) return;
 
     final nowMs = pos.inMilliseconds;
-    final items = c.danmakuItems;
-    if (items.isEmpty) return;
 
-    // 首次 or seek 跳跃 → 重置指针
-    if (_seeked || _lastDispatchMs < 0 || (nowMs - _lastDispatchMs).abs() > 1500) {
+    // 首次 or seek 跳跃 → 二分重定位游标
+    if (_seeked ||
+        _lastDispatchMs < 0 ||
+        (nowMs - _lastDispatchMs).abs() > 1500) {
       _seeked = false;
       ctrl.clear();
+      _cursor = _lowerBound(nowMs);
       _lastDispatchMs = nowMs;
       return;
     }
 
-    final fromMs = _lastDispatchMs;
-    final toMs = nowMs;
+    if (nowMs <= _lastDispatchMs) return;
     _lastDispatchMs = nowMs;
 
-    if (toMs <= fromMs) return;
+    // 游标单调推进，只扫这一帧新增的时间区间
+    while (_cursor < _sorted.length && _sorted[_cursor].timeMs <= nowMs) {
+      _addDanmaku(ctrl, _sorted[_cursor]);
+      _cursor++;
+    }
+  }
 
-    for (final item in items) {
-      if (item.timeMs > fromMs && item.timeMs <= toMs) {
-        _addDanmaku(ctrl, item);
+  /// 第一个 timeMs > [ms] 的下标。
+  int _lowerBound(int ms) {
+    var lo = 0;
+    var hi = _sorted.length;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (_sorted[mid].timeMs <= ms) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
       }
     }
+    return lo;
   }
 
   void _addDanmaku(DanmakuController ctrl, DanDanComment item) {

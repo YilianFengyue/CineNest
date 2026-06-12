@@ -221,26 +221,71 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
             );
           }),
 
-          // 8. 错误兜底
+          // 8a. 瞬态网络提示——低调 tonal chip，自动消失，不打断播放
           Obx(() {
-            if (c.lastError.value.isEmpty) return const SizedBox.shrink();
+            final hint = c.transientHint.value;
+            final cs = Theme.of(context).colorScheme;
+            return Positioned(
+              left: 12,
+              bottom: 80,
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: hint.isEmpty ? 0 : 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.secondaryContainer.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.sync,
+                          size: 14,
+                          color: cs.onSecondaryContainer,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          hint,
+                          style: TextStyle(
+                            color: cs.onSecondaryContainer,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          // 8b. 致命错误——errorContainer tonal 卡片，带重试/浏览器操作
+          Obx(() {
+            if (c.fatalError.value.isEmpty) return const SizedBox.shrink();
+            final cs = Theme.of(context).colorScheme;
             return Positioned(
               left: 16,
               right: 16,
               bottom: 80,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+                padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.88),
-                  borderRadius: BorderRadius.circular(8),
+                  color: cs.errorContainer.withValues(alpha: 0.96),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        '播放失败：${c.lastError.value}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        c.fatalError.value,
+                        style: TextStyle(
+                          color: cs.onErrorContainer,
                           fontSize: 12,
                         ),
                         maxLines: 3,
@@ -248,11 +293,12 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
                       ),
                     ),
                     if (widget.onRetry != null) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       TextButton(
                         style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
+                          foregroundColor: cs.onErrorContainer,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
                         ),
                         onPressed: () {
                           c.showControlsTemporarily();
@@ -264,8 +310,9 @@ class _KazumiPlayerViewState extends State<KazumiPlayerView>
                     if (widget.onOpenInWebView != null)
                       TextButton(
                         style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
+                          foregroundColor: cs.onErrorContainer,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
                         ),
                         onPressed: widget.onOpenInWebView,
                         child: const Text('浏览器'),

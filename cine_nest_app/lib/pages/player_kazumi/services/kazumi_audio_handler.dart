@@ -20,23 +20,37 @@ class KazumiAudioHandler extends BaseAudioHandler with SeekHandler {
   StreamSubscription? _bufferingSub;
   StreamSubscription? _completedSub;
 
+  /// 通知栏进度由系统按 updatePosition + updateTime + speed 自行外推，
+  /// playbackState 只能在不连续点（播放/暂停/缓冲/变速/seek）推送——
+  /// 每个 position tick 都推会形成跨进程通知风暴，被 Android 节流后
+  /// 表现为进度冻结、按钮点击没有反馈。
   void attach(KazumiPlayerController c) {
     detach();
     _ctrl = c;
     _playingSub = c.player.stream.playing.listen(_syncPlayingState);
-    _positionSub = c.player.stream.position.listen(
-      (p) => _patch(updatePosition: p),
-    );
+    // 只在实际位置偏离系统外推 1.5s 以上时校准（= 捕获 app 内 seek）
+    _positionSub = c.player.stream.position.listen((p) {
+      final expected = playbackState.value.position;
+      if ((p - expected).abs() > const Duration(milliseconds: 1500)) {
+        _patch(updatePosition: p);
+      }
+    });
     _durationSub = c.player.stream.duration.listen(_syncDuration);
-    _bufferSub = c.player.stream.buffer.listen(
-      (b) => _patch(bufferedPosition: b),
+    _bufferSub = c.player.stream.buffer.listen((b) {
+      if ((b - playbackState.value.bufferedPosition).abs() >
+          const Duration(seconds: 5)) {
+        _patch(bufferedPosition: b);
+      }
+    });
+    _rateSub = c.player.stream.rate.listen(
+      (r) => _patch(speed: r, updatePosition: _playerPosition),
     );
-    _rateSub = c.player.stream.rate.listen((r) => _patch(speed: r));
     _bufferingSub = c.player.stream.buffering.listen((b) {
       _patch(
         processingState: b
             ? AudioProcessingState.buffering
             : AudioProcessingState.ready,
+        updatePosition: _playerPosition,
       );
     });
     _completedSub = c.player.stream.completed.listen((done) {
@@ -45,6 +59,9 @@ class KazumiAudioHandler extends BaseAudioHandler with SeekHandler {
     _syncSnapshot();
     logger.i('[AudioHandler] attached');
   }
+
+  Duration get _playerPosition =>
+      _ctrl?.player.state.position ?? playbackState.value.position;
 
   Future<void> detach() async {
     await _playingSub?.cancel();
@@ -126,6 +143,8 @@ class KazumiAudioHandler extends BaseAudioHandler with SeekHandler {
       },
       processingState: AudioProcessingState.ready,
       playing: playing,
+      // 播放/暂停是外推基准的切换点，必须带上准确位置重置基准
+      updatePosition: _playerPosition,
     );
   }
 

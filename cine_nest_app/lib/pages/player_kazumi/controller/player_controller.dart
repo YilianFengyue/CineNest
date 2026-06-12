@@ -19,8 +19,8 @@ import '../../../utils/storage_pref.dart';
 class KazumiPlayerController extends GetxController {
   KazumiPlayerController({
     this.bufferSizeBytes = 512 * 1024 * 1024,
-    this.openTimeout = const Duration(seconds: 14),
     this.firstFrameTimeout = const Duration(seconds: 12),
+    this.stallTimeout = const Duration(seconds: 10),
     this.autoHideDelay = const Duration(seconds: 4),
     this.hudHideDelay = const Duration(milliseconds: 700),
     this.volumeSyncThrottle = const Duration(milliseconds: 80),
@@ -49,8 +49,12 @@ class KazumiPlayerController extends GetxController {
 
   // ─── 配置 ────────────────────────────────────────────
   final int bufferSizeBytes;
-  final Duration openTimeout;
+
+  /// 起播后等首个流参数（时长/视频尺寸）的超时，超时自动重开。
   final Duration firstFrameTimeout;
+
+  /// 播放中持续缓冲多久仍无进展，判定为致命卡死。
+  final Duration stallTimeout;
   final Duration autoHideDelay;
   final Duration hudHideDelay;
   final Duration volumeSyncThrottle;
@@ -106,19 +110,32 @@ class KazumiPlayerController extends GetxController {
   final seekTargetMs = 0.obs;
   final seekDirection = 0.obs;
 
-  final lastError = ''.obs;
+  /// 瞬态提示（网络波动等，自动消失，播放未中断）。
+  final transientHint = ''.obs;
+
+  /// 致命错误（播放确实进行不下去了，需要用户重试/换源/浏览器）。
+  final fatalError = ''.obs;
 
   // ─── 内部 ─────────────────────────────────────────────
   final List<StreamSubscription> _subs = [];
   Timer? _hideTimer;
   Timer? _hudHideTimer;
   Timer? _volumeGestureSyncTimer;
-  Timer? _errorHideTimer;
+  Timer? _hintHideTimer;
+  Timer? _stallTimer;
   double? _pendingGestureVolume;
   double _savedSpeedBeforeLongPress = 1.0;
   bool _opening = false;
+  bool _resumeAfterSeekPreview = false;
   final List<String> _openingErrors = [];
   String? _demuxerCacheDir;
+
+  // 最近一次 open 的参数，供「重试」从当前位置重开
+  String? _lastOpenUrl;
+  Map<String, String>? _lastOpenHeaders;
+  Duration _lastOpenStartAt = Duration.zero;
+
+  static const int _maxOpenAttempts = 2;
 
   static const String _browserUserAgent =
       'Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 '
@@ -134,7 +151,18 @@ class KazumiPlayerController extends GetxController {
   void _wireStreams() {
     _subs.addAll([
       player.stream.playing.listen((v) => playing.value = v),
-      player.stream.buffering.listen((v) => buffering.value = v),
+      player.stream.buffering.listen((v) {
+        buffering.value = v;
+        // 播放途中陷入缓冲 → 启动卡死看门狗；恢复 → 解除（含误报的致命提示）
+        if (v) {
+          _startStallWatchdog();
+        } else {
+          _cancelStallWatchdog();
+          if (!_opening && fatalError.value.isNotEmpty) {
+            fatalError.value = '';
+          }
+        }
+      }),
       player.stream.completed.listen((v) => completed.value = v),
       player.stream.position.listen((v) => position.value = v),
       player.stream.duration.listen((v) {
@@ -146,6 +174,9 @@ class KazumiPlayerController extends GetxController {
       player.stream.volume.listen((v) {
         if (isDesktop) volume.value = v;
       }),
+      // media_kit 的 error 流本质是 mpv 的 error 级日志（含每条 tcp: 分片失败），
+      // 大多是 ffmpeg 重连可自愈的瞬态错误，不能当「播放失败」处理。
+      // 真正的致命判定交给卡死看门狗（缓冲持续无进展）和起播超时。
       player.stream.error.listen((e) {
         final msg = e.toString();
         if (_opening) {
@@ -153,9 +184,10 @@ class KazumiPlayerController extends GetxController {
           logger.w('PLAYER OPEN TRANSIENT ERROR: $msg');
           return;
         }
-        _showTransientError(msg);
-        loading.value = false;
-        logger.e('PLAYER ERROR: $msg');
+        logger.w('PLAYER STREAM ERROR: $msg');
+        if (_isNetworkNoise(msg)) {
+          _showTransientHint('网络波动，自动重连中…');
+        }
       }),
       player.stream.log.listen((l) {
         if (kDebugMode) logger.d('mpv: $l');
@@ -181,17 +213,22 @@ class KazumiPlayerController extends GetxController {
       // 强制低码率或手动 cache 参数干扰。
       await pp.setProperty('user-agent', _browserUserAgent);
 
-      // 分片中途 TCP 读超时（）时
-      // ffmpeg 默认直接断流报错；开启 reconnect 后改为带退避自动重连续读，
-      // 配合大 demuxer 缓存可把源站 CDN 抖动变成无感恢复。
+      // 分片中途 TCP 读失败时 ffmpeg 默认直接断流报错；开启 reconnect 后
+      // 改为带退避自动重连续读，配合大 demuxer 缓存把 CDN 抖动变成无感恢复。
+      // 注意：这个属性是整串覆盖，必须把 media_kit 的默认参数一并带上——
+      // seg_max_retry（HLS 分片级重试）/ allowed_extensions=ALL（伪装 .jpg
+      // 等扩展名的分片）/ protocol_whitelist 含 crypto（AES-128 加密流），
+      // 丢任何一个都会让一类源直接播不了或抖动时更易断流。
       await pp.setProperty(
         'demuxer-lavf-o',
         'reconnect=1,reconnect_streamed=1,'
-        'reconnect_on_network_error=1,reconnect_delay_max=5',
+        'reconnect_on_network_error=1,reconnect_delay_max=5,'
+        'seg_max_retry=5,strict=experimental,allowed_extensions=ALL,'
+        'protocol_whitelist=[udp,rtp,tcp,tls,data,file,http,https,crypto]',
       );
-      // mpv 默认 network-timeout=60s：半死连接要挂 60 秒才触发上面的重连，
-      // 收紧到 12s 让重连尽快接管（仍长于正常分片请求耗时）。
-      await pp.setProperty('network-timeout', '12');
+      // media_kit 默认 network-timeout=5s，对慢源偏紧（误杀正常的慢分片）；
+      // 放宽到 8s：半死连接最迟 8s 被掐死、交给上面的 reconnect 接管。
+      await pp.setProperty('network-timeout', '8');
 
       // ─── 平台差异 ────────────────────────────────────────────
       if (Platform.isAndroid) {
@@ -254,7 +291,8 @@ class KazumiPlayerController extends GetxController {
   Future<void> onClose() async {
     _cancelHideTimer();
     _cancelHudHideTimer();
-    _cancelErrorHideTimer();
+    _cancelHintHideTimer();
+    _cancelStallWatchdog();
     _volumeGestureSyncTimer?.cancel();
     for (final s in _subs) {
       try {
@@ -288,9 +326,13 @@ class KazumiPlayerController extends GetxController {
     bool autoPlay = true,
   }) async {
     loading.value = true;
-    _clearError();
+    _clearErrors();
+    _cancelStallWatchdog();
     _opening = true;
     _openingErrors.clear();
+    _lastOpenUrl = url;
+    _lastOpenHeaders = headers;
+    _lastOpenStartAt = startAt;
     final httpHeaders = _buildPlaybackHeaders(url, headers);
     logger.i('player.open url=$url headers=$httpHeaders');
 
@@ -306,14 +348,14 @@ class KazumiPlayerController extends GetxController {
         startAt: startAt,
         autoPlay: autoPlay,
       );
-      logger.i('player.open rendered first frame');
+      logger.i('player.open stream ready (got duration/video params)');
       await _syncSystemVolumeInitial();
       await _syncSystemBrightnessInitial();
-      _clearError();
+      _clearErrors();
       showControlsTemporarily();
     } catch (e) {
       final message = _friendlyOpenFailure(e);
-      _showTransientError(message);
+      fatalError.value = message;
       logger.e('open failed: $message');
     } finally {
       _opening = false;
@@ -322,22 +364,80 @@ class KazumiPlayerController extends GetxController {
     }
   }
 
+  /// 致命错误后的「重试」：从当前播放位置重开最后一次打开的媒体。
+  Future<void> retryFromCurrentPosition() async {
+    final url = _lastOpenUrl;
+    if (url == null) return;
+    final resumeAt =
+        position.value > Duration.zero ? position.value : _lastOpenStartAt;
+    await open(url: url, headers: _lastOpenHeaders, startAt: resumeAt);
+  }
+
   Future<void> _openWithRetry({
     required String url,
     required Map<String, String> headers,
     required Duration startAt,
     required bool autoPlay,
   }) async {
-    try {
-      await _applyNativeTweaks();
-      await player.open(
-        Media(url, start: startAt, httpHeaders: headers),
-        play: autoPlay,
-      );
-    } catch (e) {
-      logger.w('open failed: $e');
-      rethrow;
+    Object lastFailure = TimeoutException('open failed');
+    for (var attempt = 1; attempt <= _maxOpenAttempts; attempt++) {
+      try {
+        await _applyNativeTweaks();
+        // 先挂流参数监听再 open，避免事件比订阅先到
+        final streamReady = _waitStreamReady(firstFrameTimeout);
+        try {
+          await player.open(
+            Media(url, start: startAt, httpHeaders: headers),
+            play: autoPlay,
+          );
+        } catch (_) {
+          streamReady.ignore(); // 监听随超时自清理，错误不外漏
+          rethrow;
+        }
+        // player.open 返回只代表 loadfile 已提交；等拿到时长/视频尺寸
+        // 才算真正起播，否则死源会表现为无限转圈。
+        await streamReady;
+        return;
+      } catch (e) {
+        lastFailure = e;
+        logger.w('open attempt $attempt/$_maxOpenAttempts failed: $e');
+        if (attempt < _maxOpenAttempts) {
+          try {
+            await player.stop();
+          } catch (_) {}
+        }
+      }
     }
+    throw lastFailure;
+  }
+
+  /// 等首个有效流参数（时长 > 0 或视频宽度 > 0），超时报 TimeoutException。
+  Future<void> _waitStreamReady(Duration timeout) {
+    final completer = Completer<void>();
+    final subs = <StreamSubscription>[];
+    final timer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('${timeout.inSeconds}s 内未拿到流参数'),
+        );
+      }
+    });
+    void done() {
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    subs.add(player.stream.duration.listen((d) {
+      if (d > Duration.zero) done();
+    }));
+    subs.add(player.stream.width.listen((w) {
+      if ((w ?? 0) > 0) done();
+    }));
+    return completer.future.whenComplete(() {
+      timer.cancel();
+      for (final s in subs) {
+        s.cancel();
+      }
+    });
   }
 
   Map<String, String> _buildPlaybackHeaders(
@@ -352,10 +452,8 @@ class KazumiPlayerController extends GetxController {
   }
 
   String _friendlyOpenFailure(Object error) {
-    final raw = error.toString();
-    if (error is TimeoutException || raw.contains('TimeoutException')) {
-      return '起播超时：已重试 3 次仍没有首帧，建议重试或用浏览器播放';
-    }
+    // 起播期间收集到的 mpv 错误日志里往往藏着真实原因（DNS/403 等）
+    final raw = '$error ${_openingErrors.join('; ')}';
     if (raw.contains('Failed to resolve hostname') ||
         raw.contains('No address associated')) {
       return 'DNS 解析失败：当前网络找不到这个源域名，建议换源或切换网络';
@@ -363,10 +461,15 @@ class KazumiPlayerController extends GetxController {
     if (raw.contains('403') || raw.contains('401')) {
       return '源鉴权失败：可能需要 Referer/Cookie，建议用浏览器播放或换源';
     }
-    if (raw.contains('Failed to open')) {
-      return '源打开失败：已重试 3 次，可能被防盗链/证书/TLS/运营商拦截';
+    if (error is TimeoutException || raw.contains('TimeoutException')) {
+      return '起播超时：已自动重试 $_maxOpenAttempts 次仍没有画面，'
+          '建议重试、换源或用浏览器播放';
     }
-    return raw.length > 180 ? '${raw.substring(0, 180)}...' : raw;
+    if (raw.contains('Failed to open')) {
+      return '源打开失败：可能被防盗链/证书/TLS/运营商拦截，建议换源';
+    }
+    final msg = error.toString();
+    return msg.length > 120 ? '${msg.substring(0, 120)}…' : msg;
   }
 
   Future<void> _syncSystemVolumeInitial() async {
@@ -534,7 +637,11 @@ class KazumiPlayerController extends GetxController {
   //  Seek 预览
   // ═══════════════════════════════════════════════════════
 
+  /// 进入 seek 预览：记住原播放状态并暂停，commit/cancel 时按原状态恢复，
+  /// 用户暂停时拖进度条不会被强制开播。
   void beginSeekPreview() {
+    _resumeAfterSeekPreview = playing.value;
+    pause();
     seekDirection.value = 0;
     seekTargetMs.value = position.value.inMilliseconds;
     showSeekHud.value = true;
@@ -559,12 +666,20 @@ class KazumiPlayerController extends GetxController {
     await seekTo(to);
     showSeekHud.value = false;
     seekDirection.value = 0;
+    if (_resumeAfterSeekPreview) {
+      _resumeAfterSeekPreview = false;
+      await play();
+    }
     _startHideTimer();
   }
 
   void cancelSeekPreview() {
     showSeekHud.value = false;
     seekDirection.value = 0;
+    if (_resumeAfterSeekPreview) {
+      _resumeAfterSeekPreview = false;
+      play();
+    }
     _startHideTimer();
   }
 
@@ -630,24 +745,59 @@ class KazumiPlayerController extends GetxController {
     _hudHideTimer = null;
   }
 
-  void _showTransientError(String message) {
-    _cancelErrorHideTimer();
-    lastError.value = message;
-    _errorHideTimer = Timer(const Duration(seconds: 3), () {
-      if (lastError.value == message) {
-        lastError.value = '';
+  /// tcp/DNS/HTTP 类错误日志：reconnect 大概率自愈，只配低调提示。
+  bool _isNetworkNoise(String msg) {
+    final m = msg.toLowerCase();
+    return m.startsWith('tcp') ||
+        m.startsWith('http') ||
+        m.contains('failed to resolve hostname') ||
+        m.contains('no address associated') ||
+        m.contains('connection') ||
+        m.contains('timed out') ||
+        m.contains('network');
+  }
+
+  void _showTransientHint(String message) {
+    // 致命错误展示中不再叠加瞬态提示
+    if (fatalError.value.isNotEmpty) return;
+    _cancelHintHideTimer();
+    transientHint.value = message;
+    _hintHideTimer = Timer(const Duration(seconds: 3), () {
+      if (transientHint.value == message) {
+        transientHint.value = '';
       }
     });
   }
 
-  void _clearError() {
-    _cancelErrorHideTimer();
-    lastError.value = '';
+  void _clearErrors() {
+    _cancelHintHideTimer();
+    transientHint.value = '';
+    fatalError.value = '';
   }
 
-  void _cancelErrorHideTimer() {
-    _errorHideTimer?.cancel();
-    _errorHideTimer = null;
+  void _cancelHintHideTimer() {
+    _hintHideTimer?.cancel();
+    _hintHideTimer = null;
+  }
+
+  /// 卡死看门狗：缓冲持续 [stallTimeout] 且位置毫无进展，才升级为致命错误。
+  void _startStallWatchdog() {
+    if (_opening) return; // 起播阶段由首帧超时负责
+    _cancelStallWatchdog();
+    final posAtStart = position.value;
+    _stallTimer = Timer(stallTimeout, () {
+      if (buffering.value && position.value == posAtStart) {
+        transientHint.value = '';
+        fatalError.value =
+            '网络持续无响应：缓冲超过 ${stallTimeout.inSeconds} 秒没有恢复，'
+            '可重试或用浏览器播放';
+      }
+    });
+  }
+
+  void _cancelStallWatchdog() {
+    _stallTimer?.cancel();
+    _stallTimer = null;
   }
 
   // ═══════════════════════════════════════════════════════

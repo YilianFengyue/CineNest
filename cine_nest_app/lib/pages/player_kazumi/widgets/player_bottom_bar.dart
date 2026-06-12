@@ -51,18 +51,13 @@ class PlayerBottomBar extends StatelessWidget {
         activeColor: Theme.of(context).colorScheme.primary,
         inactiveColor: Colors.white24,
         bufferedColor: Colors.white38,
-        onSeekStart: () {
-          controller.pause();
-          controller.beginSeekPreview();
-        },
+        // beginSeekPreview 内部记住播放状态并暂停，commit 时按原状态恢复
+        onSeekStart: controller.beginSeekPreview,
         onSeekPreview: (d) {
           controller.seekTargetMs.value = d.inMilliseconds;
           controller.showSeekHud.value = true;
         },
-        onSeekEnd: (_) {
-          controller.commitSeekPreview();
-          controller.play();
-        },
+        onSeekEnd: (_) => controller.commitSeekPreview(),
       ),
     );
   }

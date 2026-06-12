@@ -23,8 +23,6 @@ class AggregatorPlayerHostPage extends StatefulWidget {
 class _AggregatorPlayerHostPageState extends State<AggregatorPlayerHostPage> {
   late final KazumiPlayerController _ctrl;
   KazumiAudioHandler? _audioHandler;
-  Worker? _errorWorker;
-  String _lastShownError = '';
 
   @override
   void initState() {
@@ -33,11 +31,7 @@ class _AggregatorPlayerHostPageState extends State<AggregatorPlayerHostPage> {
       firstFrameTimeout: const Duration(seconds: 8),
     );
     Get.put(_ctrl, tag: _tag, permanent: false);
-    _errorWorker = ever<String>(_ctrl.lastError, (error) {
-      if (error.isEmpty || error == _lastShownError) return;
-      _lastShownError = error;
-      SmartDialog.showToast(_friendlyError(error));
-    });
+    // 错误展示统一走播放器内的 chip/卡片（KazumiPlayerView），不再叠加 toast
     _bootstrap();
   }
 
@@ -80,7 +74,6 @@ class _AggregatorPlayerHostPageState extends State<AggregatorPlayerHostPage> {
 
   @override
   void dispose() {
-    _errorWorker?.dispose();
     _audioHandler?.detach();
     Get.delete<KazumiPlayerController>(tag: _tag);
     super.dispose();
@@ -106,7 +99,7 @@ class _AggregatorPlayerHostPageState extends State<AggregatorPlayerHostPage> {
                   onBack: () => _ctrl.setFullscreen(false),
                   onScreenshot: _doScreenshot,
                   onEnterPip: _doPip,
-                  onRetry: _openCurrent,
+                  onRetry: _ctrl.retryFromCurrentPosition,
                   onOpenInWebView: _openInWebView,
                 )
               : SafeArea(
@@ -121,7 +114,7 @@ class _AggregatorPlayerHostPageState extends State<AggregatorPlayerHostPage> {
                           onBack: () => Navigator.of(context).maybePop(),
                           onScreenshot: _doScreenshot,
                           onEnterPip: _doPip,
-                          onRetry: _openCurrent,
+                          onRetry: _ctrl.retryFromCurrentPosition,
                           onOpenInWebView: _openInWebView,
                         ),
                       ),
@@ -140,15 +133,6 @@ class _AggregatorPlayerHostPageState extends State<AggregatorPlayerHostPage> {
     });
   }
 
-  String _friendlyError(String raw) {
-    if (raw.contains('超时') || raw.contains('TimeoutException')) {
-      return '起播超时，可重试或返回换源';
-    }
-    if (raw.contains('403') || raw.contains('401')) {
-      return '源鉴权失败，可能需要 Referer/Cookie';
-    }
-    return raw.length > 120 ? '${raw.substring(0, 120)}...' : raw;
-  }
 }
 
 class _SessionPanel extends StatelessWidget {

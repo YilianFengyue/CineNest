@@ -69,7 +69,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
   void _handleHorizontalDragStart(DragStartDetails _) {
     if (c.lockPanel.value) return;
     _activeMode = 1;
-    c.pause();
+    // beginSeekPreview 内部记住播放状态并暂停，commit 时按原状态恢复
     c.beginSeekPreview();
   }
 
@@ -85,7 +85,6 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
     if (_activeMode != 1) return;
     _activeMode = 0;
     await c.commitSeekPreview();
-    c.play();
   }
 
   void _handleVerticalDragStart(DragStartDetails details) {
