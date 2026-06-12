@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:cine_nest/pages/player/views/source_debug_panel.dart';
+import 'package:cine_nest/pages/settings/scan_connect_page.dart';
 import 'package:cine_nest/services/connection_service.dart';
 import 'package:cine_nest/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 /// PC 连接子页（F7 重做版）。
@@ -70,7 +74,11 @@ class _ConnectionSettingsPageState extends State<ConnectionSettingsPage> {
                     baseUrl: service.baseUrl,
                     detail: service.message.value,
                   )),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              _scanButton(),
+              const SizedBox(height: 16),
+              _orDivider(context),
+              const SizedBox(height: 16),
               _addressCard(context),
               const SizedBox(height: 16),
               _actions(service),
@@ -80,6 +88,50 @@ class _ConnectionSettingsPageState extends State<ConnectionSettingsPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 扫码入口：扫 CineLink「手机连接」页二维码，连通后回填下方表单。
+  Widget _scanButton() {
+    return FilledButton.tonalIcon(
+      onPressed: _openScanner,
+      icon: const Icon(Icons.qr_code_scanner_rounded),
+      label: const Text('扫码连接 PC'),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+      ),
+    );
+  }
+
+  Future<void> _openScanner() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      SmartDialog.showToast('扫码连接仅手机端可用，桌面端请手动填写地址');
+      return;
+    }
+    final ok = await Get.to<bool>(() => const ScanConnectPage());
+    if (ok == true && mounted) {
+      setState(() {
+        _hostController.text = Pref.pcHost;
+        _portController.text = Pref.pcPort.toString();
+        _inputError = null;
+      });
+    }
+  }
+
+  Widget _orDivider(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(child: Divider(color: cs.outlineVariant)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            '或手动填写',
+            style: TextStyle(color: cs.outline, fontSize: 12),
+          ),
+        ),
+        Expanded(child: Divider(color: cs.outlineVariant)),
+      ],
     );
   }
 

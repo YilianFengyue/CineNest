@@ -45,7 +45,8 @@ dependencies:
   # 设置页分组列表（与 Kazumi 一致，照搬其 my_page / theme 设置）
   card_settings_ui: ^2.0.1
   # HCT 色彩空间（配色方案 PaletteCard 用，版本跟随 Flutter SDK 锁定）
-  material_color_utilities: ^0.13.0
+  # 用区间兼容组内不同 Flutter：3.35 内置 0.11.1，更新的 SDK 内置 0.13.0
+  material_color_utilities: ">=0.11.1 <0.14.0"
 
   # 通用弹窗 / Toast / Loading
   flutter_smart_dialog: ^4.9.8
@@ -94,6 +95,9 @@ dependencies:
 
   # 外部链接跳转（B 站 APP 等）
   url_launcher: ^6.3.1
+
+  # 扫码连接 PC（CineLink 生成二维码，App 扫码直连后端）
+  mobile_scanner: ^7.1.2
 
   cupertino_icons: ^1.0.8
   skeletonizer: ^2.1.3
