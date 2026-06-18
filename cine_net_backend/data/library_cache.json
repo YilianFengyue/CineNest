@@ -66,23 +66,23 @@
    },
    "match": null
   },
-  "罗小黑战记/[P1]1 喵.mp4": {
+  "罗小黑战记/罗小黑战记.mp4": {
    "mtime": 1781252731.667989,
    "size": 105828636,
    "parsed": {
-    "title": "1 喵",
+    "title": "罗小黑战记",
     "year": null,
     "season": null,
     "episode": null
    },
    "match": {
     "kind": "movie",
-    "tmdb_id": 358651,
-    "title": "妖怪手表：诞生的秘密喵",
-    "year": "2014",
-    "poster": "https://image.tmdb.org/t/p/w500/uAmi5MfzYrL4EGX6YJQIF9hjLqZ.jpg",
-    "overview": "某晚景太正睡觉时，手上的妖怪手錶突然发出刺眼光芒，接着消失不见了！翌日超巨大猫型妖怪「巨大喵」出现，声称世界即将落入魔爪之中并向景太救助。为了找寻线索，景太与威斯帕及地缚喵前往嫲嫲位于毛马本村的家，遇上了神秘的「浮游喵」！他们跟着「浮游喵」一起进行时光旅行，回到了六十年前的世界进行大冒险。在那裡等待着他们的强大敌人究竟是谁？他们又能否顺利找回妖怪手錶？",
-    "vote": 7.604,
+    "tmdb_id": 620249,
+    "title": "罗小黑战记",
+    "year": "2019",
+    "poster": "https://image.tmdb.org/t/p/w500/4efytN4Bki4VlqnAMjsWdEGj4Sb.jpg",
+    "overview": "在熙攘的人类世界里，很多妖精隐匿其中，他们与人类相安无事地生活着。猫妖罗小黑因为家园被破坏，开始了它的流浪之旅。这场旅途中惺惺相惜的妖精同类与和谐包容的人类伙伴相继出现，让小黑陷入了两难抉择，究竟何处才是真正的归属？",
+    "vote": 8.281,
     "season": null,
     "episode": null
    }

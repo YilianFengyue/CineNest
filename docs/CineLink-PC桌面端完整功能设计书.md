@@ -33,7 +33,7 @@ CineLink 是 CineNest 三件套里的 **PC 桌面伴侣**：
 
 | 阶段 | 内容 | 依赖 | 状态 |
 |------|------|------|------|
-| P1 | 手机扫码连接（LAN + Tailscale） | 无 | ✅ 2026-06-12 |
+| P1 | 手机扫码连接（LAN + Tailscale + ZeroTier） | 无 | ✅ 2026-06-13 |
 | P2 | UI 换皮对齐 lux-ui | 无 | 待施工 |
 | P3 | 后端管家 BackendManager（启停/诊断/向导） | P1 | 待施工 |
 | P4 | ADB / HDC 设备检测 | P3 的进程 IPC | 待施工 |
@@ -45,7 +45,7 @@ CineLink 是 CineNest 三件套里的 **PC 桌面伴侣**：
 
 ### CineLink 已有的
 
-- **IPC**：`app:getInfo`、`workspace:*`（文件读写）、`window:*`（窗口控制）、**`net:getInfo` / `net:getTailscale`（P1 新增）**
+- **IPC**：`app:getInfo`、`workspace:*`（文件读写）、`window:*`（窗口控制）、**`net:getInfo` / `net:getTailscale` / `net:getZeroTier`（P1 新增）**
 - **页面**：`DashBoard.vue`（六卡门面）、`PhoneLinkPage.vue`（P1 新增）、其余路由（/backend、/screen-mirror、/agent-console、/network、/library、/settings）全部还指向万能模板页 `CineLinkFeaturePage.vue`，里面是"等待接入 Electron IPC"的占位
 - **主题**：`src/plugins/vuetify.ts`——light 主色 `#344767`（灰蓝），dark 主色 `#705CF6`；P2 要动这里
 
@@ -75,7 +75,7 @@ CineLink 是 CineNest 三件套里的 **PC 桌面伴侣**：
 {"v":1,"app":"cinenest","name":"<PC主机名>","candidates":["http://192.168.x.x:8000","http://100.x.x.x:8000"]}
 ```
 
-- `candidates` 按当前选中模式排序（局域网优先 or Tailscale 优先）
+- `candidates` 按当前选中模式排序（局域网 / Tailscale / ZeroTier），其余可用地址自动回退
 - 手机端**并发**探测每个候选的 `/api/health`（3s 超时、无重试），按候选**顺序**取第一个连通的
 - 无 token / 鉴权（课设演示优先，预留 P3 配置向导加可选 token）
 
@@ -84,21 +84,28 @@ CineLink 是 CineNest 三件套里的 **PC 桌面伴侣**：
 ```ts
 window.metaAgent.net.getInfo()
 // → { hostname: string, lanIps: [{ address, interfaceName, virtual }] }
-//   物理网卡排前（192.168 > 10. > 172.x），剔除 CGNAT 100.64/10（那是 Tailscale 的）
+//   物理网卡排前，排除 Tailscale / ZeroTier 覆盖网卡和 169.254 链路本地地址
+//   不能仅凭 100.64/10 判断 Tailscale，校园网/运营商也可能给 WLAN 分配 CGNAT 地址
 
 window.metaAgent.net.getTailscale()
 // → { installed, running, backendState, ip, hostName, error }
 //   依次试 PATH 里的 tailscale 和 C:\Program Files\Tailscale\tailscale.exe，
-//   执行 `tailscale status --json`；CLI 找不到时扫网卡 100.64/10 兜底
+//   执行 `tailscale status --json`；CLI 找不到时只扫描名称明确属于 Tailscale 的网卡
+
+window.metaAgent.net.getZeroTier()
+// → { installed, serviceRunning, running, nodeStatus, nodeId, ip,
+//      networkName, networks, permissionDenied, error }
+//   CLI 读取 info/listnetworks JSON；普通权限无法读取 authtoken.secret 时，
+//   仍通过 Windows 服务与 ZeroTier 网卡判断安装、运行和分配地址
 ```
 
 ### 文件清单
 
 | 端 | 文件 | 改动 |
 |----|------|------|
-| CineLink | `electron/main.ts` | + net 区段（getLanIps / getTailscaleStatus / 两个 handler） |
+| CineLink | `electron/main.ts` | + net 区段（LAN / Tailscale / ZeroTier 探测与三个 handler） |
 | CineLink | `electron/preload.ts`、`src/types/electron.d.ts` | + net API 暴露与类型 |
-| CineLink | `src/views/pages/PhoneLinkPage.vue` | 新建：渐变 hero + 二维码卡 + 双模式卡 + 三步 timeline |
+| CineLink | `src/views/pages/PhoneLinkPage.vue` | 新建：渐变 hero + 二维码卡 + 三模式卡 + 三步 timeline |
 | CineLink | `src/router/index.ts`、`package.json` | /phone-link 指新页；+ qrcode、@types/qrcode |
 | Flutter | `lib/services/connection_service.dart` | + `QrLinkPayload.tryParse` + `connectFromQr` |
 | Flutter | `lib/pages/settings/scan_connect_page.dart` | 新建：mobile_scanner 扫码页 |

@@ -66,7 +66,7 @@ class ConnectionService extends GetxService {
 
   /// 扫码连接：并发探测载荷里的候选地址，按候选顺序取第一个连通的。
   ///
-  /// CineLink 会把当前选中的模式（局域网 / Tailscale）排在 candidates 首位，
+  /// CineLink 会把当前选中的模式（局域网 / Tailscale / ZeroTier）排在 candidates 首位，
   /// 这里保持顺序优先级：即使后面的先返回，也等价取序号最小的成功者。
   /// 成功后写入 Hive 并热切 Dio baseUrl，返回连上的地址；全部失败返回 null。
   Future<String?> connectFromQr(QrLinkPayload payload) async {
@@ -96,7 +96,8 @@ class ConnectionService extends GetxService {
       final index = results.indexWhere((ok) => ok);
       if (index < 0) {
         status.value = ConnStatus.failed;
-        message.value = '所有候选地址都连不上，请确认手机和 PC 在同一网络（或都登录了 Tailscale）';
+        message.value =
+            '所有候选地址都连不上，请确认手机和 PC 在同一网络，或启用了同一个 Tailscale / ZeroTier 网络';
         return null;
       }
       final winner = payload.candidates[index];

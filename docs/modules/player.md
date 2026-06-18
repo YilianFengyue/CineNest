@@ -20,6 +20,9 @@
 | `cine_nest_app/lib/modules/media_aggregator/pages/aggregator_player_host_page.dart` | 本地聚合器播放会话接入 Kazumi 风播放器 |
 | `cine_nest_app/lib/modules/media_aggregator/services/aggregator_detail_engine.dart` | 聚合器详情与播放会话构建 |
 | `cine_nest_app/lib/pages/main/main_app.dart` | 设置页 PC 连接配置 UI |
+| `cine_nest_app/lib/services/connection_service.dart` | 扫码解析 LAN / Tailscale / ZeroTier 候选并自动探测 |
+| `CodeReference/CineLink/electron/main.ts` | 桌面端网络识别与 ZeroTier 状态 IPC |
+| `CodeReference/CineLink/src/views/pages/PhoneLinkPage.vue` | 三种连接模式选择与二维码生成 |
 | `cine_nest_app/lib/router/app_pages.dart` | 注册 `/player` 和 `/webview-player` |
 | `cine_nest_app/android/app/src/main/AndroidManifest.xml` | 真机网络权限和开发期 HTTP 明文访问 |
 | `cine_net_backend/routers/sources.py` | 成员 A API 路由 |
@@ -68,8 +71,36 @@ GET /api/bilibili/search?keyword=肖申克的救赎 解说
    - 如果外部资源站没有命中，可点击固定 demo 按钮验证播放器功能。
 7. 在播放器中验收播放、暂停、进度拖动、倍速、全屏、退出全屏、错误重试和 WebView 降级。
 
+### F7 三模式连接验收
+
+1. 启动 FastAPI：`uvicorn main:app --host 0.0.0.0 --port 8000`。
+2. 重启 CineLink Electron 主进程，进入“手机连接”。
+3. 确认显示“局域网 / Tailscale / ZeroTier”三张模式卡。
+4. 局域网卡应优先显示真实 WLAN；VMware、WSL 等虚拟网卡只作为备选。
+5. PC 和手机加入同一个 ZeroTier 网络，并在 ZeroTier Central 授权两台设备。
+6. CineLink 刷新后选择 ZeroTier，确认显示分配的 IPv4 地址。
+7. 手机暂停 Clash 等占用系统 VPN 的应用，打开 ZeroTier 网络。
+8. CineNest App 进入“设置 → PC 连接 → 扫码连接”，扫描 CineLink 二维码。
+9. 成功后确认 App 保存的是 ZeroTier 地址，并可访问 `/api/health`。
+10. 再关闭手机 ZeroTier、切回同一 WiFi，重新扫码，确认能够回退到局域网地址。
+
+### 2026-06-13 自动检查结果
+
+| 验收项 | 结果 | 证据 |
+|---|---|---|
+| Electron 主进程 TypeScript 编译 | ✅ | `yarn electron:compile` 通过 |
+| Vue 生产构建 | ✅ | `yarn build` 通过 |
+| CineLink 现有单元测试 | ✅ | `yarn test --run`：5 项通过 |
+| Flutter 连接文件静态检查 | ✅ | `flutter analyze` 无问题 |
+| WLAN `100.64.*` 不再误判为 Tailscale | ✅ | 本机 `100.64.122.30 / WLAN` 排在 LAN 首位 |
+| VMware / WSL 降为虚拟备选 | ✅ | VMnet1、VMnet8、WSLCore 均标记为 virtual |
+| ZeroTier 服务状态识别 | ✅ | 本机 `ZeroTierOneService` 为 RUNNING |
+| ZeroTier 真机扫码 | ⏳ | 需要 PC 和手机加入并授权同一个 ZeroTier 网络后人工验收 |
+| Electron 页面截图检查 | ⏳ | 当前自动化窗口组件不可用，需人工目测三卡布局 |
+
 ## 5. 已知限制
 
 - 免费 MacCMS 源稳定性不由项目控制，可能出现源失效、广告片、名称不匹配或网络慢。
 - B 站直链解析不使用 cookie；如果 B 站接口限制或防盗链生效，会自动回退 WebView。
+- Android 同一时间通常只能启用一个 `VpnService`；ZeroTier 与 Clash 同时开启时会互相顶掉，需要暂停其中一个，或使用局域网候选。
 - 当前播放器满足成员 A 验收要求；后续可继续参考 Kazumi 增加更完整的手势控制、弹幕、清晰度选择和播放历史。

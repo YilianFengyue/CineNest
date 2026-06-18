@@ -6,7 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// 扫码连接 PC（F7 扩展）。
 ///
-/// 扫 CineLink「手机连接」页生成的二维码，载荷里带局域网 / Tailscale
+/// 扫 CineLink「手机连接」页生成的二维码，载荷里带局域网 / Tailscale / ZeroTier
 /// 候选地址，交给 [ConnectionService.connectFromQr] 并发探测、自动保存。
 /// 成功后 `Get.back(result: true)`，设置页据此刷新输入框。
 class ScanConnectPage extends StatefulWidget {

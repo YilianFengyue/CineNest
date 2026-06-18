@@ -6,6 +6,7 @@ import 'package:cine_nest/pages/settings/appearance_settings_page.dart';
 import 'package:cine_nest/pages/settings/agent_profile_page.dart';
 import 'package:cine_nest/pages/settings/connection_settings_page.dart';
 import 'package:cine_nest/pages/settings/dandanplay_settings_page.dart';
+import 'package:cine_nest/pages/settings/playback_settings_page.dart';
 import 'package:cine_nest/pages/settings/placeholder_settings_page.dart';
 import 'package:cine_nest/pages/settings/taste_settings_page.dart';
 import 'package:cine_nest/router/app_pages.dart';
@@ -84,12 +85,9 @@ class SettingsPage extends StatelessWidget {
             SettingsTile.navigation(
               leading: const Icon(Icons.display_settings_rounded),
               title: const Text('播放设置'),
-              description: const Text('设置播放器相关参数'),
-              onPressed: (_) => _openPlaceholder(
-                title: '播放设置',
-                icon: Icons.display_settings_rounded,
-                owner: 'Member A',
-              ),
+              description: const Text('TMDB 源管理、播放器参数'),
+              onPressed: (_) =>
+                  Get.to(() => const PlaybackSettingsPage()),
             ),
             SettingsTile.navigation(
               leading: const Icon(Icons.extension_rounded),

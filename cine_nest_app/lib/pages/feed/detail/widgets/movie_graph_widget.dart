@@ -1,8 +1,7 @@
-import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:cine_nest/models/movie_graph.dart';
-import 'package:get/get.dart';
-import 'package:cine_nest/router/app_pages.dart';
 
 class MovieGraphWidget extends StatelessWidget {
   final MovieGraphResponse graph;
@@ -12,206 +11,190 @@ class MovieGraphWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (graph.nodes.isEmpty) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            "电影关系图谱",
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          height: 320,
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final center = Offset(constraints.maxWidth / 2, constraints.maxHeight / 2);
-              final nodes = graph.nodes;
-              final links = graph.links;
-
-              // 查找中心节点
-              final centerNode = nodes.first;
-              final outerNodes = nodes.skip(1).toList();
-
-              return Stack(
-                children: [
-                  // 1. 绘制连线
-                  CustomPaint(
-                    size: Size(constraints.maxWidth, constraints.maxHeight),
-                    painter: GraphLinePainter(
-                      center: center,
-                      nodeCount: outerNodes.length,
-                      color: colorScheme.outline.withOpacity(0.3),
-                    ),
-                  ),
-
-                  // 2. 中心节点
-                  _PositionedNode(
-                    offset: center,
-                    node: centerNode,
-                    isCenter: true,
-                  ),
-
-                  // 3. 环绕节点
-                  ...List.generate(outerNodes.length, (index) {
-                    final angle = (2 * pi / outerNodes.length) * index;
-                    final radius = min(constraints.maxWidth, constraints.maxHeight) * 0.35;
-                    final nodeOffset = Offset(
-                      center.dx + radius * cos(angle),
-                      center.dy + radius * sin(angle),
-                    );
-
-                    return _PositionedNode(
-                      offset: nodeOffset,
-                      node: outerNodes[index],
-                    );
-                  }),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final html = _buildGraphHtml(
+      graph: graph,
+      primaryHex: _colorToHex(cs.primary),
+      bgHex: _colorToHex(cs.surface),
+      textHex: _colorToHex(cs.onSurface),
+      isDark: isDark,
     );
-  }
-}
 
-class _PositionedNode extends StatelessWidget {
-  final Offset offset;
-  final GraphNode node;
-  final bool isCenter;
-
-  const _PositionedNode({
-    required this.offset,
-    required this.node,
-    this.isCenter = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    Color bgColor;
-    IconData icon;
-
-    switch (node.type) {
-      case 'movie':
-        bgColor = colorScheme.primary;
-        icon = Icons.movie_outlined;
-        break;
-      case 'person':
-        bgColor = Colors.orange;
-        icon = Icons.person_outline;
-        break;
-      case 'genre':
-        bgColor = Colors.teal;
-        icon = Icons.category_outlined;
-        break;
-      case 'keyword':
-        bgColor = Colors.purple;
-        icon = Icons.tag;
-        break;
-      default:
-        bgColor = colorScheme.secondary;
-        icon = Icons.bubble_chart_outlined;
-    }
-
-    final size = isCenter ? 70.0 : 60.0;
-
-    return Positioned(
-      left: offset.dx - size / 2,
-      top: offset.dy - size / 2,
-      child: GestureDetector(
-        onTap: () {
-          if (node.type == 'movie' && node.movieId != null) {
-            Get.toNamed(Routes.movieDetail, arguments: {'movieId': node.movieId}, preventDuplicates: false);
-          } else {
-            Get.snackbar("节点信息", "这是：${node.label} (${node.type})", snackPosition: SnackPosition.BOTTOM);
-          }
-        },
-        child: Column(
-          children: [
-            Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: isCenter ? bgColor : bgColor.withOpacity(0.8),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: bgColor.withOpacity(0.4),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: Icon(icon, color: Colors.white, size: isCenter ? 30 : 24),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              constraints: const BoxConstraints(maxWidth: 80),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                node.label,
-                style: const TextStyle(color: Colors.white, fontSize: 10),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: double.infinity,
+        child: InAppWebView(
+          initialData: InAppWebViewInitialData(data: html),
+          initialSettings: InAppWebViewSettings(
+            transparentBackground: true,
+            disableHorizontalScroll: false,
+            disableVerticalScroll: false,
+            supportZoom: false,
+            javaScriptEnabled: true,
+          ),
         ),
       ),
     );
   }
 }
 
-class GraphLinePainter extends CustomPainter {
-  final Offset center;
-  final int nodeCount;
-  final Color color;
+String _colorToHex(Color c) {
+  final r = (c.r * 255).toInt().toRadixString(16).padLeft(2, '0');
+  final g = (c.g * 255).toInt().toRadixString(16).padLeft(2, '0');
+  final b = (c.b * 255).toInt().toRadixString(16).padLeft(2, '0');
+  return '#$r$g$b';
+}
 
-  GraphLinePainter({required this.center, required this.nodeCount, required this.color});
+const _kTypeColors = {
+  'movie': '#6750A4',
+  'person': '#F57C00',
+  'genre': '#0097A7',
+  'keyword': '#7B1FA2',
+};
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+const _kTypeLabels = {
+  'movie': '影视',
+  'person': '人物',
+  'genre': '类型',
+  'keyword': '关键词',
+};
 
-    final radius = min(size.width, size.height) * 0.35;
+const _kTypeSymbols = {
+  'movie': 'roundRect',
+  'person': 'circle',
+  'genre': 'diamond',
+  'keyword': 'triangle',
+};
 
-    for (int i = 0; i < nodeCount; i++) {
-      final angle = (2 * pi / nodeCount) * i;
-      final target = Offset(
-        center.dx + radius * cos(angle),
-        center.dy + radius * sin(angle),
-      );
-      canvas.drawLine(center, target, paint);
-    }
+String _buildGraphHtml({
+  required MovieGraphResponse graph,
+  required String primaryHex,
+  required String bgHex,
+  required String textHex,
+  required bool isDark,
+}) {
+  final centerNodeId = graph.nodes.first.id;
+
+  final echartsNodes = graph.nodes.map((n) {
+    final isCenter = n.id == centerNodeId;
+    return {
+      'name': n.label,
+      'id': n.id,
+      'symbolSize': isCenter ? 42 : 28,
+      'itemStyle': {'color': _kTypeColors[n.type] ?? primaryHex},
+      'symbol': _kTypeSymbols[n.type] ?? 'circle',
+      'category': n.type,
+      'label': {
+        'show': true,
+        'fontSize': isCenter ? 13 : 11,
+        'color': textHex,
+        'fontWeight': isCenter ? 'bold' : 'normal',
+      },
+      if (isCenter) 'fixed': true,
+      if (isCenter) 'x': 0,
+      if (isCenter) 'y': 0,
+    };
+  }).toList();
+
+  final nameById = <String, String>{};
+  for (final n in graph.nodes) {
+    nameById[n.id] = n.label;
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  final echartsLinks = graph.links.map((l) {
+    return {
+      'source': nameById[l.source] ?? l.source,
+      'target': nameById[l.target] ?? l.target,
+      'label': {
+        'show': true,
+        'formatter': l.relation,
+        'fontSize': 9,
+        'color': isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
+      },
+      'lineStyle': {
+        'width': 1.2,
+        'curveness': 0.15,
+      },
+    };
+  }).toList();
+
+  final categories =
+      _kTypeColors.entries.map((e) => {'name': e.key}).toList();
+
+  final nodesJson = jsonEncode(echartsNodes);
+  final linksJson = jsonEncode(echartsLinks);
+  final categoriesJson = jsonEncode(categories);
+
+  final legendData = _kTypeLabels.entries
+      .map((e) => {'name': e.key, 'icon': 'circle'})
+      .toList();
+  final legendJson = jsonEncode(legendData);
+
+  return '''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+  *{margin:0;padding:0}
+  html,body,#c{width:100%;height:100%;background:transparent}
+</style>
+</head>
+<body>
+<div id="c"></div>
+<script>
+var c=echarts.init(document.getElementById('c'),${isDark ? "'dark'" : "null"});
+c.setOption({
+  backgroundColor:'transparent',
+  animationDurationUpdate:600,
+  tooltip:{
+    show:true,
+    formatter:function(p){
+      if(p.dataType==='edge') return p.data.label?p.data.label.formatter:'';
+      return p.data.name||'';
+    }
+  },
+  legend:[{
+    data:$legendJson,
+    orient:'horizontal',
+    bottom:8,
+    textStyle:{color:'$textHex',fontSize:11},
+    formatter:function(name){
+      var m=${jsonEncode(_kTypeLabels)};
+      return m[name]||name;
+    }
+  }],
+  series:[{
+    type:'graph',
+    layout:'force',
+    roam:true,
+    draggable:true,
+    force:{
+      repulsion:220,
+      edgeLength:[60,140],
+      gravity:0.06,
+      layoutAnimation:true
+    },
+    data:$nodesJson,
+    links:$linksJson,
+    categories:$categoriesJson,
+    emphasis:{
+      focus:'adjacency',
+      blurScope:'coordinateSystem',
+      itemStyle:{borderWidth:2,borderColor:'#fff'}
+    },
+    lineStyle:{color:'source',opacity:0.35},
+    label:{position:'bottom'},
+    edgeLabel:{show:false},
+  }]
+});
+window.addEventListener('resize',function(){c.resize()});
+</script>
+</body>
+</html>
+''';
 }

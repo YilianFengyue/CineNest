@@ -20,7 +20,7 @@ class KazumiDetailPage extends StatefulWidget {
 
 class _KazumiDetailPageState extends State<KazumiDetailPage>
     with TickerProviderStateMixin {
-  static const List<String> _tabs = ['概览', '角色', '制作人员'];
+  static const List<String> _tabs = ['概览', '角色', '制作人员', '图谱'];
 
   final _favRepo = LocalFavoriteRepository();
   final _tmdb = TmdbDirectService();
@@ -59,7 +59,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _isFav = _favRepo.isFavorite(_favKey);
     _fetchCredits();
   }
@@ -197,6 +197,7 @@ class _KazumiDetailPageState extends State<KazumiDetailPage>
               entries: _sortedCrew(_credits?.crew ?? const []),
               isCast: false,
             ),
+            _GraphTab(item: widget.item),
           ],
         ),
       ),
@@ -218,46 +219,12 @@ class _OverviewTab extends StatefulWidget {
 }
 
 class _OverviewTabState extends State<_OverviewTab> with AutomaticKeepAliveClientMixin {
-  MovieGraphResponse? _graph;
-  bool _isLoadingGraph = false;
-
   @override
   bool get wantKeepAlive => true;
 
   @override
-  void initState() {
-    super.initState();
-    debugPrint(">>> [_OverviewTab] initState for movie ${widget.item.id}");
-    _fetchGraph();
-  }
-
-  Future<void> _fetchGraph() async {
-    try {
-      setState(() => _isLoadingGraph = true);
-      debugPrint(">>> [KazumiGraph] Fetching graph for movie ${widget.item.id}...");
-      final response = await Request().get("/api/movie/${widget.item.id}/graph");
-      
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        if (data is Map<String, dynamic> && data.containsKey('nodes')) {
-          setState(() {
-            _graph = MovieGraphResponse.fromJson(data);
-          });
-          debugPrint(">>> [KazumiGraph] Success: ${_graph?.nodes.length} nodes");
-        }
-      }
-    } catch (e) {
-      debugPrint(">>> [KazumiGraph] Error: $e");
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingGraph = false);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    super.build(context); // 这是 AutomaticKeepAliveClientMixin 的要求
+    super.build(context);
     return Builder(
       builder: (context) {
         return CustomScrollView(
@@ -292,26 +259,6 @@ class _OverviewTabState extends State<_OverviewTab> with AutomaticKeepAliveClien
                     '上映: ${widget.item.releaseDate.isNotEmpty ? widget.item.releaseDate : '未知'}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 32),
-                  
-                  // 关系图谱部分
-                  StatefulBuilder(
-                    builder: (context, setTabState) {
-                      if (_isLoadingGraph) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      }
-                      if (_graph != null) {
-                        return MovieGraphWidget(graph: _graph!);
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                    
                   const SizedBox(height: 80),
                 ]),
               ),
@@ -451,6 +398,101 @@ class _CreditsTab extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+    );
+  }
+}
+
+class _GraphTab extends StatefulWidget {
+  const _GraphTab({required this.item});
+  final TmdbMediaItem item;
+
+  @override
+  State<_GraphTab> createState() => _GraphTabState();
+}
+
+class _GraphTabState extends State<_GraphTab>
+    with AutomaticKeepAliveClientMixin {
+  MovieGraphResponse? _graph;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final response =
+          await Request().get('/api/movie/${widget.item.id}/graph');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map<String, dynamic> && data.containsKey('nodes')) {
+          if (mounted) setState(() => _graph = MovieGraphResponse.fromJson(data));
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '加载失败');
+      debugPrint('>>> [GraphTab] Error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Builder(
+      builder: (context) {
+        return CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle:
+                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            if (_loading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null || _graph == null || _graph!.nodes.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hub_rounded,
+                          size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                      const SizedBox(height: 12),
+                      Text(
+                        _error ?? '暂无图谱数据',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                  child: MovieGraphWidget(graph: _graph!),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

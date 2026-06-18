@@ -1,4 +1,41 @@
 import 'package:dio/dio.dart';
+import 'package:cine_nest/utils/storage.dart';
+import 'package:cine_nest/utils/storage_key.dart';
+
+abstract final class TmdbConfig {
+  static const officialApi = 'https://api.themoviedb.org/3';
+  static const officialImage = 'https://image.tmdb.org/t/p';
+  static const defaultProxy = 'https://tmdb-proxy.lapu2023.workers.dev';
+
+  static String get apiBase {
+    final mode =
+        GStorage.setting.get(SettingBoxKey.tmdbMode, defaultValue: 'proxy') as String;
+    switch (mode) {
+      case 'direct':
+        return officialApi;
+      case 'custom':
+        final custom =
+            (GStorage.setting.get(SettingBoxKey.tmdbCustomProxy, defaultValue: '') as String)
+                .trim();
+        final proxy = custom.isEmpty ? defaultProxy : custom;
+        return '${proxy.replaceAll(RegExp(r'/+$'), '')}/3';
+      default:
+        return '${defaultProxy.replaceAll(RegExp(r'/+$'), '')}/3';
+    }
+  }
+
+  static String get imageBase {
+    final mode =
+        GStorage.setting.get(SettingBoxKey.tmdbMode, defaultValue: 'proxy') as String;
+    if (mode == 'direct') return officialImage;
+    final proxy = mode == 'custom'
+        ? ((GStorage.setting.get(SettingBoxKey.tmdbCustomProxy, defaultValue: '') as String)
+                .trim())
+        : defaultProxy;
+    final base = (proxy.isEmpty ? defaultProxy : proxy).replaceAll(RegExp(r'/+$'), '');
+    return '$base/image';
+  }
+}
 
 class TmdbMediaItem {
   final int id;
@@ -29,11 +66,9 @@ class TmdbMediaItem {
 
   String get year => releaseDate.length >= 4 ? releaseDate.substring(0, 4) : '';
   String poster([String size = 'w500']) =>
-      posterPath.isEmpty ? '' : '$_imageBase/$size$posterPath';
+      posterPath.isEmpty ? '' : '${TmdbConfig.imageBase}/$size$posterPath';
   String backdrop([String size = 'w780']) =>
-      backdropPath.isEmpty ? '' : '$_imageBase/$size$backdropPath';
-
-  static const _imageBase = 'https://image.tmdb.org/t/p';
+      backdropPath.isEmpty ? '' : '${TmdbConfig.imageBase}/$size$backdropPath';
 
   factory TmdbMediaItem.fromJson(Map<String, dynamic> json) {
     final isMovie = (json['media_type'] ?? json['_media_type'] ?? 'movie') != 'tv';
@@ -77,7 +112,7 @@ class TmdbCredit {
   });
 
   String profile([String size = 'w185']) =>
-      profilePath.isEmpty ? '' : '${TmdbMediaItem._imageBase}/$size$profilePath';
+      profilePath.isEmpty ? '' : '${TmdbConfig.imageBase}/$size$profilePath';
 }
 
 /// 一部影片/剧集的演职员表。
@@ -92,7 +127,7 @@ class TmdbDirectService {
   TmdbDirectService({Dio? dio})
       : _dio = dio ??
             Dio(BaseOptions(
-              baseUrl: _baseUrl,
+              baseUrl: TmdbConfig.apiBase,
               connectTimeout: const Duration(seconds: 15),
               receiveTimeout: const Duration(seconds: 15),
               headers: {'Accept': 'application/json'},
@@ -104,7 +139,6 @@ class TmdbDirectService {
 
   final Dio _dio;
 
-  static const _baseUrl = 'https://api.themoviedb.org/3';
   static const _apiKey = 'a0fa41814b4b2a71464c9fe605029796';
 
   Future<List<TmdbMediaItem>> trending({

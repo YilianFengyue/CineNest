@@ -21,6 +21,10 @@ abstract final class SettingBoxKey {
   /// 当前选中的对话模型 id。
   static const String chatModel = 'chatModel';
 
+  // ── TMDB 源 ──
+  static const String tmdbMode = 'tmdbMode'; // 'direct' | 'proxy' | 'custom'
+  static const String tmdbCustomProxy = 'tmdbCustomProxy';
+
   // ── 弹幕 ──
   static const String danmakuSource = 'danmakuSource';
   static const String dandanAppId = 'dandanAppId';
